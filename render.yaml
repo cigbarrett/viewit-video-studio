@@ -6,6 +6,4 @@ services:
     startCommand: python guided_server.py
     envVars:
       - key: PORT
-        value: 10000
-      - key: PYTHON_VERSION
-        value: 3.11.0 
+        value: 10000 
