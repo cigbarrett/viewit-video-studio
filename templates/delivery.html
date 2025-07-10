@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Video Delivery | Viewit Video Studio</title>
+    <link rel="icon" type="image/x-icon" href="static/favicon.ico">
+    <link rel="stylesheet" href="static/css/main.css">
+</head>
+<body>
+    <div class="container">
+        <div class="logo-container">
+            <img src="static/Logo-primary.png" alt="Video Studio Logo">
+            <span class="logo-text">Video Studio</span>
+        </div>
+
+        <div class="result-container" id="tourResult">
+            <h3>Property Tour Complete!</h3>
+            <p>Your video has been successfully processed. You can download it, play it fullscreen, or create another tour.</p>
+            <video controls>
+                <source src="/path/to/processed/video.mp4" type="video/mp4">
+                Your browser does not support the video tag.
+            </video>
+            <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                <button class="btn btn-success" onclick="downloadTour('/path/to/processed/video.mp4')">
+                    Download Tour
+                </button>
+                <button class="btn btn-primary" onclick="location.href='/'">
+                    Create Another
+                </button>
+                <button class="btn btn-warning" onclick="playTourFullscreen('/path/to/processed/video.mp4')">
+                    Play Fullscreen
+                </button>
+            </div>
+            <div style="margin-top: 15px; padding: 10px; background: #1e1e1e; border-radius: 6px; font-size: 14px;">
+                <strong>Tour Details:</strong><br>
+                File: /path/to/processed/video.mp4<br>
+                ⏱Total Duration: 0:00
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Load tour result data on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            const tourResultData = sessionStorage.getItem('tourResult');
+            if (tourResultData) {
+                const data = JSON.parse(tourResultData);
+                displayTourResult(data);
+            } else {
+                // No tour result data, redirect back to upload
+                alert('No tour result found. Please create a tour first.');
+                window.location.href = '/';
+            }
+        });
+
+        function displayTourResult(data) {
+            const container = document.getElementById('tourResult');
+            
+            container.innerHTML = `
+                <h3>Property Tour Complete!</h3>
+                <p style="color: #ccc; margin-bottom: 20px;">${data.message}</p>
+                
+                <video controls style="width: 100%; max-width: 600px; border-radius: 8px; margin-bottom: 20px;">
+                    <source src="/${data.output_file}" type="video/mp4">
+                    Your browser does not support the video tag.
+                </video>
+                
+                <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                    <button class="btn btn-success" onclick="downloadTour('${data.output_file}')">
+                        Download Tour
+                    </button>
+                    <button class="btn btn-primary" onclick="createAnother()">
+                        Create Another
+                    </button>
+                    <button class="btn btn-warning" onclick="playTourFullscreen('${data.output_file}')">
+                        Play Fullscreen
+                    </button>
+                </div>
+                
+                <div style="margin-top: 15px; padding: 10px; background: #1e1e1e; border-radius: 6px; font-size: 14px;">
+                    <strong>Tour Details:</strong><br>
+                    File: ${data.output_file}<br>
+                    Mode: ${data.export_mode}<br>
+                    ${data.speed_factor ? `Speed Factor: ${data.speed_factor}x<br>` : ''}
+                    Quality: ${data.quality}
+                </div>
+            `;
+        }
+
+        function downloadTour(filename) {
+            const link = document.createElement('a');
+            link.href = `/download/${filename}`;
+            link.download = filename;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        function createAnother() {
+            // Clear session storage and redirect to upload
+            sessionStorage.removeItem('uploadedVideoData');
+            sessionStorage.removeItem('tourResult');
+            window.location.href = '/';
+        }
+
+        function playTourFullscreen(filename) {
+            const video = document.createElement('video');
+            video.src = `/${filename}`;
+            video.controls = true;
+            video.style.width = '100%';
+            video.style.height = '100%';
+            
+            if (video.requestFullscreen) {
+                video.requestFullscreen();
+            }
+            video.play();
+        }
+    </script>
+</body>
+</html> 

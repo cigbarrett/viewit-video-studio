@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Upload Video | Viewit Video Studio</title>
+    <link rel="icon" type="image/x-icon" href="static/favicon.ico">
+    <link rel="stylesheet" href="static/css/main.css">
+</head>
+<body>
+    <div class="container">
+        <div class="logo-container">
+            <img src="static/Logo-primary.png" alt="Video Studio Logo">
+            <span class="logo-text">Video Studio</span>
+        </div>
+
+        <div class="upload-area" id="uploadArea">
+            <div class="upload-icon">
+                <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M7 10L12 5L17 10M12 5V19M5 19H19" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+            </div>
+            <h3>Upload Your Walkthrough</h3>
+            <p>Drag & drop or click to browse • Supports MP4 format</p>
+            <input type="file" id="videoInput" accept="video/*" style="display: none;">
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const uploadArea = document.getElementById('uploadArea');
+            const videoInput = document.getElementById('videoInput');
+
+            uploadArea.addEventListener('click', () => videoInput.click());
+            uploadArea.addEventListener('dragover', handleDragOver);
+            uploadArea.addEventListener('dragleave', handleDragLeave);
+            uploadArea.addEventListener('drop', handleDrop);
+
+            videoInput.addEventListener('change', handleVideoUpload);
+        });
+
+        function handleDragOver(e) {
+            e.preventDefault();
+            e.currentTarget.classList.add('dragover');
+        }
+
+        function handleDragLeave(e) {
+            e.currentTarget.classList.remove('dragover');
+        }
+
+        function handleDrop(e) {
+            e.preventDefault();
+            e.currentTarget.classList.remove('dragover');
+            const files = e.dataTransfer.files;
+            if (files.length > 0 && files[0].type.startsWith('video/')) {
+                loadVideo(files[0]);
+            }
+        }
+
+        function handleVideoUpload(e) {
+            const file = e.target.files[0];
+            if (file) {
+                loadVideo(file);
+            }
+        }
+
+        function loadVideo(file) {
+            uploadVideoToServer(file);
+        }
+
+        function uploadVideoToServer(file) {
+            const formData = new FormData();
+            formData.append('video', file);
+
+            const uploadArea = document.getElementById('uploadArea');
+            uploadArea.innerHTML = `
+                <div class="upload-icon">
+                    <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M7 10L12 5L17 10M12 5V19M5 19H19" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                </div>
+                <h3>Uploading video...</h3>
+                <p>Please wait while your video is processed</p>
+            `;
+
+            fetch('/upload', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.error) {
+                    alert('Upload failed: ' + data.error);
+                    location.reload();
+                    return;
+                }
+
+                sessionStorage.setItem('uploadedVideoData', JSON.stringify(data));
+                window.location.href = '/edit';
+            })
+            .catch(error => {
+                console.error('Upload error:', error);
+                alert('Upload failed. Please try again.');
+                location.reload();
+            });
+        }
+    </script>
+</body>
+</html> 

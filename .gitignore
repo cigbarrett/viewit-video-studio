@@ -1,0 +1,138 @@
+# Video files
+*.mp4
+*.mov
+*.avi
+*.mkv
+*.wmv
+*.flv
+*.webm
+*.m4v
+*.3gp
+
+# Audio files
+*.mp3
+*.wav
+*.flac
+*.aac
+*.ogg
+*.m4a
+
+# Image files (keep small ones like logos)
+*.jpg
+*.jpeg
+*.png
+*.gif
+*.bmp
+*.tiff
+*.webp
+!Logo-primary.png
+!static/*.png
+
+# Temporary files
+temp/
+temp_*.txt
+temp_*.mp4
+*_temp.*
+*.tmp
+
+# Output directories
+outputs/
+archive/
+
+# Upload directory (contains user videos)
+uploads/
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.so
+.python-version
+.venv/
+venv/
+env/
+ENV/
+
+# OS files
+.DS_Store
+Thumbs.db
+.directory
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.spyderproject
+.spyproject
+
+# Environment variables
+.env
+.env.local
+.env.production
+.env.development
+
+# Log files
+*.log
+logs/
+
+# Node modules (if any)
+node_modules/
+
+# Build artifacts
+build/
+dist/
+*.egg-info/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# FFmpeg temporary files
+ffmpeg*.log
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+
+# Large data files
+*.csv
+*.json
+!/requirements.txt
+!/uploaded_videos.json
+
+# Backup files
+*.bak
+*.backup
+*.old
+
+# Editor temporary files
+*.kate-swp
+*.geany
+*.sublime-*
+
+# Docker
+Dockerfile
+docker-compose.yml
+.dockerignore
+
+# Railway/Deployment files
+.railway/
+railway-data/
+
+# Mac system files
+.AppleDouble
+.LSOverride
+Icon
+._*
+
+# Windows system files
+desktop.ini
+$RECYCLE.BIN/
+
+# Temporary deployment files
+deploy/
+deployment/ 
