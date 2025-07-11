@@ -10,6 +10,7 @@ from dld_api import fetch_listing_details
 from dotenv import load_dotenv 
 import requests
 import json
+import time
 
 load_dotenv() 
 
@@ -205,26 +206,17 @@ def search_music():
 
 @app.route('/download_music', methods=['POST'])
 def download_music():
-    data = request.json or {}
-    track_id = data.get('track_id')
+    data = request.json
     preview_url = data.get('preview_url')
     
-    if not track_id or not preview_url:
-        return jsonify({'error': 'Missing track ID or preview URL'}), 400
+    if not preview_url:
+        return jsonify({'error': 'No preview URL provided'}), 400
     
     try:
-        music_dir = 'temp/music'
-        os.makedirs(music_dir, exist_ok=True)
-        
-        music_filename = f"music_{track_id}.mp3"
-        music_path = os.path.join(music_dir, music_filename)
-        
-        if os.path.exists(music_path):
-            return jsonify({
-                'success': True,
-                'music_path': music_path,
-                'cached': True
-            })
+        # Create music path
+        music_filename = f"music_{int(time.time())}.mp3"
+        music_path = os.path.join('temp', music_filename)
+        os.makedirs('temp', exist_ok=True)
         
         print(f"Downloading music: {preview_url}")
         response = requests.get(preview_url, timeout=30)
@@ -252,6 +244,89 @@ def download_music():
     except Exception as e:
         print(f"Music download error: {e}")
         return jsonify({'error': 'Music download failed'}), 500
+
+@app.route('/detect_segment_label', methods=['POST'])
+def detect_segment_label():
+
+    data = request.json
+    video_id = data.get('video_id')
+    start_time = data.get('start_time')
+    end_time = data.get('end_time')
+    
+    if not all([video_id is not None, start_time is not None, end_time is not None]):
+        return jsonify({'error': 'Missing required parameters: video_id, start_time, end_time'}), 400
+    
+    try:
+        start_time = float(start_time)
+        end_time = float(end_time)
+    except (ValueError, TypeError):
+        return jsonify({'error': 'Invalid time values - must be numbers'}), 400
+    
+    if start_time >= end_time:
+        return jsonify({'error': 'End time must be after start time'}), 400
+    
+    if video_id and video_id in uploaded_videos:
+        video_path = uploaded_videos[video_id]
+        print(f"Detecting label for segment: {start_time:.1f}s-{end_time:.1f}s in {video_path}")
+    elif len(uploaded_videos) > 0:
+        video_path = list(uploaded_videos.values())[-1]
+        print(f"Using most recent video for detection: {video_path}")
+    else:
+        return jsonify({'error': 'No video uploaded. Please upload a video first.'}), 400
+    
+    if not os.path.exists(video_path):
+        return jsonify({'error': f'Video file not found: {video_path}'}), 400
+    
+    try:
+        from scene_detection import detect_scene_label
+        
+        print(f"Starting real-time label detection for {start_time:.1f}s-{end_time:.1f}s...")
+        detected_label = detect_scene_label(video_path, start_time, end_time)
+        
+        if detected_label:
+            print(f"Label detected: '{detected_label}' for segment {start_time:.1f}s-{end_time:.1f}s")
+            
+            label_mapping = {
+                'kitchen': 'Kitchen',
+                'bedroom': 'Bedroom', 
+                'bathroom': 'Bathroom',
+                'living_room': 'Living Room',
+                'closet': 'Closet',
+                'exterior': 'Exterior',
+                'office': 'Office',
+                'common_area': 'Common Area',
+                'dining_room': 'Dining Room',
+                'balcony': 'Balcony',
+                'unlabeled': 'Unlabeled'
+            }
+            
+            display_name = label_mapping.get(detected_label, detected_label.replace('_', ' ').title())
+            
+            return jsonify({
+                'success': True,
+                'detected_label': detected_label,
+                'display_name': display_name,
+                'confidence': 'high',  
+                'processing_time': f"{end_time - start_time:.1f}s segment processed"
+            })
+        else:
+            print(f"❌ No label detected for segment {start_time:.1f}s-{end_time:.1f}s")
+            return jsonify({
+                'success': True,
+                'detected_label': 'unlabeled',
+                'display_name': 'Unlabeled',
+                'confidence': 'low',
+                'processing_time': f"{end_time - start_time:.1f}s segment processed"
+            })
+            
+    except Exception as e:
+        print(f"❌ Label detection failed: {e}")
+        return jsonify({
+            'success': False,
+            'error': f'Label detection failed: {str(e)}',
+            'fallback_label': 'unlabeled',
+            'fallback_display': 'Unlabeled'
+        }), 500
 
 @app.route('/create_tour', methods=['POST'])
 def create_tour():

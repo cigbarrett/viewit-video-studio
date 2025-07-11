@@ -136,11 +136,14 @@ def add_combined_overlays(input_video, agent_name, agency_name, qr_image_path=No
                 '-c:v', 'libx264',
                 '-preset', 'veryfast',
                 '-crf', '23',
-                '-threads', '4',
+                '-threads', '2',  # Reduced from 4
+                '-tune', 'fastdecode',  # Memory optimization
+                '-x264-params', 'ref=1:subme=1:me=hex:trellis=0',  # Low memory x264 settings
+                '-bufsize', '20M',  # Added explicit small buffer
                 '-movflags', '+faststart',
                 '-y', output_path
             ]
-            print(f"Adding combined overlays (agent + QR): '{agent_name}' @ '{agency_name}' + QR → {output_path}")
+            print(f"Memory-optimized combined overlays (agent + QR): '{agent_name}' @ '{agency_name}' + QR → {output_path}")
             
         else:
             text_overlay = (
@@ -160,13 +163,16 @@ def add_combined_overlays(input_video, agent_name, agency_name, qr_image_path=No
                 '-c:v', 'libx264',
                 '-preset', 'veryfast',
                 '-crf', '23',
-                '-threads', '4',
+                '-threads', '2',  # Reduced from 4
+                '-tune', 'fastdecode',  # Memory optimization
+                '-x264-params', 'ref=1:subme=1:me=hex:trellis=0',  # Low memory x264 settings
+                '-bufsize', '15M',  # Added explicit small buffer
                 '-movflags', '+faststart',
                 '-y', output_path
             ]
-            print(f"Adding agent watermark only: '{agent_name}' @ '{agency_name}' → {output_path}")
+            print(f"Memory-optimized agent watermark: '{agent_name}' @ '{agency_name}' → {output_path}")
         
-        print(f"DEBUG: Combined FFmpeg command: {' '.join(cmd)}")
+        print(f"DEBUG: Memory-optimized combined FFmpeg command: {' '.join(cmd)}")
         
         result = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
         
@@ -198,7 +204,10 @@ def add_combined_overlays(input_video, agent_name, agency_name, qr_image_path=No
                     '-c:v', 'libx264',
                     '-preset', 'ultrafast',
                     '-crf', '30',
-                    '-threads', '4',
+                    '-threads', '2',  # Reduced from 4
+                    '-tune', 'fastdecode',  # Memory optimization
+                    '-x264-params', 'ref=1:subme=1:me=hex:trellis=0',  # Ultra low memory
+                    '-bufsize', '10M',  # Small buffer for fallback
                     '-movflags', '+faststart',
                     '-y', output_path
                 ]
@@ -216,21 +225,24 @@ def add_combined_overlays(input_video, agent_name, agency_name, qr_image_path=No
                     '-c:v', 'libx264',
                     '-preset', 'ultrafast',
                     '-crf', '30',
-                    '-threads', '4',
+                    '-threads', '2',  # Reduced from 4
+                    '-tune', 'fastdecode',  # Memory optimization
+                    '-x264-params', 'ref=1:subme=1:me=hex:trellis=0',  # Ultra low memory
+                    '-bufsize', '8M',   # Small buffer for fallback
                     '-movflags', '+faststart',
                     '-y', output_path
                 ]
             
-            print(f"Trying simple combined overlays: {' '.join(simple_cmd)}")
+            print(f"Trying memory-optimized fallback: {' '.join(simple_cmd)}")
             simple_result = subprocess.run(simple_cmd, capture_output=True, text=True, timeout=180)
             
             if simple_result.returncode != 0:
-                print(f"Simple combined overlays also failed: {simple_result.stderr[-300:]}")
+                print(f"Memory-optimized fallback also failed: {simple_result.stderr[-300:]}")
                 return False
             else:
-                print("Simple combined overlays succeeded!")
+                print("Memory-optimized fallback succeeded!")
         else:
-            print("Combined overlays succeeded!")
+            print("Memory-optimized combined overlays succeeded!")
         
     except subprocess.TimeoutExpired:
         print("Combined overlays timed out")

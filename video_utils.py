@@ -28,33 +28,41 @@ def get_quality_settings(quality='high'):
             'crf': '23',
             'preset': 'veryfast',
             'maxrate': '20M',
-            'bufsize': '40M',
+            'bufsize': '10M',  
             'timeout': 60,
-            'target_resolution': '1080:1920'
+            'target_resolution': '1080:1920',
+            'threads': '2',
+            'memory_optimized': True
         },
         'standard': {
             'crf': '20',
             'preset': 'fast',
             'maxrate': '35M',
-            'bufsize': '70M',
+            'bufsize': '25M',  # Reduced from 70M
             'timeout': 180,
-            'target_resolution': '1080:1920'
+            'target_resolution': '1080:1920',
+            'threads': '2',
+            'memory_optimized': True
         },
         'high': {
             'crf': '17',
             'preset': 'medium',
-            'maxrate': '70M',
-            'bufsize': '140M',
+            'maxrate': '50M',  # Reduced from 70M
+            'bufsize': '50M',  # Reduced from 140M
             'timeout': 600,
-            'target_resolution': '1080:1920'
+            'target_resolution': '1080:1920',
+            'threads': '3',  # Reduced from 4
+            'memory_optimized': True
         },
         'professional': {
             'crf': '14',
             'preset': 'slow',
-            'maxrate': '150M',
-            'bufsize': '300M',
+            'maxrate': '100M',  # Reduced from 150M
+            'bufsize': '100M',  # Reduced from 300M
             'timeout': 1200,
-            'target_resolution': '1080:1920'
+            'target_resolution': '1080:1920',
+            'threads': '3',  # Reduced from 4
+            'memory_optimized': True
         }
     }
     return settings.get(quality, settings['high'])

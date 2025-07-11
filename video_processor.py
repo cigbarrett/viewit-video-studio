@@ -35,12 +35,14 @@ def extract_clip_simple(video_path, video_info, start, end, output, room_type=No
             '-preset', 'veryfast',
             '-crf', '23',
             '-maxrate', '5M',
-            '-bufsize', '10M',
+            '-bufsize', '5M',  # Reduced from 10M
             '-avoid_negative_ts', 'make_zero',
-            '-threads', '2'
+            '-threads', '2',
+            '-tune', 'fastdecode',  # Memory optimization
+            '-x264-params', 'ref=1:subme=1:me=hex:trellis=0'  # Low memory x264 settings
         ] + filter_arg + ['-y', output]
         
-        print(f"Silent clip: {start:.1f}s-{end:.1f}s → {output}")
+        print(f"Memory-optimized clip: {start:.1f}s-{end:.1f}s → {output}")
         result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
         
         if result.returncode == 0:
@@ -75,8 +77,16 @@ def extract_clip_hq(video_path, video_info, start, end, output, speed_factor=1.0
             '-preset', quality_settings['preset'],
             '-crf', quality_settings['crf'],
             '-movflags', '+faststart',
-            '-avoid_negative_ts', 'make_zero'
+            '-avoid_negative_ts', 'make_zero',
+            '-threads', quality_settings.get('threads', '2')
         ]
+        
+        # Memory-optimized x264 parameters
+        if quality_settings.get('memory_optimized', False):
+            cmd.extend([
+                '-tune', 'fastdecode',
+                '-x264-params', 'ref=2:subme=2:me=hex:trellis=0:8x8dct=0'
+            ])
         
         if quality_settings['maxrate'] != 'unlimited':
             cmd.extend(['-maxrate', quality_settings['maxrate']])
@@ -95,11 +105,11 @@ def extract_clip_hq(video_path, video_info, start, end, output, speed_factor=1.0
         if silent_mode:
             cmd.extend(['-an'])
         else:
-            cmd.extend(['-c:a', 'aac', '-b:a', '256k'])
+            cmd.extend(['-c:a', 'aac', '-b:a', '192k'])  # Reduced from 256k
         
         cmd.extend(['-y', output])
         
-        print(f"Extracting HQ clip: {start:.1f}s-{end:.1f}s")
+        print(f"Memory-optimized HQ clip: {start:.1f}s-{end:.1f}s (bufsize: {quality_settings['bufsize']})")
         result = subprocess.run(cmd, capture_output=True, text=True, timeout=quality_settings['timeout'])
         
         if result.returncode == 0:
@@ -149,9 +159,11 @@ def extract_speedup_clip_fast(video_path, video_info, start, end, output, speed_
             '-c:v', 'libx264',
             '-preset', 'veryfast',
             '-crf', '30',
-            '-maxrate', '8M',
-            '-bufsize', '16M',
-            '-threads', '4',
+            '-maxrate', '6M',  # Reduced from 8M
+            '-bufsize', '6M',  # Reduced from 16M
+            '-threads', '2',   # Reduced from 4
+            '-tune', 'fastdecode',  # Memory optimization
+            '-x264-params', 'ref=1:subme=1:me=hex:trellis=0',  # Low memory settings
             '-movflags', '+faststart',
             '-y', output
         ]
@@ -162,7 +174,7 @@ def extract_speedup_clip_fast(video_path, video_info, start, end, output, speed_
         else:
             timeout_duration = base_timeout
         
-        print(f"Processing timeout: {timeout_duration}s")
+        print(f"Memory-optimized speedup processing: {timeout_duration}s timeout")
         result = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout_duration)
         
         if result.returncode == 0:
@@ -312,16 +324,23 @@ def combine_clips_hq(clips, output, quality_settings):
             '-c:v', 'libx264',
             '-preset', quality_settings['preset'],
             '-crf', '23',
+            '-threads', quality_settings.get('threads', '2'),  
             '-movflags', '+faststart',
             '-avoid_negative_ts', 'make_zero',
             '-y', output
         ]
         
+        if quality_settings.get('memory_optimized', False):
+            cmd.extend([
+                '-tune', 'fastdecode',
+                '-x264-params', 'ref=2:subme=2:me=hex:trellis=0:8x8dct=0'
+            ])
+        
         if quality_settings['maxrate'] != 'unlimited':
             cmd.extend(['-maxrate', quality_settings['maxrate']])
             cmd.extend(['-bufsize', quality_settings['bufsize']])
         
-        print(f"HQ Combining {len(valid_clips)} clips with {quality_settings['preset']} preset...")
+        print(f"Memory-optimized HQ combining {len(valid_clips)} clips with {quality_settings['preset']} preset (bufsize: {quality_settings['bufsize']})...")
         
         result = subprocess.run(cmd, capture_output=True, text=True, timeout=quality_settings['timeout'])
         
@@ -330,7 +349,7 @@ def combine_clips_hq(clips, output, quality_settings):
 
         if result.returncode == 0:
             file_size = os.path.getsize(output) / (1024 * 1024)
-            print(f"HQ tour created: {output} ({file_size:.1f}MB)")
+            print(f"Memory-optimized HQ tour created: {output} ({file_size:.1f}MB)")
             return True
         else:
             print(f"HQ combine failed: {result.stderr[-500:]}")
@@ -341,4 +360,70 @@ def combine_clips_hq(clips, output, quality_settings):
         return False
     except Exception as e:
         print(f"HQ combine error: {e}")
+        return False
+
+def process_video_chunked(video_path, video_info, segments, output_path, chunk_size_mb=100):
+
+    try:
+        print(f"Processing video in chunks (max {chunk_size_mb}MB per chunk) for minimal memory usage...")
+        
+        duration = video_info.get('duration', 0)
+        if duration == 0:
+            return False
+        
+        file_size_mb = os.path.getsize(video_path) / (1024 * 1024)
+        estimated_bitrate_mbps = file_size_mb / duration * 8 
+        
+        chunk_duration = min(chunk_size_mb / max(estimated_bitrate_mbps, 1), 300)  
+        
+        temp_chunks = []
+        current_time = 0
+        chunk_index = 0
+        
+        while current_time < duration:
+            chunk_end = min(current_time + chunk_duration, duration)
+            chunk_output = f"temp/chunk_{chunk_index}.mp4"
+            
+            chunk_segments = []
+            for segment in segments:
+                seg_start = max(segment['start_time'], current_time)
+                seg_end = min(segment['end_time'], chunk_end)
+                if seg_start < seg_end:
+                    chunk_segments.append({
+                        'start_time': seg_start - current_time,  
+                        'end_time': seg_end - current_time,
+                        'label': segment.get('label', 'room')
+                    })
+            
+            if chunk_segments:
+                success = extract_clip_simple(
+                    video_path, video_info, current_time, chunk_end, 
+                    chunk_output, room_type=None
+                )
+                
+                if success:
+                    temp_chunks.append(chunk_output)
+                    print(f"Chunk {chunk_index + 1}: {current_time:.1f}s-{chunk_end:.1f}s processed")
+                else:
+                    print(f"Failed to process chunk {chunk_index + 1}")
+                    return False
+            
+            current_time = chunk_end
+            chunk_index += 1
+        
+        if temp_chunks:
+            success = combine_clips(temp_chunks, output_path, silent_mode=True)
+            
+            for chunk in temp_chunks:
+                if os.path.exists(chunk):
+                    os.unlink(chunk)
+            
+            if success:
+                print(f"Chunked processing complete: {output_path}")
+                return True
+        
+        return False
+        
+    except Exception as e:
+        print(f"Chunked processing error: {e}")
         return False 

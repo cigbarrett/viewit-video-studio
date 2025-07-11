@@ -7,6 +7,82 @@
     <link rel="icon" type="image/x-icon" href="static/favicon.ico">
     <link rel="stylesheet" href="static/css/main.css">
     <link rel="stylesheet" href="static/css/video-editor.css">
+    
+    <style>
+        /* Real-time detection animations and styles */
+        .segment-item.detecting {
+            animation: detectingPulse 2s ease-in-out infinite;
+            border-left-color: #ff9800 !important;
+        }
+        
+        @keyframes detectingPulse {
+            0%, 100% { 
+                background: rgba(255, 255, 255, 0.08);
+                box-shadow: 0 0 0 0 rgba(255, 152, 0, 0.2);
+            }
+            50% { 
+                background: rgba(255, 152, 0, 0.1);
+                box-shadow: 0 0 0 5px rgba(255, 152, 0, 0);
+            }
+        }
+        
+        .segment-title.detecting {
+            color: #ff9800 !important;
+            font-weight: 600;
+        }
+        
+        .segment-title.detected {
+            color: #4caf50 !important;
+        }
+        
+        .segment-title.manual {
+            color: #2196f3 !important;
+        }
+        
+        .status-icon {
+            display: inline-block;
+            font-size: 14px;
+            font-weight: bold;
+        }
+        
+        /* Enhanced segment items */
+        .segment-item {
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .segment-item::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(45deg, transparent 30%, rgba(255, 255, 255, 0.03) 50%, transparent 70%);
+            transform: translateX(-100%);
+            transition: transform 0.6s ease;
+        }
+        
+        .segment-item:hover::before {
+            transform: translateX(100%);
+        }
+        
+        /* Export button disabled state */
+        .btn-primary:disabled,
+        .btn-primary.disabled {
+            background: #555 !important;
+            color: #999 !important;
+            cursor: not-allowed !important;
+            opacity: 0.5;
+            box-shadow: none !important;
+        }
+        
+        .btn-primary:disabled:hover,
+        .btn-primary.disabled:hover {
+            background: #555 !important;
+            transform: none !important;
+        }
+    </style>
 
 </head>
 <body>
@@ -16,7 +92,7 @@
                 <img src="static/Logo-primary.png" alt="Video Studio Logo">
                 <span class="logo-text">Video Studio</span>
             </div>
-            <button class="btn btn-primary" onclick="goToExport()">
+            <button class="btn btn-primary" id="exportButton" onclick="goToExport()">
                 Export Video
             </button>
         </div>
@@ -220,6 +296,28 @@
         let musicTracks = [];
         let selectedMusicTrack = null;
         let musicAudio = null;  // For music preview
+        
+        // Export state tracking
+        let isMusicLoading = false;
+        let detectingSegments = 0;  // Count of segments currently being detected
+
+        // Export button management
+        function shouldDisableExport() {
+            return isMusicLoading || detectingSegments > 0;
+        }
+        
+        function updateExportButtonState() {
+            const exportButton = document.getElementById('exportButton');
+            const shouldDisable = shouldDisableExport();
+            
+            if (shouldDisable) {
+                exportButton.disabled = true;
+                exportButton.classList.add('disabled');
+            } else {
+                exportButton.disabled = false;
+                exportButton.classList.remove('disabled');
+            }
+        }
 
         // Initialize the application
         document.addEventListener('DOMContentLoaded', function() {
@@ -239,6 +337,9 @@
             setupGlobalKeyboardShortcuts();
             setupMusicControls();
             loadMusicSuggestions(); // Auto-load vlog music suggestions
+            
+            // Initialize export button state
+            updateExportButtonState();
         });
 
         function initializeVideoPlayer() {
@@ -520,7 +621,7 @@
             }
         }
 
-        function addSegment() {
+        async function addSegment() {
             const startTime = parseFloat(document.getElementById('startTime').value);
             const endTime = parseFloat(document.getElementById('endTime').value);
             const roomType = document.getElementById('roomType').value;
@@ -542,23 +643,107 @@
                 return;
             }
             
+            // Create initial segment
             const segment = {
                 id: Date.now(),
                 start: startTime,
                 end: endTime,
                 duration: endTime - startTime,
-                room: roomType === 'auto' ? null : roomType  // Send null for auto-detection
+                room: roomType === 'auto' ? null : roomType,
+                detecting: roomType === 'auto'  // Flag to show loading state
             };
             
             segments.push(segment);
             console.log('Segment added:', segment);
-            console.log('Total segments:', segments.length);
             
+            // Update UI immediately to show the segment
             updateSegmentsList();
             updateTimeline();
             
+            // Clear inputs
             document.getElementById('startTime').value = '';
             document.getElementById('endTime').value = '';
+            
+            // If auto-detection is selected, detect the label immediately
+            if (roomType === 'auto') {
+                try {
+                    console.log('🔍 Starting real-time auto-detection...');
+                    detectingSegments++;
+                    updateExportButtonState();
+                    
+                    const response = await fetch('/detect_segment_label', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            video_id: window.uploadedVideoData?.video_id,
+                            start_time: startTime,
+                            end_time: endTime
+                        })
+                    });
+                    
+                    const result = await response.json();
+                    
+                    if (result.success) {
+                        // Update the segment with detected label
+                        const segmentIndex = segments.findIndex(s => s.id === segment.id);
+                        if (segmentIndex !== -1) {
+                            segments[segmentIndex].room = result.detected_label;
+                            segments[segmentIndex].display_name = result.display_name;
+                            segments[segmentIndex].detecting = false;
+                            segments[segmentIndex].confidence = result.confidence;
+                            
+                                                    console.log(`✅ Auto-detected: "${result.display_name}" (${result.confidence} confidence)`);
+                        
+                        // Update UI with detected label
+                        updateSegmentsList();
+                        updateTimeline();
+                        
+                        // Update export button state
+                        detectingSegments--;
+                        updateExportButtonState();
+                        }
+                    } else {
+                        // Handle detection failure
+                        const segmentIndex = segments.findIndex(s => s.id === segment.id);
+                        if (segmentIndex !== -1) {
+                            segments[segmentIndex].room = result.fallback_label || 'unlabeled';
+                            segments[segmentIndex].display_name = result.fallback_display || 'Unlabeled';
+                            segments[segmentIndex].detecting = false;
+                            segments[segmentIndex].confidence = 'failed';
+                            
+                                                    console.log(`❌ Auto-detection failed: ${result.error}`);
+                        updateSegmentsList();
+                        updateTimeline();
+                        
+                        // Update export button state
+                        detectingSegments--;
+                        updateExportButtonState();
+                        }
+                    }
+                } catch (error) {
+                    console.error('Auto-detection error:', error);
+                    
+                    // Handle network/fetch errors
+                    const segmentIndex = segments.findIndex(s => s.id === segment.id);
+                    if (segmentIndex !== -1) {
+                        segments[segmentIndex].room = 'unlabeled';
+                        segments[segmentIndex].display_name = 'Unlabeled (Detection Failed)';
+                        segments[segmentIndex].detecting = false;
+                        segments[segmentIndex].confidence = 'error';
+                        
+                                            updateSegmentsList();
+                    updateTimeline();
+                    
+                    // Update export button state
+                    detectingSegments--;
+                    updateExportButtonState();
+                }
+            }
+            }
+            
+            console.log('Total segments:', segments.length);
         }
 
         function updateSegmentsList() {
@@ -591,14 +776,50 @@
                     unlabeled: 'Unlabeled'
                 };
                 
-                const roomDisplayName = segment.room 
-                    ? (roomLabels[segment.room] || segment.room.replace('_', ' '))
-                    : 'Auto-detect';
+                let roomDisplayName, statusIcon, statusColor, titleClass;
+                
+                if (segment.detecting) {
+                    // Show loading state during detection
+                    roomDisplayName = 'Detecting...';
+                    statusIcon = '⏳';
+                    statusColor = '#ff9800';
+                    titleClass = 'detecting';
+                } else if (segment.display_name) {
+                    // Use the detected display name
+                    roomDisplayName = segment.display_name;
+                    if (segment.confidence === 'high') {
+                        statusIcon = '✅';
+                        statusColor = '#4caf50';
+                    } else if (segment.confidence === 'low') {
+                        statusIcon = '❓';
+                        statusColor = '#ff9800';
+                    } else if (segment.confidence === 'failed' || segment.confidence === 'error') {
+                        statusIcon = '❌';
+                        statusColor = '#f44336';
+                    } else {
+                        statusIcon = '';
+                        statusColor = '#ffffff';
+                    }
+                    titleClass = 'detected';
+                } else if (segment.room) {
+                    // Manual selection
+                    roomDisplayName = roomLabels[segment.room] || segment.room.replace('_', ' ');
+                    statusIcon = '👤';
+                    statusColor = '#2196f3';
+                    titleClass = 'manual';
+                } else {
+                    // Fallback
+                    roomDisplayName = 'Auto-detect';
+                    statusIcon = '';
+                    statusColor = '#90a4ae';
+                    titleClass = '';
+                }
                 
                 html += `
-                    <div class="segment-item">
+                    <div class="segment-item ${segment.detecting ? 'detecting' : ''}">
                         <div class="segment-info">
-                            <div class="segment-title">
+                            <div class="segment-title ${titleClass}">
+                                <span class="status-icon" style="color: ${statusColor}; margin-right: 6px;"></span>
                                 ${roomDisplayName}
                             </div>
                             <div class="segment-details">
@@ -927,6 +1148,10 @@
         async function selectMusicTrack(track) {
             console.log('Selecting music track:', track);
             
+            // Set music loading state
+            isMusicLoading = true;
+            updateExportButtonState();
+            
             try {
                 // Download the track
                 const response = await fetch('/download_music', {
@@ -972,6 +1197,10 @@
             } catch (error) {
                 console.error('Music selection error:', error);
                 alert('Failed to select music track. Please try again.');
+            } finally {
+                // Clear music loading state
+                isMusicLoading = false;
+                updateExportButtonState();
             }
         }
 
@@ -1111,6 +1340,12 @@
 
         // Go to export page with segment data
         function goToExport() {
+            // Check if export is currently disabled
+            if (shouldDisableExport()) {
+                console.log('Export blocked: Processing in progress');
+                return;
+            }
+            
             if (segments.length === 0) {
                 alert('Please select at least one segment to export');
                 return;
