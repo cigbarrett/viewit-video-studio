@@ -73,7 +73,205 @@ def add_qr_overlay(input_video, qr_image_path, output_path=None, position='botto
             return False
 
     print("QR overlay complete")
-    return True 
+    return True
+
+def add_combined_overlays(input_video, agent_name, agency_name, qr_image_path=None, qr_position='top_right', output_path=None):
+
+    input_video = str(input_video)
+    print(f"DEBUG: Combined overlays function called with: '{agent_name}' @ '{agency_name}', QR: {qr_image_path}")
+    print(f"DEBUG: Input video: {input_video}")
+    
+    if not os.path.exists(input_video):
+        print(f"Video not found for combined overlays: {input_video}")
+        return False
+    
+    if not agent_name or not agency_name:
+        print(f"Agent name and agency name are required (got: '{agent_name}', '{agency_name}')")
+        return False
+    
+    if qr_image_path and not os.path.exists(qr_image_path):
+        print(f"QR image not found: {qr_image_path}")
+        return False
+    
+    replace_in_place = output_path is None
+    if replace_in_place:
+        base, ext = os.path.splitext(input_video)
+        output_path = f"{base}_combined{ext}"
+    
+    print(f"DEBUG: Output path: {output_path}")
+    print(f"DEBUG: Replace in place: {replace_in_place}")
+    
+    try:
+        agent_display = agent_name.replace('_', ' ').title()
+        agency_display = agency_name.replace('_', ' ').title()
+        
+        print(f"DEBUG: Display names: '{agent_display}' @ '{agency_display}'")
+        
+        if qr_image_path:
+            pos_map = {
+                'top_left': ('50', '50'),
+                'top_right': ('W-w-30', '30'),  
+                'bottom_left': ('50', 'H-h-50'),
+                'bottom_right': ('W-w-50', 'H-h-50'),
+            }
+            x_expr, y_expr = pos_map.get(qr_position, ('W-w-30', '30'))
+            
+            filter_complex = (
+                f"[1:v]scale=120:120[qr];"
+                f"[0:v]drawtext=text='{agent_display}':fontfile=/Windows/Fonts/arialbd.ttf:"
+                f"fontsize=48:fontcolor=white:shadowcolor=black:shadowx=3:shadowy=1:"
+                f"x=50:y=150,"
+                f"drawtext=text='{agency_display}':fontfile=/Windows/Fonts/arialbd.ttf:"
+                f"fontsize=32:fontcolor=white:shadowcolor=black:shadowx=3:shadowy=1:"
+                f"x=50:y=200[txt];"
+                f"[txt][qr]overlay={x_expr}:{y_expr}"
+            )
+            
+            cmd = [
+                'ffmpeg', 
+                '-i', input_video,
+                '-i', qr_image_path,
+                '-filter_complex', filter_complex,
+                '-c:a', 'copy',
+                '-c:v', 'libx264',
+                '-preset', 'veryfast',
+                '-crf', '23',
+                '-threads', '4',
+                '-movflags', '+faststart',
+                '-y', output_path
+            ]
+            print(f"Adding combined overlays (agent + QR): '{agent_name}' @ '{agency_name}' + QR → {output_path}")
+            
+        else:
+            text_overlay = (
+                f"drawtext=text='{agent_display}':fontfile=/Windows/Fonts/arialbd.ttf:"
+                f"fontsize=48:fontcolor=white:shadowcolor=black:shadowx=3:shadowy=1:"
+                f"x=50:y=150,"
+                f"drawtext=text='{agency_display}':fontfile=/Windows/Fonts/arialbd.ttf:"
+                f"fontsize=32:fontcolor=white:shadowcolor=black:shadowx=3:shadowy=1:"
+                f"x=50:y=200"
+            )
+            
+            cmd = [
+                'ffmpeg', 
+                '-i', input_video,
+                '-vf', text_overlay,
+                '-c:a', 'copy',
+                '-c:v', 'libx264',
+                '-preset', 'veryfast',
+                '-crf', '23',
+                '-threads', '4',
+                '-movflags', '+faststart',
+                '-y', output_path
+            ]
+            print(f"Adding agent watermark only: '{agent_name}' @ '{agency_name}' → {output_path}")
+        
+        print(f"DEBUG: Combined FFmpeg command: {' '.join(cmd)}")
+        
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
+        
+        print(f"DEBUG: Combined FFmpeg return code: {result.returncode}")
+        if result.stdout:
+            print(f"DEBUG: Combined FFmpeg stdout: {result.stdout[-200:]}")
+        if result.stderr:
+            print(f"DEBUG: Combined FFmpeg stderr: {result.stderr[-300:]}")
+        
+        if result.returncode != 0:
+            print(f"Combined overlays failed, trying fallback...")
+            print(f"Error was: {result.stderr[-300:]}")
+            
+            # Fallback to simple filters without font
+            if qr_image_path:
+                simple_filter = (
+                    f"[1:v]scale=100:100[qr];"
+                    f"[0:v]drawtext=text='{agent_display}':x=30:y=100:fontsize=32:fontcolor=white:shadowcolor=black:shadowx=3:shadowy=1,"
+                    f"drawtext=text='{agency_display}':x=30:y=140:fontsize=24:fontcolor=white:shadowcolor=black:shadowx=3:shadowy=1[txt];"
+                    f"[txt][qr]overlay={x_expr}:{y_expr}"
+                )
+                
+                simple_cmd = [
+                    'ffmpeg', 
+                    '-i', input_video,
+                    '-i', qr_image_path,
+                    '-filter_complex', simple_filter,
+                    '-c:a', 'copy',
+                    '-c:v', 'libx264',
+                    '-preset', 'ultrafast',
+                    '-crf', '30',
+                    '-threads', '4',
+                    '-movflags', '+faststart',
+                    '-y', output_path
+                ]
+            else:
+                simple_filter = (
+                    f"drawtext=text='{agent_display}':x=30:y=100:fontsize=32:fontcolor=white:shadowcolor=black:shadowx=3:shadowy=1,"
+                    f"drawtext=text='{agency_display}':x=30:y=140:fontsize=24:fontcolor=white:shadowcolor=black:shadowx=3:shadowy=1"
+                )
+                
+                simple_cmd = [
+                    'ffmpeg', 
+                    '-i', input_video,
+                    '-vf', simple_filter,
+                    '-c:a', 'copy',
+                    '-c:v', 'libx264',
+                    '-preset', 'ultrafast',
+                    '-crf', '30',
+                    '-threads', '4',
+                    '-movflags', '+faststart',
+                    '-y', output_path
+                ]
+            
+            print(f"Trying simple combined overlays: {' '.join(simple_cmd)}")
+            simple_result = subprocess.run(simple_cmd, capture_output=True, text=True, timeout=180)
+            
+            if simple_result.returncode != 0:
+                print(f"Simple combined overlays also failed: {simple_result.stderr[-300:]}")
+                return False
+            else:
+                print("Simple combined overlays succeeded!")
+        else:
+            print("Combined overlays succeeded!")
+        
+    except subprocess.TimeoutExpired:
+        print("Combined overlays timed out")
+        return False
+    except Exception as e:
+        print(f"Combined overlays error: {e}")
+        return False
+    
+    if not os.path.exists(output_path):
+        print("Combined overlays failed: output file was not created")
+        return False
+        
+    output_size = os.path.getsize(output_path)
+    input_size = os.path.getsize(input_video)
+    
+    if output_size < 1000:
+        print(f"Combined overlays failed: output file too small ({output_size} bytes)")
+        return False
+        
+    print(f"DEBUG: File sizes - Input: {input_size}, Output: {output_size}")
+    
+    if output_size < (input_size * 0.8):
+        print(f"Warning: Output file significantly smaller than input ({output_size} vs {input_size})")
+    else:
+        print(f"File size check passed")
+    
+    if replace_in_place:
+        try:
+            print(f"DEBUG: Replacing original file: {output_path} → {input_video}")
+            print(f"DEBUG: Combined overlays file size: {os.path.getsize(output_path)}")
+            os.replace(output_path, input_video)
+            print(f"In-place combined overlays complete")
+            print(f"DEBUG: Final file size: {os.path.getsize(input_video)}")
+            return True
+        except OSError as exc:
+            print(f"Could not replace original video: {exc}")
+            return False
+    
+    file_size = os.path.getsize(output_path) / (1024 * 1024)
+    print(f"Combined overlays complete: {output_path} ({file_size:.1f}MB)")
+    return True
 
 def _qr_overlay_fallback(input_video, qr_image_path, output_path, x_expr, y_expr, replace_in_place):
     print("Using QR overlay fallback method with lower quality")

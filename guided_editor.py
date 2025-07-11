@@ -12,7 +12,7 @@ from video_utils import get_video_info, get_quality_settings, capture_frame
 from scene_detection import detect_scene_label, classify_image_scene
 from video_processor import extract_clip_simple, extract_clip_hq, combine_clips, combine_clips_hq
 from tour_creator import create_tour_simple, create_speedup_tour_simple, create_tour
-from post_processor import add_qr_overlay, add_music_overlay, add_agent_watermark
+from post_processor import add_qr_overlay, add_music_overlay, add_agent_watermark, add_combined_overlays
 
 class GuidedVideoEditor:
     
@@ -20,7 +20,7 @@ class GuidedVideoEditor:
         self.video_path = Path(video_path)
         self.video_info = get_video_info(self.video_path)
         self.user_segments = []
-
+    
     def add_segment(self, start_time, end_time, label=None):
         if start_time < 0 or end_time > self.video_info['duration']:
             print(f" Invalid time range")
@@ -61,7 +61,7 @@ class GuidedVideoEditor:
 
     def extract_clip_hq(self, start, end, output, speed_factor=1.0, quality_settings=None, silent_mode=True, room_type=None):
         return extract_clip_hq(self.video_path, self.video_info, start, end, output, speed_factor, quality_settings, silent_mode, room_type)
-
+    
     def combine_clips(self, clips, output, silent_mode=True):
         return combine_clips(clips, output, silent_mode)
 
@@ -76,6 +76,9 @@ class GuidedVideoEditor:
     
     def add_agent_watermark(self, input_video, agent_name, agency_name, output_path=None):
         return add_agent_watermark(input_video, agent_name, agency_name, output_path)
+
+    def add_combined_overlays(self, input_video, agent_name, agency_name, qr_image_path=None, qr_position='top_right', output_path=None):
+        return add_combined_overlays(input_video, agent_name, agency_name, qr_image_path, qr_position, output_path)
 
     def get_video_info(self):
         return self.video_info

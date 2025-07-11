@@ -322,7 +322,6 @@ def create_tour():
         success = editor.create_tour(output_filename, quality=quality)
         mode_description = f"Default processing ({quality} quality)"
     
-    # Step 2: Add music overlay if selected 
     if success and music_path and os.path.exists(music_path):
         print(f"Adding music overlay: {music_path} (volume: {music_volume})")
         music_success = editor.add_music_overlay(output_filename, music_path, music_volume)
@@ -334,30 +333,42 @@ def create_tour():
     elif music_path:
         print(f"Music file not found: {music_path}")
     
-    if success and qr_path and os.path.exists(qr_path):
-        print("Adding QR overlay to the video")
-        print(f"QR file exists: {os.path.exists(qr_path)}")
-        print(f"QR file size: {os.path.getsize(qr_path) if os.path.exists(qr_path) else 'N/A'}")
-        overlay_success = editor.add_qr_overlay(output_filename, qr_path, position='top_right')
-        if not overlay_success:
-            print("Failed to overlay QR code – returning video without QR")
-        else:
-            print("QR code overlaid successfully")
-            mode_description += f" + QR Code"
-    
-    if success and agent_name and agency_name:
-        print(f"About to add agent watermark: '{agent_name}' @ '{agency_name}'")
+    if success and (agent_name and agency_name):
+        print(f"Adding combined overlays: '{agent_name}' @ '{agency_name}'")
         print(f"Video file exists: {os.path.exists(output_filename)}")
         print(f"Video file size: {os.path.getsize(output_filename) if os.path.exists(output_filename) else 'N/A'}")
         
-        watermark_success = editor.add_agent_watermark(output_filename, agent_name, agency_name)
-        if watermark_success:
-            print("Agent watermark added successfully")
-            mode_description += f" + Agent branding"
+        if qr_path and os.path.exists(qr_path):
+            print(f"QR file exists: {os.path.exists(qr_path)}")
+            print(f"QR file size: {os.path.getsize(qr_path) if os.path.exists(qr_path) else 'N/A'}")
+            
+            combined_success = editor.add_combined_overlays(
+                output_filename, 
+                agent_name, 
+                agency_name, 
+                qr_image_path=qr_path, 
+                qr_position='top_right'
+            )
+            
+            if combined_success:
+                print("Combined overlays (agent + QR) added successfully")
+                mode_description += f" + Agent branding + QR Code"
+            else:
+                print("Failed to add combined overlays - continuing without overlays")
         else:
-            print("Failed to add agent watermark - continuing without watermark")
+            watermark_success = editor.add_combined_overlays(
+                output_filename, 
+                agent_name, 
+                agency_name
+            )
+            
+            if watermark_success:
+                print("Agent watermark added successfully")
+                mode_description += f" + Agent branding"
+            else:
+                print("Failed to add agent watermark - continuing without watermark")
     else:
-        print(f"Watermark skipped - success: {success}, agent_name: '{agent_name}', agency_name: '{agency_name}'")
+        print(f"Overlays skipped - success: {success}, agent_name: '{agent_name}', agency_name: '{agency_name}'")
     
     if success:
         files_to_cleanup = []
