@@ -75,10 +75,10 @@ def add_qr_overlay(input_video, qr_image_path, output_path=None, position='botto
     print("QR overlay complete")
     return True
 
-def add_combined_overlays(input_video, agent_name, agency_name, qr_image_path=None, qr_position='top_right', output_path=None):
+def add_combined_overlays(input_video, agent_name, agency_name, agent_phone=None, qr_image_path=None, qr_position='top_right', output_path=None):
 
     input_video = str(input_video)
-    print(f"DEBUG: Combined overlays function called with: '{agent_name}' @ '{agency_name}', QR: {qr_image_path}")
+    print(f"DEBUG: Combined overlays function called with: '{agent_name}' @ '{agency_name}' | {agent_phone}, QR: {qr_image_path}")
     print(f"DEBUG: Input video: {input_video}")
     
     if not os.path.exists(input_video):
@@ -105,7 +105,7 @@ def add_combined_overlays(input_video, agent_name, agency_name, qr_image_path=No
         agent_display = agent_name.replace('_', ' ').title()
         agency_display = agency_name.replace('_', ' ').title()
         
-        print(f"DEBUG: Display names: '{agent_display}' @ '{agency_display}'")
+        print(f"DEBUG: Display names: '{agent_display}' @ '{agency_display}' | {agent_phone}")
         
         if qr_image_path:
             pos_map = {
@@ -116,14 +116,27 @@ def add_combined_overlays(input_video, agent_name, agency_name, qr_image_path=No
             }
             x_expr, y_expr = pos_map.get(qr_position, ('W-w-30', '30'))
             
-            filter_complex = (
-                f"[1:v]scale=120:120[qr];"
-                f"[0:v]drawtext=text='{agent_display}':fontfile=/Windows/Fonts/arialbd.ttf:"
-                f"fontsize=48:fontcolor=white:shadowcolor=black:shadowx=3:shadowy=1:"
-                f"x=50:y=150,"
+            text_overlays = [
+                f"drawtext=text='{agent_display}':fontfile=/Windows/Fonts/arialbd.ttf:"
+                f"fontsize=72:fontcolor=white:shadowcolor=black:shadowx=4:shadowy=2:"
+                f"x=50:y=150",
                 f"drawtext=text='{agency_display}':fontfile=/Windows/Fonts/arialbd.ttf:"
-                f"fontsize=32:fontcolor=white:shadowcolor=black:shadowx=3:shadowy=1:"
-                f"x=50:y=200[txt];"
+                f"fontsize=48:fontcolor=white:shadowcolor=black:shadowx=3:shadowy=2:"
+                f"x=50:y=230"
+            ]
+            
+            if agent_phone:
+                text_overlays.append(
+                    f"drawtext=text='{agent_phone}':fontfile=/Windows/Fonts/arialbd.ttf:"
+                    f"fontsize=42:fontcolor=white:shadowcolor=black:shadowx=3:shadowy=2:"
+                    f"x=50:y=300"
+                )
+            
+            text_overlay = ",".join(text_overlays)
+            
+            filter_complex = (
+                f"[1:v]scale=180:180[qr];"
+                f"[0:v]{text_overlay}[txt];"
                 f"[txt][qr]overlay={x_expr}:{y_expr}"
             )
             
@@ -132,45 +145,54 @@ def add_combined_overlays(input_video, agent_name, agency_name, qr_image_path=No
                 '-i', input_video,
                 '-i', qr_image_path,
                 '-filter_complex', filter_complex,
-                '-c:a', 'copy',
                 '-c:v', 'libx264',
                 '-preset', 'veryfast',
                 '-crf', '23',
-                '-threads', '2',  # Reduced from 4
-                '-tune', 'fastdecode',  # Memory optimization
-                '-x264-params', 'ref=1:subme=1:me=hex:trellis=0',  # Low memory x264 settings
-                '-bufsize', '20M',  # Added explicit small buffer
+                '-threads', '2',  
+                '-tune', 'fastdecode',  
+                '-x264-params', 'ref=1:subme=1:me=hex:trellis=0',  
+                '-bufsize', '20M',  
                 '-movflags', '+faststart',
+                '-an',  
                 '-y', output_path
             ]
-            print(f"Memory-optimized combined overlays (agent + QR): '{agent_name}' @ '{agency_name}' + QR → {output_path}")
+            print(f"Memory-optimized combined overlays (agent + QR): '{agent_name}' @ '{agency_name}' | {agent_phone} + QR → {output_path}")
             
         else:
-            text_overlay = (
+            text_overlays = [
                 f"drawtext=text='{agent_display}':fontfile=/Windows/Fonts/arialbd.ttf:"
-                f"fontsize=48:fontcolor=white:shadowcolor=black:shadowx=3:shadowy=1:"
-                f"x=50:y=150,"
+                f"fontsize=72:fontcolor=white:shadowcolor=black:shadowx=4:shadowy=2:"
+                f"x=50:y=150",
                 f"drawtext=text='{agency_display}':fontfile=/Windows/Fonts/arialbd.ttf:"
-                f"fontsize=32:fontcolor=white:shadowcolor=black:shadowx=3:shadowy=1:"
-                f"x=50:y=200"
-            )
+                f"fontsize=48:fontcolor=white:shadowcolor=black:shadowx=3:shadowy=2:"
+                f"x=50:y=230"
+            ]
+            
+            if agent_phone:
+                text_overlays.append(
+                    f"drawtext=text='{agent_phone}':fontfile=/Windows/Fonts/arialbd.ttf:"
+                    f"fontsize=42:fontcolor=white:shadowcolor=black:shadowx=3:shadowy=2:"
+                    f"x=50:y=300"
+                )
+            
+            text_overlay = ",".join(text_overlays)
             
             cmd = [
                 'ffmpeg', 
                 '-i', input_video,
                 '-vf', text_overlay,
-                '-c:a', 'copy',
                 '-c:v', 'libx264',
                 '-preset', 'veryfast',
                 '-crf', '23',
-                '-threads', '2',  # Reduced from 4
-                '-tune', 'fastdecode',  # Memory optimization
-                '-x264-params', 'ref=1:subme=1:me=hex:trellis=0',  # Low memory x264 settings
-                '-bufsize', '15M',  # Added explicit small buffer
+                '-threads', '2',  
+                '-tune', 'fastdecode',  
+                '-x264-params', 'ref=1:subme=1:me=hex:trellis=0',  
+                '-bufsize', '15M',  
                 '-movflags', '+faststart',
+                '-an',  # Remove audio since we're working with silent videos
                 '-y', output_path
             ]
-            print(f"Memory-optimized agent watermark: '{agent_name}' @ '{agency_name}' → {output_path}")
+            print(f"Memory-optimized agent watermark: '{agent_name}' @ '{agency_name}' | {agent_phone} → {output_path}")
         
         print(f"DEBUG: Memory-optimized combined FFmpeg command: {' '.join(cmd)}")
         
@@ -186,12 +208,22 @@ def add_combined_overlays(input_video, agent_name, agency_name, qr_image_path=No
             print(f"Combined overlays failed, trying fallback...")
             print(f"Error was: {result.stderr[-300:]}")
             
-            # Fallback to simple filters without font
+            simple_text_overlays = [
+                f"drawtext=text='{agent_display}':x=30:y=100:fontsize=64:fontcolor=white:shadowcolor=black:shadowx=4:shadowy=2",
+                f"drawtext=text='{agency_display}':x=30:y=180:fontsize=40:fontcolor=white:shadowcolor=black:shadowx=3:shadowy=2"
+            ]
+            
+            if agent_phone:
+                simple_text_overlays.append(
+                    f"drawtext=text='{agent_phone}':x=30:y=240:fontsize=36:fontcolor=white:shadowcolor=black:shadowx=3:shadowy=2"
+                )
+            
+            simple_text_overlay = ",".join(simple_text_overlays)
+            
             if qr_image_path:
                 simple_filter = (
-                    f"[1:v]scale=100:100[qr];"
-                    f"[0:v]drawtext=text='{agent_display}':x=30:y=100:fontsize=32:fontcolor=white:shadowcolor=black:shadowx=3:shadowy=1,"
-                    f"drawtext=text='{agency_display}':x=30:y=140:fontsize=24:fontcolor=white:shadowcolor=black:shadowx=3:shadowy=1[txt];"
+                    f"[1:v]scale=160:160[qr];"
+                    f"[0:v]{simple_text_overlay}[txt];"
                     f"[txt][qr]overlay={x_expr}:{y_expr}"
                 )
                 
@@ -200,36 +232,31 @@ def add_combined_overlays(input_video, agent_name, agency_name, qr_image_path=No
                     '-i', input_video,
                     '-i', qr_image_path,
                     '-filter_complex', simple_filter,
-                    '-c:a', 'copy',
                     '-c:v', 'libx264',
                     '-preset', 'ultrafast',
                     '-crf', '30',
-                    '-threads', '2',  # Reduced from 4
-                    '-tune', 'fastdecode',  # Memory optimization
-                    '-x264-params', 'ref=1:subme=1:me=hex:trellis=0',  # Ultra low memory
-                    '-bufsize', '10M',  # Small buffer for fallback
+                    '-threads', '2',  
+                    '-tune', 'fastdecode',  
+                    '-x264-params', 'ref=1:subme=1:me=hex:trellis=0',  
+                    '-bufsize', '10M',  
                     '-movflags', '+faststart',
+                    '-an',  # Remove audio since we're working with silent videos
                     '-y', output_path
                 ]
             else:
-                simple_filter = (
-                    f"drawtext=text='{agent_display}':x=30:y=100:fontsize=32:fontcolor=white:shadowcolor=black:shadowx=3:shadowy=1,"
-                    f"drawtext=text='{agency_display}':x=30:y=140:fontsize=24:fontcolor=white:shadowcolor=black:shadowx=3:shadowy=1"
-                )
-                
                 simple_cmd = [
                     'ffmpeg', 
                     '-i', input_video,
-                    '-vf', simple_filter,
-                    '-c:a', 'copy',
+                    '-vf', simple_text_overlay,
                     '-c:v', 'libx264',
                     '-preset', 'ultrafast',
                     '-crf', '30',
-                    '-threads', '2',  # Reduced from 4
-                    '-tune', 'fastdecode',  # Memory optimization
-                    '-x264-params', 'ref=1:subme=1:me=hex:trellis=0',  # Ultra low memory
-                    '-bufsize', '8M',   # Small buffer for fallback
+                    '-threads', '2',  
+                    '-tune', 'fastdecode',  
+                    '-x264-params', 'ref=1:subme=1:me=hex:trellis=0',  
+                    '-bufsize', '8M',   
                     '-movflags', '+faststart',
+                    '-an',  
                     '-y', output_path
                 ]
             
@@ -403,9 +430,9 @@ def add_music_overlay(input_video, music_path, volume=0.3, output_path=None):
     print(f"Music overlay complete: {output_path} ({file_size:.1f}MB)")
     return True 
 
-def add_agent_watermark(input_video, agent_name, agency_name, output_path=None):
+def add_agent_watermark(input_video, agent_name, agency_name, agent_phone=None, output_path=None):
     input_video = str(input_video)
-    print(f"DEBUG: Watermark function called with: '{agent_name}' @ '{agency_name}'")
+    print(f"DEBUG: Watermark function called with: '{agent_name}' @ '{agency_name}' | {agent_phone}")
     print(f"DEBUG: Input video: {input_video}")
     
     if not os.path.exists(input_video):
@@ -426,24 +453,34 @@ def add_agent_watermark(input_video, agent_name, agency_name, output_path=None):
     
     agent_clean = agent_name.replace("'", "\\'").replace(":", "\\:")
     agency_clean = agency_name.replace("'", "\\'").replace(":", "\\:")
-    print(f"DEBUG: Cleaned names: '{agent_clean}' @ '{agency_clean}'")
+    phone_clean = agent_phone.replace("'", "\\'").replace(":", "\\:") if agent_phone else None
+    print(f"DEBUG: Cleaned names: '{agent_clean}' @ '{agency_clean}' | {phone_clean}")
     
     try:
         agent_display = agent_name.replace('_', ' ').title()
         agency_display = agency_name.replace('_', ' ').title()
         
-        print(f"DEBUG: Display names: '{agent_display}' @ '{agency_display}'")
+        print(f"DEBUG: Display names: '{agent_display}' @ '{agency_display}' | {agent_phone}")
         
-        text_overlay = (
+        text_overlays = [
             f"drawtext=text='{agent_display}':fontfile=/Windows/Fonts/arialbd.ttf:"
             f"fontsize=48:fontcolor=white:shadowcolor=black:shadowx=3:shadowy=1:"
-            f"x=50:y=150,"
+            f"x=50:y=150",
             f"drawtext=text='{agency_display}':fontfile=/Windows/Fonts/arialbd.ttf:"
             f"fontsize=32:fontcolor=white:shadowcolor=black:shadowx=3:shadowy=1:"
             f"x=50:y=200"
-        )
+        ]
         
-        print(f"DEBUG: Using two-line watermark: {text_overlay}")
+        if agent_phone:
+            text_overlays.append(
+                f"drawtext=text='{agent_phone}':fontfile=/Windows/Fonts/arialbd.ttf:"
+                f"fontsize=28:fontcolor=white:shadowcolor=black:shadowx=3:shadowy=1:"
+                f"x=50:y=240"
+            )
+        
+        text_overlay = ",".join(text_overlays)
+        
+        print(f"DEBUG: Using watermark overlay: {text_overlay}")
         
         cmd = [
             'ffmpeg', 
@@ -457,7 +494,7 @@ def add_agent_watermark(input_video, agent_name, agency_name, output_path=None):
             '-y', output_path
         ]
         
-        print(f"Adding agent watermark: '{agent_name}' @ '{agency_name}' → {output_path}")
+        print(f"Adding agent watermark: '{agent_name}' @ '{agency_name}' | {agent_phone} → {output_path}")
         print(f"DEBUG: FFmpeg command: {' '.join(cmd)}")
         
         result = subprocess.run(cmd, capture_output=True, text=True, timeout=180)
@@ -472,10 +509,17 @@ def add_agent_watermark(input_video, agent_name, agency_name, output_path=None):
             print(f"Agent watermark failed with font, trying without font...")
             print(f"Error was: {result.stderr[-300:]}")
             
-            simple_filter = (
-                f"drawtext=text='{agent_display}':x=30:y=100:fontsize=32:fontcolor=white:shadowcolor=black:shadowx=3:shadowy=1,"
+            simple_text_overlays = [
+                f"drawtext=text='{agent_display}':x=30:y=100:fontsize=32:fontcolor=white:shadowcolor=black:shadowx=3:shadowy=1",
                 f"drawtext=text='{agency_display}':x=30:y=140:fontsize=24:fontcolor=white:shadowcolor=black:shadowx=3:shadowy=1"
-            )
+            ]
+            
+            if agent_phone:
+                simple_text_overlays.append(
+                    f"drawtext=text='{agent_phone}':x=30:y=175:fontsize=20:fontcolor=white:shadowcolor=black:shadowx=3:shadowy=1"
+                )
+            
+            simple_filter = ",".join(simple_text_overlays)
             
             simple_cmd = [
                 'ffmpeg', 

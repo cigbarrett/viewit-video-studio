@@ -38,7 +38,7 @@ def get_quality_settings(quality='high'):
             'crf': '20',
             'preset': 'fast',
             'maxrate': '35M',
-            'bufsize': '25M',  # Reduced from 70M
+            'bufsize': '25M',  
             'timeout': 180,
             'target_resolution': '1080:1920',
             'threads': '2',
@@ -47,21 +47,21 @@ def get_quality_settings(quality='high'):
         'high': {
             'crf': '17',
             'preset': 'medium',
-            'maxrate': '50M',  # Reduced from 70M
-            'bufsize': '50M',  # Reduced from 140M
+            'maxrate': '50M', 
+            'bufsize': '50M',  
             'timeout': 600,
             'target_resolution': '1080:1920',
-            'threads': '3',  # Reduced from 4
+            'threads': '3',  
             'memory_optimized': True
         },
         'professional': {
             'crf': '14',
             'preset': 'slow',
-            'maxrate': '100M',  # Reduced from 150M
-            'bufsize': '100M',  # Reduced from 300M
+            'maxrate': '100M',  
+            'bufsize': '100M',  
             'timeout': 1200,
             'target_resolution': '1080:1920',
-            'threads': '3',  # Reduced from 4
+            'threads': '3',  
             'memory_optimized': True
         }
     }

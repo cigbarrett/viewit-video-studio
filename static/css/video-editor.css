@@ -866,6 +866,122 @@
     transform: scale(1.1);
 }
 
+/* Export Mode Panel */
+.export-mode-panel {
+    background: linear-gradient(145deg, #1e1e1e 0%, #2a2a2a 100%);
+    border: 1px solid #37474f;
+    border-radius: 8px;
+    padding: 16px;
+    margin-bottom: 20px;
+}
+
+.export-mode-panel h4 {
+    color: #fff;
+    margin: 0 0 12px 0;
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.export-mode-options {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 12px;
+}
+
+.export-mode-label {
+    display: flex;
+    align-items: flex-start;
+    cursor: pointer;
+    padding: 8px;
+    border-radius: 6px;
+    transition: all 0.2s ease;
+    border: 1px solid transparent;
+}
+
+.export-mode-label:hover {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: #00ff88;
+}
+
+.export-mode-label input[type="radio"] {
+    margin-right: 10px;
+    margin-top: 2px;
+    accent-color: #00ff88;
+}
+
+.export-mode-text {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.export-mode-text strong {
+    color: #fff;
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.export-mode-text small {
+    color: #b0bec5;
+    font-size: 11px;
+}
+
+.speed-settings {
+    margin-top: 12px;
+    padding: 12px;
+    background: rgba(0, 0, 0, 0.3);
+    border-radius: 6px;
+    border: 1px solid #444;
+}
+
+.speed-control {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.speed-control label {
+    color: #fff;
+    font-size: 12px;
+    font-weight: 500;
+    min-width: 80px;
+}
+
+.speed-slider {
+    flex: 1;
+    height: 4px;
+    background: #333;
+    border-radius: 2px;
+    outline: none;
+    /* -webkit-appearance: none; */
+}
+
+.speed-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 16px;
+    height: 16px;
+    background: #00ff88;
+    border-radius: 50%;
+    cursor: pointer;
+}
+
+.speed-slider::-moz-range-thumb {
+    width: 16px;
+    height: 16px;
+    background: #00ff88;
+    border-radius: 50%;
+    cursor: pointer;
+    border: none;
+}
+
+#speedValue {
+    color: #00ff88;
+    font-weight: 600;
+    font-size: 12px;
+    min-width: 25px;
+}
+
 @media (max-width: 768px) {
     .playback-controls {
         grid-template-columns: 1fr auto 1fr;

@@ -327,6 +327,7 @@ def combine_clips_hq(clips, output, quality_settings):
             '-threads', quality_settings.get('threads', '2'),  
             '-movflags', '+faststart',
             '-avoid_negative_ts', 'make_zero',
+            '-an',  # Remove audio to make silent video for music overlay
             '-y', output
         ]
         

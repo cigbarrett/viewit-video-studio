@@ -74,11 +74,11 @@ class GuidedVideoEditor:
     def add_music_overlay(self, input_video, music_path, volume=0.3, output_path=None):
         return add_music_overlay(input_video, music_path, volume, output_path)
     
-    def add_agent_watermark(self, input_video, agent_name, agency_name, output_path=None):
-        return add_agent_watermark(input_video, agent_name, agency_name, output_path)
+    def add_agent_watermark(self, input_video, agent_name, agency_name, agent_phone=None, output_path=None):
+        return add_agent_watermark(input_video, agent_name, agency_name, agent_phone, output_path)
 
-    def add_combined_overlays(self, input_video, agent_name, agency_name, qr_image_path=None, qr_position='top_right', output_path=None):
-        return add_combined_overlays(input_video, agent_name, agency_name, qr_image_path, qr_position, output_path)
+    def add_combined_overlays(self, input_video, agent_name, agency_name, agent_phone=None, qr_image_path=None, qr_position='top_right', output_path=None):
+        return add_combined_overlays(input_video, agent_name, agency_name, agent_phone, qr_image_path, qr_position, output_path)
 
     def get_video_info(self):
         return self.video_info

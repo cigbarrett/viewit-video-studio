@@ -34,12 +34,18 @@
                             <input type="text" id="agencyName" placeholder="Enter agency name">
                         </div>
                     </div>
+                    <div class="input-row">
+                        <div class="input-group full-width">
+                            <label for="agentPhone">Agent Phone</label>
+                            <input type="text" id="agentPhone" placeholder="+97150123467" pattern="^\+971[0-9]{8,9}$" title="Please enter a valid UAE phone number starting with +971">
+                        </div>
+                    </div>
                 </div>
 
                 <div class="dld-verification">
                     <div class="dld-header">
-                        <div class="icon">🛡️</div>
-                        <h3>DLD Verification</h3>
+                        <div class="icon"></div>
+                    <h3>DLD Verification</h3>
                     </div>
                     <div class="dld-subtitle">
                         Verify your property listing with Dubai Land Department credentials for official compliance and QR code generation.
@@ -58,36 +64,12 @@
                     <div id="verifyStatus" class="verification-status" style="display: none;"></div>
                 </div>
 
-                <div class="section">
-                    <h3>Export Settings</h3>
-                    <div class="export-mode">
-                        <label>
-                            <input type="radio" name="exportMode" value="segments" checked>
-                            <span>Segments Only (Remove transitions)</span>
-                        </label>
-                        <label>
-                            <input type="radio" name="exportMode" value="speedup">
-                            <span>Speed up transitions</span>
-                        </label>
-                    </div>
-                    <div class="export-settings" id="speedupSettings" style="display: none;">
-                        <div class="speed-control">
-                            <label>Speed Factor:</label>
-                            <input type="range" id="speedSlider" class="speed-slider" min="1.5" max="8" step="0.5" value="3">
-                            <span id="speedValue">3x</span>
-                        </div>
-                        <div style="font-size: 12px; color: #b0bec5; margin-top: 8px;">
-                            Walking sections will be sped up by this factor
-                        </div>
-                    </div>
-                </div>
-
                 <div class="flex-row text-center mt-20">
                     <button class="btn btn-secondary" onclick="goBack()">
                         ← Back to Edit
                     </button>
                     <button class="btn btn-success" onclick="createTour()">
-                        Create Property Tour
+                        Create Tour
                     </button>
                 </div>
             </div>
@@ -98,247 +80,17 @@
     <div id="loadingModal" class="loading-modal" style="display: none;">
         <div class="loading-modal-content">
             <div class="loading-spinner"></div>
-            <h3 id="loadingTitle">Creating Property Tour...</h3>
-            <p id="loadingStatus">Processing your video segments</p>
-            <div class="loading-progress">
-                <div class="progress-bar">
-                    <div class="progress-fill" id="progressFill"></div>
+                <h3 id="loadingTitle">Creating Property Tour...</h3>
+                <p id="loadingStatus">Processing your video segments</p>
+                <div class="loading-progress">
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="progressFill"></div>
                 </div>
             </div>
             <div class="progress-text" id="progressText">0%</div>
         </div>
     </div>
 
-    <script>
-        // Global variables
-        let exportData = null;
-        let qrPath = null;
-
-        // Initialize the application
-        document.addEventListener('DOMContentLoaded', function() {
-            // Load export data from sessionStorage
-            const storedData = sessionStorage.getItem('exportData');
-            if (storedData) {
-                exportData = JSON.parse(storedData);
-                console.log('Loaded export data:', exportData);
-            } else {
-                alert('No export data found. Please go back to the edit page.');
-                window.location.href = '/edit';
-            }
-            
-            setupEventListeners();
-        });
-
-        function setupEventListeners() {
-            // Export mode changes
-            document.querySelectorAll('input[name="exportMode"]').forEach(radio => {
-                radio.addEventListener('change', handleExportModeChange);
-            });
-            
-            // Speed slider
-            document.getElementById('speedSlider').addEventListener('input', function() {
-                document.getElementById('speedValue').textContent = this.value + 'x';
-            });
-            
-            // DLD verification
-            document.getElementById('verifyListingBtn').addEventListener('click', verifyListing);
-        }
-
-
-
-        function handleExportModeChange(e) {
-            const speedupSettings = document.getElementById('speedupSettings');
-            if (e.target.value === 'speedup') {
-                speedupSettings.style.display = 'block';
-            } else {
-                speedupSettings.style.display = 'none';
-            }
-        }
-
-        function verifyListing() {
-            const tradeLicense = document.getElementById('tradeLicenseInput').value.trim();
-            const listingNumber = document.getElementById('listingNumberInput').value.trim();
-
-            if (!tradeLicense || !listingNumber) {
-                showStatus('Please enter trade license and listing number', 'error');
-                return;
-            }
-
-            const statusEl = document.getElementById('verifyStatus');
-            statusEl.style.display = 'flex';
-            statusEl.className = 'verification-status loading';
-            statusEl.textContent = 'Verifying listing...';
-
-            fetch('/verify_listing', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    trade_license_number: tradeLicense,
-                    listing_number: listingNumber,
-                })
-            })
-            .then(res => res.json())
-            .then(data => {
-                if (data.success) {
-                    qrPath = data.qr_path;
-                    showStatus('✅ Listing verified - QR code ready for export', 'success');
-                    console.log('Listing verified, QR:', qrPath);
-                } else {
-                    qrPath = null;
-                    showStatus('❌ ' + (data.error || 'Verification failed'), 'error');
-                }
-            })
-            .catch(err => {
-                qrPath = null;
-                showStatus('❌ ' + err.message, 'error');
-            });
-        }
-
-        function showStatus(message, type) {
-            const statusEl = document.getElementById('verifyStatus');
-            statusEl.style.display = 'flex';
-            statusEl.className = `verification-status ${type}`;
-            statusEl.textContent = message;
-        }
-
-        function goBack() {
-            // Keep the export data in session storage for when they return
-            window.location.href = '/edit';
-        }
-
-        function createTour() {
-            if (!exportData) {
-                alert('No export data available');
-                return;
-            }
-
-            const agentName = document.getElementById('agentName').value.trim();
-            const agencyName = document.getElementById('agencyName').value.trim();
-
-            if (!agentName || !agencyName) {
-                alert('Please enter both agent name and agency name');
-                return;
-            }
-
-            const exportMode = document.querySelector('input[name="exportMode"]:checked').value;
-            let qualityMode;
-            if (exportMode === 'speedup') {
-                qualityMode = 'standard';
-            } else {
-                qualityMode = 'high';
-            }
-            const speedFactor = document.getElementById('speedSlider').value;
-            
-            // Show loading overlay
-            showLoadingOverlay();
-            
-            const requestData = {
-                video_id: exportData.video_id,
-                segments: exportData.segments,
-                export_mode: exportMode,
-                speed_factor: parseFloat(speedFactor),
-                quality: qualityMode,
-                qr_path: qrPath || undefined,
-                music_path: exportData.music_data ? exportData.music_data.track.local_path : undefined,
-                music_volume: exportData.music_data ? exportData.music_data.volume : undefined,
-                agent_name: agentName,
-                agency_name: agencyName
-            };
-
-            console.log('Creating tour with data:', requestData);
-            
-            // Start simulated progress
-            simulateProcessing();
-            
-            // Call backend API
-            fetch('/create_tour', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(requestData)
-            })
-            .then(response => response.json())
-            .then(data => {
-                hideLoadingOverlay();
-                
-                if (data.success) {
-                    // Store result data and redirect to delivery page
-                    sessionStorage.setItem('tourResult', JSON.stringify(data));
-                    window.location.href = '/delivery';
-                } else {
-                    alert('Tour creation failed: ' + (data.error || 'Unknown error'));
-                }
-            })
-            .catch(error => {
-                hideLoadingOverlay();
-                console.error('Tour creation error:', error);
-                alert('Tour creation failed. Please check the console for details.');
-            });
-        }
-
-        // Loading modal functions
-        function showLoadingOverlay() {
-            const modal = document.getElementById('loadingModal');
-            const progressFill = document.getElementById('progressFill');
-            const progressText = document.getElementById('progressText');
-            
-            modal.style.display = 'flex';
-            progressFill.style.width = '0%';
-            progressText.textContent = '0%';
-        }
-
-        function hideLoadingOverlay() {
-            const modal = document.getElementById('loadingModal');
-            modal.style.display = 'none';
-        }
-
-        function updateProgress(percentage, status) {
-            const progressFill = document.getElementById('progressFill');
-            const progressText = document.getElementById('progressText');
-            const loadingStatus = document.getElementById('loadingStatus');
-            
-            progressFill.style.width = percentage + '%';
-            progressText.textContent = percentage + '%';
-            loadingStatus.textContent = status;
-        }
-
-        function simulateProcessing() {
-            const steps = [
-                { progress: 5, status: 'Initializing video processor...', delay: 500 },
-                { progress: 15, status: 'Analyzing video segments...', delay: 800 },
-                { progress: 30, status: 'Extracting selected clips...', delay: 1200 },
-                { progress: 50, status: 'Adding agent watermark...', delay: 800 },
-                { progress: 65, status: 'Applying speed adjustments...', delay: 1000 },
-                { progress: 80, status: 'Processing video effects...', delay: 1500 },
-                { progress: 90, status: 'Combining segments...', delay: 1000 },
-                { progress: 95, status: 'Finalizing tour video...', delay: 800 }
-            ];
-            
-            let currentStep = 0;
-            
-            function processNextStep() {
-                if (currentStep < steps.length) {
-                    const step = steps[currentStep];
-                    updateProgress(step.progress, step.status);
-                    
-                    setTimeout(() => {
-                        currentStep++;
-                        processNextStep();
-                    }, step.delay);
-                }
-            }
-            
-            processNextStep();
-        }
-
-        function formatTime(seconds) {
-            const mins = Math.floor(seconds / 60);
-            const secs = Math.floor(seconds % 60);
-            return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-        }
-    </script>
+    <script src="static/js/export.js"></script>
 </body>
 </html> 

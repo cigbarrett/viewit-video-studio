@@ -11,6 +11,8 @@ from dotenv import load_dotenv
 import requests
 import json
 import time
+import threading
+from post_processor import add_combined_overlays
 
 load_dotenv() 
 
@@ -310,7 +312,7 @@ def detect_segment_label():
                 'processing_time': f"{end_time - start_time:.1f}s segment processed"
             })
         else:
-            print(f"❌ No label detected for segment {start_time:.1f}s-{end_time:.1f}s")
+            print(f"No label detected for segment {start_time:.1f}s-{end_time:.1f}s")
             return jsonify({
                 'success': True,
                 'detected_label': 'unlabeled',
@@ -328,24 +330,21 @@ def detect_segment_label():
             'fallback_display': 'Unlabeled'
         }), 500
 
-@app.route('/create_tour', methods=['POST'])
-def create_tour():
+@app.route('/start_video_processing', methods=['POST'])
+def start_video_processing():
     data = request.json
     video_id = data.get('video_id')
     segments = data.get('segments', [])
     export_mode = data.get('export_mode', 'segments')
     speed_factor = data.get('speed_factor', 3.0)
     quality = data.get('quality', 'standard')
-    qr_path = data.get('qr_path')  
-    music_path = data.get('music_path')  
-    music_volume = data.get('music_volume', 1.0)  
-    agent_name = data.get('agent_name') 
-    agency_name = data.get('agency_name') 
+    music_path = data.get('music_path')
+    music_volume = data.get('music_volume', 1.0)
     
     if not segments:
         return jsonify({'error': 'No segments provided'}), 400
     
-    print(f"video_id={video_id}, available_videos={list(uploaded_videos.keys())}")
+    print(f"Starting background video processing: video_id={video_id}, mode={export_mode}")
     
     if video_id and video_id in uploaded_videos:
         video_path = uploaded_videos[video_id]
@@ -359,119 +358,210 @@ def create_tour():
     if not os.path.exists(video_path):
         return jsonify({'error': f'Video file not found: {video_path}'}), 400
     
-    editor = GuidedVideoEditor(video_path)
-    
-    for seg in segments:
-        editor.add_segment(
-            seg['start'],
-            seg['end'],
-            seg.get('room')  
-        )
-    
-    archive_dir = 'archive'
-    os.makedirs(archive_dir, exist_ok=True)
-    
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    output_filename = os.path.join(archive_dir, f'guided_tour_{timestamp}.mp4')
+    processing_id = f"proc_{timestamp}"
     
-    print(f"Creating tour: mode={export_mode}, quality={quality}, speed={speed_factor}x, segments={len(segments)}")
-    print(f"Output will be saved to: {output_filename}")
-    if agent_name and agency_name:
-        print(f"Agent branding: {agent_name} @ {agency_name}")
+    if not hasattr(app, 'processing_results'):
+        app.processing_results = {}
     
-    if export_mode == 'segments':
-        success = editor.create_tour_simple(output_filename)
-        mode_description = f"Segments only (fast processing)"
+    temp_dir = 'temp'
+    os.makedirs(temp_dir, exist_ok=True)
+    temp_filename = os.path.join(temp_dir, f'processing_{timestamp}.mp4')
+    
+    app.processing_results[processing_id] = {
+        'temp_file': temp_filename,
+        'video_id': video_id,
+        'export_mode': export_mode,
+        'speed_factor': speed_factor,
+        'quality': quality,
+        'segments_count': len(segments),
+        'created_at': timestamp,
+        'status': 'in_progress'
+    }
+    
+    def process_video():
+        try:
+            print(f"Background processing thread started for {processing_id}")
+            
+            editor = GuidedVideoEditor(video_path)
+            
+            for seg in segments:
+                editor.add_segment(
+                    seg['start'],
+                    seg['end'],
+                    seg.get('room')
+                )
+            
+            print(f"Background processing: mode={export_mode}, quality={quality}, speed={speed_factor}x")
+            
+            if export_mode == 'segments':
+                success = editor.create_tour(temp_filename, quality=quality)
+            elif export_mode == 'speedup':
+                success = editor.create_speedup_tour_simple(temp_filename, speed_factor)
+            else:
+                success = editor.create_tour(temp_filename, quality=quality)
+            
+            if not success:
+                app.processing_results[processing_id]['status'] = 'failed'
+                app.processing_results[processing_id]['error'] = 'Failed to process video segments'
+                return
+            
+            if music_path and os.path.exists(music_path):
+                print(f"Adding music overlay: {music_path} (volume: {music_volume})")
+                music_success = editor.add_music_overlay(temp_filename, music_path, music_volume)
+                if music_success:
+                    print("Music overlay added successfully")
+                else:
+                    print("Failed to add music overlay - continuing without music")
+            
+            app.processing_results[processing_id]['status'] = 'completed'
+            print(f"Background processing completed for {processing_id}")
+            
+        except Exception as e:
+            print(f"Background processing error for {processing_id}: {e}")
+            app.processing_results[processing_id]['status'] = 'failed'
+            app.processing_results[processing_id]['error'] = str(e)
+    
+    thread = threading.Thread(target=process_video)
+    thread.daemon = True
+    thread.start()
+    
+    return jsonify({
+        'success': True,
+        'processing_id': processing_id,
+        'message': 'Video processing started in background',
+        'export_mode': export_mode,
+        'segments_count': len(segments)
+    })
 
-    elif export_mode == 'speedup':
-        print(f"SPEEDUP MODE: Creating {quality} quality tour with {speed_factor}x speed")
-        success = editor.create_speedup_tour_simple(output_filename, speed_factor)
-        mode_description = f"Speedup {speed_factor}x ({quality} quality)"
-        print(f"SPEEDUP RESULT: success={success}")
-
-    # elif export_mode == 'trim':
-    #     success = editor.create_tour_simple(output_filename)
-    #     mode_description = f"Trimmed & enhanced (fast processing)"
+@app.route('/check_processing_status/<processing_id>', methods=['GET'])
+def check_processing_status(processing_id):
+    if not hasattr(app, 'processing_results') or processing_id not in app.processing_results:
+        return jsonify({'status': 'not_found', 'message': 'Processing ID not found'}), 404
+    
+    processing_result = app.processing_results[processing_id]
+    status = processing_result.get('status', 'in_progress')
+    
+    if status == 'completed':
+        return jsonify({
+            'status': 'completed',
+            'message': 'Video processing completed',
+            'export_mode': processing_result['export_mode'],
+            'segments_count': processing_result['segments_count'],
+            'created_at': processing_result['created_at']
+        })
+    elif status == 'failed':
+        return jsonify({
+            'status': 'failed',
+            'message': 'Video processing failed',
+            'error': processing_result.get('error', 'Unknown error'),
+            'export_mode': processing_result['export_mode'],
+            'segments_count': processing_result['segments_count']
+        })
     else:
-        print(f"Unknown export mode: {export_mode}, using default")
-        success = editor.create_tour(output_filename, quality=quality)
-        mode_description = f"Default processing ({quality} quality)"
+        return jsonify({
+            'status': 'in_progress',
+            'message': 'Video still processing',
+            'export_mode': processing_result['export_mode'],
+            'segments_count': processing_result['segments_count']
+        })
+
+@app.route('/create_tour', methods=['POST'])
+def create_tour():
+    data = request.json
+    processing_id = data.get('processing_id')
+    qr_path = data.get('qr_path')
+    agent_name = data.get('agent_name')
+    agency_name = data.get('agency_name')
+    agent_phone = data.get('agent_phone')
     
-    if success and music_path and os.path.exists(music_path):
-        print(f"Adding music overlay: {music_path} (volume: {music_volume})")
-        music_success = editor.add_music_overlay(output_filename, music_path, music_volume)
-        if music_success:
-            print("Music overlay added successfully")
-            mode_description += f" + Music"
-        else:
-            print("Failed to add music overlay - continuing without music")
-    elif music_path:
-        print(f"Music file not found: {music_path}")
+    if not processing_id:
+        return jsonify({'error': 'Processing ID required'}), 400
     
-    if success and (agent_name and agency_name):
-        print(f"Adding combined overlays: '{agent_name}' @ '{agency_name}'")
-        print(f"Video file exists: {os.path.exists(output_filename)}")
-        print(f"Video file size: {os.path.getsize(output_filename) if os.path.exists(output_filename) else 'N/A'}")
+    if not agent_name or not agency_name:
+        return jsonify({'error': 'Agent name and agency name are required'}), 400
+    
+    if not hasattr(app, 'processing_results') or processing_id not in app.processing_results:
+        return jsonify({'error': 'Processing ID not found or expired'}), 404
+    
+    processing_result = app.processing_results[processing_id]
+    temp_file = processing_result['temp_file']
+    
+    if not os.path.exists(temp_file):
+        return jsonify({'error': 'Processed video file not found'}), 404
+    
+    print(f"Adding overlays to processed video: {temp_file}")
+    print(f"Agent info: {agent_name} @ {agency_name} | {agent_phone}")
+    
+    try:
+        archive_dir = 'archive'
+        os.makedirs(archive_dir, exist_ok=True)
+        
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        output_filename = os.path.join(archive_dir, f'guided_tour_{timestamp}.mp4')
+        
+        import shutil
+        shutil.copy2(temp_file, output_filename)
         
         if qr_path and os.path.exists(qr_path):
-            print(f"QR file exists: {os.path.exists(qr_path)}")
-            print(f"QR file size: {os.path.getsize(qr_path) if os.path.exists(qr_path) else 'N/A'}")
-            
-            combined_success = editor.add_combined_overlays(
-                output_filename, 
-                agent_name, 
-                agency_name, 
-                qr_image_path=qr_path, 
+            print(f"Adding combined overlays with QR code")
+            overlay_success = add_combined_overlays(
+                output_filename,
+                agent_name,
+                agency_name,
+                agent_phone=agent_phone,
+                qr_image_path=qr_path,
                 qr_position='top_right'
             )
-            
-            if combined_success:
-                print("Combined overlays (agent + QR) added successfully")
-                mode_description += f" + Agent branding + QR Code"
-            else:
-                print("Failed to add combined overlays - continuing without overlays")
         else:
-            watermark_success = editor.add_combined_overlays(
-                output_filename, 
-                agent_name, 
-                agency_name
+            print(f"Adding agent watermark only")
+            overlay_success = add_combined_overlays(
+                output_filename,
+                agent_name,
+                agency_name,
+                agent_phone=agent_phone
             )
-            
-            if watermark_success:
-                print("Agent watermark added successfully")
-                mode_description += f" + Agent branding"
-            else:
-                print("Failed to add agent watermark - continuing without watermark")
-    else:
-        print(f"Overlays skipped - success: {success}, agent_name: '{agent_name}', agency_name: '{agency_name}'")
-    
-    if success:
-        files_to_cleanup = []
         
-        if music_path and os.path.exists(music_path):
-            files_to_cleanup.append(music_path)
+        if not overlay_success:
+            print("Failed to add overlays - using video without overlays")
+        
+        try:
+            os.remove(temp_file)
+            print(f"Cleaned up temporary file: {temp_file}")
+        except OSError as e:
+            print(f"Warning: Could not remove temporary file {temp_file}: {e}")
         
         if qr_path and os.path.exists(qr_path):
-            files_to_cleanup.append(qr_path)
-        
-        for file_path in files_to_cleanup:
             try:
-                os.remove(file_path)
-                print(f"Cleaned up temporary file: {file_path}")
+                os.remove(qr_path)
+                print(f"Cleaned up QR file: {qr_path}")
             except OSError as e:
-                print(f"Warning: Could not remove temporary file {file_path}: {e}")
-    
-    if success:
+                print(f"Warning: Could not remove QR file {qr_path}: {e}")
+        
+        del app.processing_results[processing_id]
+        
+        mode_description = f"{processing_result['export_mode']}"
+        if processing_result['export_mode'] == 'speedup':
+            mode_description += f" ({processing_result['speed_factor']}x speed)"
+        
+        mode_description += f" + Agent branding"
+        if qr_path:
+            mode_description += f" + QR Code"
+        
         return jsonify({
             'success': True,
             'output_file': output_filename,
-            'message': f'Tour created!',
-            'export_mode': export_mode,
-            'speed_factor': speed_factor,
-            'quality': quality
+            'message': 'Tour created with agent branding!',
+            'export_mode': processing_result['export_mode'],
+            'speed_factor': processing_result.get('speed_factor'),
+            'quality': processing_result.get('quality'),
+            'segments_count': processing_result.get('segments_count'),
+            'description': mode_description
         })
-    else:
-        return jsonify({'error': 'Failed to create tour'}), 500
+        
+    except Exception as e:
+        print(f"Overlay processing error: {e}")
+        return jsonify({'error': f'Failed to add overlays: {str(e)}'}), 500
 
 @app.route('/download/<path:filename>')
 def download_file(filename):
