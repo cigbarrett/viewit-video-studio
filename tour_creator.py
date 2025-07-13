@@ -143,7 +143,7 @@ def create_speedup_tour_simple(user_segments, video_path, video_info, output_pat
             print(f"Simple combine failed: {result.stderr[-300:]}")
             return False
 
-def create_tour(user_segments, video_path, video_info, output_path="guided_tour.mp4", api_key=None, quality='high'):
+def create_tour(user_segments, video_path, video_info, output_path="guided_tour.mp4", api_key=None, quality='professional'):
     if not user_segments:
         print("No segments selected!")
         return False

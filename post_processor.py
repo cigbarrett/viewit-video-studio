@@ -153,7 +153,7 @@ def add_combined_overlays(input_video, agent_name, agency_name, agent_phone=None
                 '-x264-params', 'ref=1:subme=1:me=hex:trellis=0',  
                 '-bufsize', '20M',  
                 '-movflags', '+faststart',
-                '-an',  
+                '-c:a', 'copy',  
                 '-y', output_path
             ]
             print(f"Memory-optimized combined overlays (agent + QR): '{agent_name}' @ '{agency_name}' | {agent_phone} + QR → {output_path}")
@@ -189,7 +189,7 @@ def add_combined_overlays(input_video, agent_name, agency_name, agent_phone=None
                 '-x264-params', 'ref=1:subme=1:me=hex:trellis=0',  
                 '-bufsize', '15M',  
                 '-movflags', '+faststart',
-                '-an',  # Remove audio since we're working with silent videos
+                '-c:a', 'copy',  
                 '-y', output_path
             ]
             print(f"Memory-optimized agent watermark: '{agent_name}' @ '{agency_name}' | {agent_phone} → {output_path}")
@@ -240,7 +240,7 @@ def add_combined_overlays(input_video, agent_name, agency_name, agent_phone=None
                     '-x264-params', 'ref=1:subme=1:me=hex:trellis=0',  
                     '-bufsize', '10M',  
                     '-movflags', '+faststart',
-                    '-an',  # Remove audio since we're working with silent videos
+                    '-c:a', 'copy', 
                     '-y', output_path
                 ]
             else:
@@ -256,7 +256,7 @@ def add_combined_overlays(input_video, agent_name, agency_name, agent_phone=None
                     '-x264-params', 'ref=1:subme=1:me=hex:trellis=0',  
                     '-bufsize', '8M',   
                     '-movflags', '+faststart',
-                    '-an',  
+                    '-c:a', 'copy',  
                     '-y', output_path
                 ]
             

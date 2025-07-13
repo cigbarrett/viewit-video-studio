@@ -22,7 +22,7 @@ def get_video_info(video_path):
         print(f"Error getting video info: {e}")
         return None
 
-def get_quality_settings(quality='high'):
+def get_quality_settings(quality='professional'):
     settings = {
         'draft': {
             'crf': '23',

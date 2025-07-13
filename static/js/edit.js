@@ -1095,7 +1095,7 @@
                 })),
                 export_mode: exportMode,
                 speed_factor: parseFloat(speedFactor),
-                quality: exportMode === 'speedup' ? 'standard' : 'high',
+                quality: exportMode === 'speedup' ? 'standard' : 'professional',
                 music_path: selectedMusicTrack ? selectedMusicTrack.local_path : undefined,
                 music_volume: selectedMusicTrack ? 1.0 : undefined
             };

@@ -50,10 +50,10 @@ class GuidedVideoEditor:
     def create_speedup_tour_simple(self, output_path="guided_tour_ffmpeg.mp4", speed_factor=3.0):
         return create_speedup_tour_simple(self.user_segments, self.video_path, self.video_info, output_path, speed_factor)
 
-    def create_tour(self, output_path="guided_tour.mp4", api_key=None, quality='high'):
+    def create_tour(self, output_path="guided_tour.mp4", api_key=None, quality='professional'):
         return create_tour(self.user_segments, self.video_path, self.video_info, output_path, api_key, quality)
 
-    def get_quality_settings(self, quality='high'):
+    def get_quality_settings(self, quality='professional'):
         return get_quality_settings(quality)
 
     def extract_clip_simple(self, start, end, output, room_type=None):
