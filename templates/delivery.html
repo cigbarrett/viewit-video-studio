@@ -43,21 +43,34 @@
     <script>
         // Load tour result data on page load
         document.addEventListener('DOMContentLoaded', function() {
+            console.log('Delivery page loaded');
+            console.log('Current URL:', window.location.pathname);
+            
             // First try to get data from sessionStorage
             const tourResultData = sessionStorage.getItem('tourResult');
+            console.log('SessionStorage tourResult:', tourResultData ? 'exists' : 'not found');
+            
             if (tourResultData) {
                 const data = JSON.parse(tourResultData);
+                console.log('Using sessionStorage data:', data);
                 displayTourResult(data);
             } else {
                 // Try to get processing ID from URL
                 const pathParts = window.location.pathname.split('/');
                 const processingId = pathParts[pathParts.length - 1];
+                console.log('Path parts:', pathParts);
+                console.log('Processing ID from URL:', processingId);
                 
                 if (processingId && processingId !== 'delivery') {
+                    console.log('Fetching tour result for processing ID:', processingId);
                     // Fetch tour result from server using processing ID
                     fetch(`/get_tour_result/${processingId}`)
-                        .then(response => response.json())
+                        .then(response => {
+                            console.log('Response status:', response.status);
+                            return response.json();
+                        })
                         .then(data => {
+                            console.log('Server response:', data);
                             if (data.success) {
                                 displayTourResult(data);
                             } else {
@@ -70,6 +83,7 @@
                             window.location.href = '/';
                         });
                 } else {
+                    console.log('No processing ID found in URL, redirecting to upload');
                     // No tour result data, redirect back to upload
                     alert('No tour result found. Please create a tour first.');
                     window.location.href = '/';

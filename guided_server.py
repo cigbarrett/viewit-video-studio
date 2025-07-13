@@ -566,12 +566,18 @@ def create_tour():
 
 @app.route('/get_tour_result/<processing_id>')
 def get_tour_result(processing_id):
+    print(f"Getting tour result for processing ID: {processing_id}")
+    print(f"Processing results keys: {list(app.processing_results.keys()) if hasattr(app, 'processing_results') else 'No processing_results'}")
+    
     if not hasattr(app, 'processing_results') or processing_id not in app.processing_results:
+        print(f"Processing ID {processing_id} not found in processing_results")
         return jsonify({'error': 'Tour result not found'}), 404
     
     processing_result = app.processing_results[processing_id]
+    print(f"Found processing result: {processing_result}")
     
     if 'output_file' in processing_result:
+        print(f"Output file found: {processing_result['output_file']}")
         return jsonify({
             'success': True,
             'output_file': processing_result['output_file'],
@@ -582,6 +588,7 @@ def get_tour_result(processing_id):
             'segments_count': processing_result.get('segments_count')
         })
     else:
+        print(f"No output_file in processing result")
         return jsonify({'error': 'Tour not yet created'}), 404
 
 @app.route('/download/<path:filename>')
