@@ -34,6 +34,27 @@ def save_uploaded_videos():
 
 uploaded_videos = load_uploaded_videos()
 
+PROCESSING_RESULTS_FILE = 'processing_results.json'
+
+def load_processing_results():
+    if os.path.exists(PROCESSING_RESULTS_FILE):
+        try:
+            with open(PROCESSING_RESULTS_FILE, 'r') as f:
+                return json.load(f)
+        except Exception as e:
+            print(f"Error loading processing results: {e}")
+            return {}
+    return {}
+
+def save_processing_results():
+    try:
+        with open(PROCESSING_RESULTS_FILE, 'w') as f:
+            json.dump(app.processing_results, f)
+    except Exception as e:
+        print(f"Error saving processing results: {e}")
+
+app.processing_results = load_processing_results()
+
 def safe_send_file(filename):
     if not os.path.isfile(filename):
         return "File not found", 404
@@ -378,6 +399,7 @@ def start_video_processing():
         'created_at': timestamp,
         'status': 'in_progress'
     }
+    save_processing_results()
     
     def process_video():
         try:
@@ -404,6 +426,7 @@ def start_video_processing():
             if not success:
                 app.processing_results[processing_id]['status'] = 'failed'
                 app.processing_results[processing_id]['error'] = 'Failed to process video segments'
+                save_processing_results()
                 return
             
             if music_path and os.path.exists(music_path):
@@ -416,11 +439,13 @@ def start_video_processing():
             
             app.processing_results[processing_id]['status'] = 'completed'
             print(f"Background processing completed for {processing_id}")
+            save_processing_results()
             
         except Exception as e:
             print(f"Background processing error for {processing_id}: {e}")
             app.processing_results[processing_id]['status'] = 'failed'
             app.processing_results[processing_id]['error'] = str(e)
+            save_processing_results()
     
     thread = threading.Thread(target=process_video)
     thread.daemon = True
@@ -540,6 +565,7 @@ def create_tour():
         
         # Store the output file path in processing results for later retrieval
         app.processing_results[processing_id]['output_file'] = output_filename
+        save_processing_results()
         
         mode_description = f"{processing_result['export_mode']}"
         if processing_result['export_mode'] == 'speedup':
