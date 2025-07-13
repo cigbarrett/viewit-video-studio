@@ -153,9 +153,9 @@
                         // Brief delay to show completion
                         setTimeout(() => {
                             hideLoadingOverlay();
-                            // Store result data and redirect to delivery page
+                            // Store result data and redirect to delivery page with processing ID
                             sessionStorage.setItem('tourResult', JSON.stringify(data));
-                            window.location.href = '/delivery';
+                            window.location.href = `/delivery/${exportData.processing_id}`;
                         }, 500);
                     } else {
                         console.log('Tour creation not ready yet, retrying...', data.error);
@@ -198,19 +198,19 @@
                         setTimeout(() => {
                             hideLoadingOverlay();
                             sessionStorage.setItem('tourResult', JSON.stringify(data));
-                            window.location.href = '/delivery';
+                            window.location.href = `/delivery/${exportData.processing_id}`;
                         }, 500);
                     } else {
                         // Final fallback - just continue to delivery page
                         console.log('Final attempt failed, proceeding anyway');
                         hideLoadingOverlay();
-                        window.location.href = '/delivery';
+                        window.location.href = `/delivery/${exportData.processing_id}`;
                     }
                 } catch (error) {
                     // Final fallback - just continue to delivery page
                     console.log('Final attempt failed, proceeding anyway', error);
                     hideLoadingOverlay();
-                    window.location.href = '/delivery';
+                    window.location.href = `/delivery/${exportData.processing_id}`;
                 }
             }
         }

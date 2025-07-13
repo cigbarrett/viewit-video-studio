@@ -43,14 +43,37 @@
     <script>
         // Load tour result data on page load
         document.addEventListener('DOMContentLoaded', function() {
+            // First try to get data from sessionStorage
             const tourResultData = sessionStorage.getItem('tourResult');
             if (tourResultData) {
                 const data = JSON.parse(tourResultData);
                 displayTourResult(data);
             } else {
-                // No tour result data, redirect back to upload
-                alert('No tour result found. Please create a tour first.');
-                window.location.href = '/';
+                // Try to get processing ID from URL
+                const pathParts = window.location.pathname.split('/');
+                const processingId = pathParts[pathParts.length - 1];
+                
+                if (processingId && processingId !== 'delivery') {
+                    // Fetch tour result from server using processing ID
+                    fetch(`/get_tour_result/${processingId}`)
+                        .then(response => response.json())
+                        .then(data => {
+                            if (data.success) {
+                                displayTourResult(data);
+                            } else {
+                                throw new Error(data.error || 'Failed to load tour result');
+                            }
+                        })
+                        .catch(error => {
+                            console.error('Error loading tour result:', error);
+                            alert('No tour result found. Please create a tour first.');
+                            window.location.href = '/';
+                        });
+                } else {
+                    // No tour result data, redirect back to upload
+                    alert('No tour result found. Please create a tour first.');
+                    window.location.href = '/';
+                }
             }
         });
 

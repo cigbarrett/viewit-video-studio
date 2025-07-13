@@ -538,7 +538,8 @@ def create_tour():
             except OSError as e:
                 print(f"Warning: Could not remove QR file {qr_path}: {e}")
         
-        del app.processing_results[processing_id]
+        # Store the output file path in processing results for later retrieval
+        app.processing_results[processing_id]['output_file'] = output_filename
         
         mode_description = f"{processing_result['export_mode']}"
         if processing_result['export_mode'] == 'speedup':
@@ -562,6 +563,26 @@ def create_tour():
     except Exception as e:
         print(f"Overlay processing error: {e}")
         return jsonify({'error': f'Failed to add overlays: {str(e)}'}), 500
+
+@app.route('/get_tour_result/<processing_id>')
+def get_tour_result(processing_id):
+    if not hasattr(app, 'processing_results') or processing_id not in app.processing_results:
+        return jsonify({'error': 'Tour result not found'}), 404
+    
+    processing_result = app.processing_results[processing_id]
+    
+    if 'output_file' in processing_result:
+        return jsonify({
+            'success': True,
+            'output_file': processing_result['output_file'],
+            'message': 'Tour created successfully!',
+            'export_mode': processing_result['export_mode'],
+            'speed_factor': processing_result.get('speed_factor'),
+            'quality': processing_result.get('quality'),
+            'segments_count': processing_result.get('segments_count')
+        })
+    else:
+        return jsonify({'error': 'Tour not yet created'}), 404
 
 @app.route('/download/<path:filename>')
 def download_file(filename):
@@ -588,7 +609,8 @@ def edit_page():
     return send_file('templates/edit.html', mimetype='text/html')
 
 @app.route('/delivery')
-def delivery_page():
+@app.route('/delivery/<processing_id>')
+def delivery_page(processing_id=None):
     return send_file('templates/delivery.html', mimetype='text/html')
 
 @app.route('/export')
