@@ -1,69 +1,88 @@
-# AI Real Estate Video Compiler
+# Viewit Video Studio
 
-## Quick Start (Testing Phase)
+A web-based AI-powered video editing platform specifically designed for creating professional property walktrhough videos. 
+
+Features intelligent scene detection, agent branding, background music integration, and Dubai Land Department (DLD) listing verification.
+
+
+## Quick Start
 
 ### 1. Install Dependencies
 ```bash
 pip install -r requirements.txt
 ```
 
-### 2. Test Basic Functionality
+### 2. Set Up API Keys
+Create a `.env` file in the project root:
 
-#### Option A: Multiple Short Clips (Original Mode)
-```bash
-mkdir test_videos
+```env
+OPENAI_API_KEY=your_openai_api_key
 
-# Run the compiler on multiple clips
-python video_compiler.py test_videos --output property_tour.mp4
+FREESOUND_API_KEY=your_freesound_api_key
+
+DLD_USERNAME=your_dld_username
+DLD_PASSWORD=your_dld_password
+# OR
+DLD_BEARER_TOKEN=your_dld_bearer_token
 ```
 
-#### Option B: Single Walkthrough Video (NEW: Auto-Split Mode)
+### 3. Run the Application
 ```bash
-# Auto-split a long walkthrough video into room clips
-python video_compiler.py my_walkthrough.mp4 --split --output final_tour.mp4
-
-# Advanced splitting options
-python video_compiler.py walkthrough.mp4 --split --split-interval 2.0 --min-scene-duration 3.0
+python guided_server.py
 ```
 
-### 3. Current Status
-✅ Video file discovery and validation  
-✅ Real AI scene classification (OpenAI Vision API)
-✅ Intelligent video trimming and assembly
-✅ **NEW: Auto-split walkthrough videos**
+The application will be available at `http://localhost:5000`
 
-### Features
-- **Multiple Clips Mode**: Process folder of short video clips
-- **Walkthrough Mode**: Auto-split long walkthrough videos into scenes
-- **AI Classification**: Real room type detection (exterior, living room, kitchen, bedroom, bathroom)
-- **Smart Trimming**: Remove awkward starts/ends automatically
-- **Professional Assembly**: Logical scene ordering with smooth transitions
-- **Ready Output**: Upload-ready MP4 files
+## Usage Workflow
 
-### Usage Examples
-- `python video_compiler.py clips_folder/` - Process multiple clips
-- `python video_compiler.py walkthrough.mp4 --split` - Auto-split long video
-- Outputs professional property tour videos automatically!
+1. **Upload Video**: Navigate to the upload page and drag/drop your property walkthrough video
+2. **Edit Segments**: Use the interactive editor to select and label video segments or segment with AI
+3. **Add Music**: Search and select background music from Freesound library
+4. **Agent Details**: Add agent/agency information for branding
+5. **Export**: Export your professional walkthrough
+6. **Delivery**: Download or share your completed video
+
+## API Endpoints
+
+The Flask application provides several API endpoints:
+
+- `POST /upload` - Upload video files
+- `POST /ai_segment_detect` - AI-powered scene detection
+- `POST /search_music` - Search background music
+- `POST /start_video_processing` - Begin video processing
+- `POST /verify_listing` - DLD listing verification
+- `GET /delivery/<processing_id>` - Access completed videos
+
+## Technical Architecture
+
+### Core Components
+- **guided_server.py** - Main Flask web server
+- **guided_editor.py** - Video editing logic and segment management
+- **scene_detection.py** - AI-powered room/scene classification
+- **video_processor.py** - Video processing and manipulation
+- **post_processor.py** - Overlays, watermarks, and final output
+- **tour_creator.py** - Video assembly and tour creation
+- **dld_api.py** - Dubai Land Department integration
 
 ### Dependencies
-- Python 3.10+
-- OpenCV (for video analysis)
-- MoviePy (for video editing)
-- OpenAI API (for scene classification) 
+- **Flask** - Web framework and API server
+- **OpenCV** - Video analysis and processing
+- **MoviePy** - Video editing and manipulation
+- **OpenAI** - AI scene classification
 
-## DLD API Credentials
 
-Create a `.env` file (not committed) alongside `guided_server.py` with either:
+## Configuration
 
-```
-DLD_USERNAME=your_api_username
-DLD_PASSWORD=your_api_password
-```
+### Video Processing
+- Supports MP4 format
+- Multiple quality presets (standard, high quality)
+- Variable speed processing (1x to 5x)
 
-or
-
-```
-DLD_BEARER_TOKEN=your_bearer_token
-```
-
-The server automatically loads these at startup (via `python-dotenv`). If you still supply credentials through the listing-verification form, those override the environment values. 
+### AI Scene Detection
+Automatically detects and classifies:
+- Living rooms
+- Kitchens  
+- Bedrooms
+- Bathrooms
+- Exterior views
+- Other room types
