@@ -42,7 +42,9 @@
             setupEventListeners();
             setupGlobalKeyboardShortcuts();
             setupMusicControls();
+            setupFilterControls();
             loadMusicSuggestions();
+            loadFilterPresets();
             
             updateExportButtonState();
         });
@@ -1244,6 +1246,9 @@
             const exportMode = document.querySelector('input[name="exportMode"]:checked').value;
             const speedFactor = document.getElementById('speedSlider').value;
             
+            // Get filter settings
+            const filterSettings = getFilterSettings();
+
             const processingData = {
                 video_id: window.uploadedVideoData.video_id,
                 segments: segments.map(seg => ({
@@ -1255,7 +1260,8 @@
                 speed_factor: parseFloat(speedFactor),
                 quality: exportMode === 'speedup' ? 'standard' : 'professional',
                 music_path: selectedMusicTrack ? selectedMusicTrack.local_path : undefined,
-                music_volume: selectedMusicTrack ? 1.0 : undefined
+                music_volume: selectedMusicTrack ? 1.0 : undefined,
+                filter_settings: filterSettings
             };
 
             console.log('Starting background video processing...', processingData);
@@ -1742,5 +1748,281 @@
             updateTimeline();
             
             closeEditModal();
+        }
+
+        // Video Filter Functions
+        let isPreviewEnabled = true;
+        let currentPreset = 'none';
+
+        function setupFilterControls() {
+            // Setup individual filter sliders
+            const sliders = ['brightnessSlider', 'contrastSlider', 'saturationSlider', 'hueSlider', 'blurSlider', 'sharpenSlider'];
+            sliders.forEach(sliderId => {
+                const slider = document.getElementById(sliderId);
+                if (slider) {
+                    slider.addEventListener('input', updateFilterSlider);
+                }
+            });
+
+            // Setup preset buttons
+            document.querySelectorAll('.preset-btn').forEach(btn => {
+                btn.addEventListener('click', applyFilterPreset);
+            });
+
+            // Initialize video element for preview
+            const videoPlayer = document.getElementById('videoPlayer');
+            if (videoPlayer) {
+                videoPlayer.classList.add('filter-preview-active');
+            }
+        }
+
+        function updateFilterSlider(event) {
+            const slider = event.target;
+            const sliderId = slider.id;
+            const value = parseFloat(slider.value);
+            
+            // Update display value
+            const valueId = sliderId.replace('Slider', 'Value');
+            const valueSpan = document.getElementById(valueId);
+            
+            if (valueSpan) {
+                let displayValue;
+                switch (sliderId) {
+                    case 'brightnessSlider':
+                        displayValue = value.toString();
+                        break;
+                    case 'contrastSlider':
+                        displayValue = (value / 100).toFixed(1);
+                        break;
+                    case 'saturationSlider':
+                        displayValue = (value / 100).toFixed(1);
+                        break;
+                    case 'hueSlider':
+                        displayValue = value + '°';
+                        break;
+                    case 'blurSlider':
+                        displayValue = value.toString();
+                        break;
+                    case 'sharpenSlider':
+                        displayValue = value.toString();
+                        break;
+                    default:
+                        displayValue = value.toString();
+                }
+                valueSpan.textContent = displayValue;
+            }
+
+            // Clear active preset when manually adjusting
+            clearActivePreset();
+            
+            // Apply live preview
+            if (isPreviewEnabled) {
+                applyLivePreview();
+            }
+        }
+
+        function applyFilterPreset(event) {
+            const preset = event.target.dataset.preset;
+            currentPreset = preset;
+            
+            // Clear other active presets
+            document.querySelectorAll('.preset-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            event.target.classList.add('active');
+
+            // Apply preset values to sliders
+            const presets = {
+                warm: {
+                    brightness: 10,
+                    contrast: 110,
+                    saturation: 120,
+                    hue: 15,
+                    blur: 0,
+                    sharpen: 0
+                },
+                cool: {
+                    brightness: 5,
+                    contrast: 115,
+                    saturation: 110,
+                    hue: -15,
+                    blur: 0,
+                    sharpen: 0
+                },
+                vibrant: {
+                    brightness: 10,
+                    contrast: 120,
+                    saturation: 140,
+                    hue: 0,
+                    blur: 0,
+                    sharpen: 20
+                },
+                cinematic: {
+                    brightness: 5,
+                    contrast: 120,
+                    saturation: 110,
+                    hue: 5,
+                    blur: 0,
+                    sharpen: 10
+                },
+                vintage: {
+                    brightness: 15,
+                    contrast: 130,
+                    saturation: 80,
+                    hue: 20,
+                    blur: 1,
+                    sharpen: 0
+                }
+            };
+
+            if (presets[preset]) {
+                const values = presets[preset];
+                document.getElementById('brightnessSlider').value = values.brightness;
+                document.getElementById('contrastSlider').value = values.contrast;
+                document.getElementById('saturationSlider').value = values.saturation;
+                document.getElementById('hueSlider').value = values.hue;
+                document.getElementById('blurSlider').value = values.blur;
+                document.getElementById('sharpenSlider').value = values.sharpen;
+
+                // Update all display values
+                updateAllDisplayValues();
+                
+                // Apply live preview
+                if (isPreviewEnabled) {
+                    applyLivePreview();
+                }
+            }
+        }
+
+        function clearActivePreset() {
+            currentPreset = 'none';
+            document.querySelectorAll('.preset-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+        }
+
+        function updateAllDisplayValues() {
+            const sliders = ['brightnessSlider', 'contrastSlider', 'saturationSlider', 'hueSlider', 'blurSlider', 'sharpenSlider'];
+            sliders.forEach(sliderId => {
+                const slider = document.getElementById(sliderId);
+                if (slider) {
+                    updateFilterSlider({ target: slider });
+                }
+            });
+        }
+
+        function applyLivePreview() {
+            const videoPlayer = document.getElementById('videoPlayer');
+            if (!videoPlayer) return;
+
+            // Get current values
+            const brightness = parseInt(document.getElementById('brightnessSlider').value);
+            const contrast = parseInt(document.getElementById('contrastSlider').value);
+            const saturation = parseInt(document.getElementById('saturationSlider').value);
+            const hue = parseInt(document.getElementById('hueSlider').value);
+            const blur = parseInt(document.getElementById('blurSlider').value);
+            const sharpen = parseInt(document.getElementById('sharpenSlider').value);
+
+            // Build CSS filter string
+            let filterString = '';
+            
+            if (brightness !== 0) {
+                filterString += `brightness(${1 + (brightness / 100)}) `;
+            }
+            if (contrast !== 100) {
+                filterString += `contrast(${contrast / 100}) `;
+            }
+            if (saturation !== 100) {
+                filterString += `saturate(${saturation / 100}) `;
+            }
+            if (hue !== 0) {
+                filterString += `hue-rotate(${hue}deg) `;
+            }
+            if (blur > 0) {
+                filterString += `blur(${blur}px) `;
+            }
+
+            // Apply CSS filters
+            videoPlayer.style.filter = filterString.trim();
+        }
+
+        function toggleFilterPreview() {
+            isPreviewEnabled = !isPreviewEnabled;
+            const toggleBtn = document.getElementById('togglePreviewBtn');
+            const videoPlayer = document.getElementById('videoPlayer');
+            
+            if (isPreviewEnabled) {
+                toggleBtn.style.color = '#3b82f6';
+                applyLivePreview();
+            } else {
+                toggleBtn.style.color = '#ccc';
+                if (videoPlayer) {
+                    videoPlayer.style.filter = '';
+                }
+            }
+        }
+
+        function resetAllFilters() {
+            // Reset all sliders to default
+            document.getElementById('brightnessSlider').value = 0;
+            document.getElementById('contrastSlider').value = 100;
+            document.getElementById('saturationSlider').value = 100;
+            document.getElementById('hueSlider').value = 0;
+            document.getElementById('blurSlider').value = 0;
+            document.getElementById('sharpenSlider').value = 0;
+
+            // Clear active preset
+            clearActivePreset();
+            
+            // Update display values
+            updateAllDisplayValues();
+            
+            // Reset video preview
+            const videoPlayer = document.getElementById('videoPlayer');
+            if (videoPlayer) {
+                videoPlayer.style.filter = '';
+            }
+        }
+
+        function getFilterSettings() {
+            const settings = {
+                preset: currentPreset,
+                custom: {}
+            };
+            
+            // Get current slider values
+            const brightness = (parseInt(document.getElementById('brightnessSlider').value) - 0) / 100;
+            const contrast = parseInt(document.getElementById('contrastSlider').value) / 100;
+            const saturation = parseInt(document.getElementById('saturationSlider').value) / 100;
+            const hue = parseInt(document.getElementById('hueSlider').value);
+            const blur = parseInt(document.getElementById('blurSlider').value);
+            const sharpen = parseInt(document.getElementById('sharpenSlider').value);
+            
+            // Include non-default values
+            if (brightness !== 0) settings.custom.brightness = brightness;
+            if (contrast !== 1.0) settings.custom.contrast = contrast;
+            if (saturation !== 1.0) settings.custom.saturation = saturation;
+            if (hue !== 0) settings.custom.hue = hue;
+            if (blur > 0) settings.custom.blur = blur;
+            if (sharpen > 0) settings.custom.sharpness = sharpen / 100;
+            
+            return settings;
+        }
+
+        // Load filter presets from backend (keeping for backend integration)
+        async function loadFilterPresets() {
+            try {
+                const response = await fetch('/get_filter_presets');
+                const result = await response.json();
+                
+                if (result.success && result.presets) {
+                    console.log('Filter presets loaded from backend:', result.presets);
+                    // Presets are now handled by preset buttons, but we keep this for backend sync
+                } else {
+                    console.error('Failed to load filter presets:', result.error);
+                }
+            } catch (error) {
+                console.error('Error loading filter presets:', error);
+            }
         }
 

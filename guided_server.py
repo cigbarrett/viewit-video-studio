@@ -5,6 +5,7 @@ import os
 import tempfile
 from datetime import datetime
 from guided_editor import GuidedVideoEditor
+from video_filters import get_available_presets
 import subprocess
 from dld_api import fetch_listing_details
 from dotenv import load_dotenv 
@@ -271,7 +272,21 @@ def download_music():
         print(f"Music download error: {e}")
         return jsonify({'error': 'Music download failed'}), 500
 
-
+@app.route('/get_filter_presets', methods=['GET'])
+def get_filter_presets():
+    """Get available video filter presets"""
+    try:
+        presets = get_available_presets()
+        return jsonify({
+            'success': True,
+            'presets': presets
+        })
+    except Exception as e:
+        print(f"Error getting filter presets: {e}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
 
 @app.route('/start_video_processing', methods=['POST'])
 def start_video_processing():
@@ -283,6 +298,7 @@ def start_video_processing():
     quality = data.get('quality', 'standard')
     music_path = data.get('music_path')
     music_volume = data.get('music_volume', 1.0)
+    filter_settings = data.get('filter_settings', {'preset': 'none'})
     
     if not segments:
         return jsonify({'error': 'No segments provided'}), 400
@@ -337,6 +353,7 @@ def start_video_processing():
                 )
             
             print(f"Background processing: mode={export_mode}, quality={quality}, speed={speed_factor}x")
+            print(f"Filter settings received: {filter_settings}")
             
             if export_mode == 'segments':
                 success = editor.create_tour(temp_filename, quality=quality)
@@ -350,6 +367,26 @@ def start_video_processing():
                 app.processing_results[processing_id]['error'] = 'Failed to process video segments'
                 save_processing_results()
                 return
+            
+            should_apply_filters = (
+                filter_settings and (
+                    filter_settings.get('preset', 'none') != 'none' or 
+                    filter_settings.get('custom', {})  
+                )
+            )
+            
+            if should_apply_filters:
+                print(f"Applying video filters: {filter_settings}")
+                filtered_filename = os.path.join(temp_dir, f'filtered_{timestamp}.mp4')
+                
+                filter_success = editor.apply_video_filters(temp_filename, filtered_filename, filter_settings)
+                if filter_success:
+                    if os.path.exists(temp_filename):
+                        os.remove(temp_filename)
+                    os.rename(filtered_filename, temp_filename)
+                    print("Video filters applied successfully")
+                else:
+                    print("Failed to apply video filters - continuing with unfiltered video")
             
             if music_path and os.path.exists(music_path):
                 print(f"Adding music overlay: {music_path} (volume: {music_volume})")

@@ -13,6 +13,7 @@ from scene_detection import detect_scene_label, classify_image_scene
 from video_processor import extract_clip_simple, extract_clip_hq, combine_clips, combine_clips_hq
 from tour_creator import create_tour_simple, create_speedup_tour_simple, create_tour
 from post_processor import add_qr_overlay, add_music_overlay, add_agent_watermark, add_combined_overlays
+from video_filters import apply_video_filters
 
 class GuidedVideoEditor:
     
@@ -80,6 +81,10 @@ class GuidedVideoEditor:
 
     def add_combined_overlays(self, input_video, agent_name, agency_name, agent_phone=None, qr_image_path=None, qr_position='top_right', output_path=None):
         return add_combined_overlays(input_video, agent_name, agency_name, agent_phone, qr_image_path, qr_position, output_path)
+
+    def apply_video_filters(self, input_video, output_video, filter_settings):
+        """Apply video filters to the compiled video"""
+        return apply_video_filters(input_video, output_video, filter_settings)
 
     def get_video_info(self):
         return self.video_info
