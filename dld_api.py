@@ -15,29 +15,7 @@ def fetch_listing_details(
     auth_token: Optional[str] = None,
     username: Optional[str] = None,
     password: Optional[str] = None,
-) -> Tuple[Dict[str, Any], str]:
-    """Query the DLD API and save the returned base-64 QR image to disk.
-
-    Parameters
-    ----------
-    trade_license_number : str
-        The brokerage's trade licence number.
-    listing_number : str
-        The Trakheesi permit / listing number.
-    auth_token : str
-        Bearer token for the DLD API.
-
-    Returns
-    -------
-    Tuple[Dict[str, Any], str]
-        1. The full JSON payload returned by the API (already parsed).
-        2. Absolute path to the written PNG containing the QR code.
-
-    Raises
-    ------
-    RuntimeError
-        If the API returns an error or the request fails.
-    """
+) ->Tuple[Dict[str, Any], str]:
     headers: Dict[str, str] = {
         "Content-Type": "application/json",
     }

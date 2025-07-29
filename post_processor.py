@@ -38,10 +38,10 @@ def add_qr_overlay(input_video, qr_image_path, output_path=None, position='botto
         '-y', output_path
     ]
     print(f"Overlaying QR code → {output_path}")
-    print(f"DEBUG: QR overlay FFmpeg command: {' '.join(cmd)}")
+    print(f"QR overlay FFmpeg command: {' '.join(cmd)}")
     try:
         result = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
-        print(f"DEBUG: QR overlay return code: {result.returncode}")
+        print(f"QR overlay return code: {result.returncode}")
         if result.returncode != 0:
             print(f"QR overlay failed: {result.stderr[-300:]}")
             print("Trying fallback method with reduced quality...")
@@ -78,8 +78,8 @@ def add_qr_overlay(input_video, qr_image_path, output_path=None, position='botto
 def add_combined_overlays(input_video, agent_name, agency_name, agent_phone=None, qr_image_path=None, qr_position='top_right', output_path=None):
 
     input_video = str(input_video)
-    print(f"DEBUG: Combined overlays function called with: '{agent_name}' @ '{agency_name}' | {agent_phone}, QR: {qr_image_path}")
-    print(f"DEBUG: Input video: {input_video}")
+    print(f"Combined overlays function called with: '{agent_name}' @ '{agency_name}' | {agent_phone}, QR: {qr_image_path}")
+    print(f"Input video: {input_video}")
     
     if not os.path.exists(input_video):
         print(f"Video not found for combined overlays: {input_video}")
@@ -98,14 +98,14 @@ def add_combined_overlays(input_video, agent_name, agency_name, agent_phone=None
         base, ext = os.path.splitext(input_video)
         output_path = f"{base}_combined{ext}"
     
-    print(f"DEBUG: Output path: {output_path}")
-    print(f"DEBUG: Replace in place: {replace_in_place}")
+    print(f"Output path: {output_path}")
+    print(f"Replace in place: {replace_in_place}")
     
     try:
         agent_display = agent_name.replace('_', ' ').title()
         agency_display = agency_name.replace('_', ' ').title()
         
-        print(f"DEBUG: Display names: '{agent_display}' @ '{agency_display}' | {agent_phone}")
+        print(f"Display names: '{agent_display}' @ '{agency_display}' | {agent_phone}")
         
         if qr_image_path:
             pos_map = {
@@ -117,17 +117,21 @@ def add_combined_overlays(input_video, agent_name, agency_name, agent_phone=None
             x_expr, y_expr = pos_map.get(qr_position, ('W-w-30', '30'))
             
             text_overlays = [
-                f"drawtext=text='{agent_display}':fontfile=/Windows/Fonts/arialbd.ttf:"
-                f"fontsize=72:fontcolor=white:shadowcolor=black:shadowx=4:shadowy=2:"
-                f"x=50:y=150",
-                f"drawtext=text='{agency_display}':fontfile=/Windows/Fonts/arialbd.ttf:"
-                f"fontsize=48:fontcolor=white:shadowcolor=black:shadowx=3:shadowy=2:"
-                f"x=50:y=230"
+                f"drawtext=text='{agent_display}':"
+                f"fontfile=/Windows/Fonts/segoeuib.ttf:fontsize=64:"
+                f"fontcolor=white:shadowcolor=black@0.7:shadowx=2:shadowy=2:"
+                f"x=50:y=H*0.75",
+
+                f"drawtext=text='{agency_display}':"
+                f"fontfile=/Windows/Fonts/segoeuib.ttf:fontsize=44:"
+                f"fontcolor=white:shadowcolor=black@0.5:shadowx=2:shadowy=2:"
+                f"x=50:y=H*0.75+70"
             ]
+
             
             if agent_phone:
                 text_overlays.append(
-                    f"drawtext=text='{agent_phone}':fontfile=/Windows/Fonts/arialbd.ttf:"
+                    f"drawtext=text='{agent_phone}':fontfile=/Windows/Fonts/segoeuib.ttf:"
                     f"fontsize=42:fontcolor=white:shadowcolor=black:shadowx=3:shadowy=2:"
                     f"x=50:y=300"
                 )
@@ -160,18 +164,18 @@ def add_combined_overlays(input_video, agent_name, agency_name, agent_phone=None
             
         else:
             text_overlays = [
-                f"drawtext=text='{agent_display}':fontfile=/Windows/Fonts/arialbd.ttf:"
-                f"fontsize=72:fontcolor=white:shadowcolor=black:shadowx=4:shadowy=2:"
+                f"drawtext=text='{agent_display}':fontfile=/Windows/Fonts/segoeuib.ttf:"
+                f"fontsize=48:fontcolor=white:shadowcolor=black:shadowx=1:shadowy=0:"
                 f"x=50:y=150",
-                f"drawtext=text='{agency_display}':fontfile=/Windows/Fonts/arialbd.ttf:"
-                f"fontsize=48:fontcolor=white:shadowcolor=black:shadowx=3:shadowy=2:"
+                f"drawtext=text='{agency_display}':fontfile=/Windows/Fonts/segoeuib.ttf:"
+                f"fontsize=48:fontcolor=white:shadowcolor=black:shadowx=1:shadowy=0:"
                 f"x=50:y=230"
             ]
             
             if agent_phone:
                 text_overlays.append(
-                    f"drawtext=text='{agent_phone}':fontfile=/Windows/Fonts/arialbd.ttf:"
-                    f"fontsize=42:fontcolor=white:shadowcolor=black:shadowx=3:shadowy=2:"
+                    f"drawtext=text='{agent_phone}':fontfile=/Windows/Fonts/segoeuib.ttf:"
+                    f"fontsize=42:fontcolor=white:shadowcolor=black:shadowx=1:shadowy=0:"
                     f"x=50:y=300"
                 )
             
@@ -194,15 +198,15 @@ def add_combined_overlays(input_video, agent_name, agency_name, agent_phone=None
             ]
             print(f"Memory-optimized agent watermark: '{agent_name}' @ '{agency_name}' | {agent_phone} → {output_path}")
         
-        print(f"DEBUG: Memory-optimized combined FFmpeg command: {' '.join(cmd)}")
+        print(f"Memory-optimized combined FFmpeg command: {' '.join(cmd)}")
         
         result = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
         
-        print(f"DEBUG: Combined FFmpeg return code: {result.returncode}")
+        print(f"Combined FFmpeg return code: {result.returncode}")
         if result.stdout:
-            print(f"DEBUG: Combined FFmpeg stdout: {result.stdout[-200:]}")
+            print(f"Combined FFmpeg stdout: {result.stdout[-200:]}")
         if result.stderr:
-            print(f"DEBUG: Combined FFmpeg stderr: {result.stderr[-300:]}")
+            print(f"Combined FFmpeg stderr: {result.stderr[-300:]}")
         
         if result.returncode != 0:
             print(f"Combined overlays failed, trying fallback...")
@@ -289,7 +293,7 @@ def add_combined_overlays(input_video, agent_name, agency_name, agent_phone=None
         print(f"Combined overlays failed: output file too small ({output_size} bytes)")
         return False
         
-    print(f"DEBUG: File sizes - Input: {input_size}, Output: {output_size}")
+    print(f"File sizes - Input: {input_size}, Output: {output_size}")
     
     if output_size < (input_size * 0.8):
         print(f"Warning: Output file significantly smaller than input ({output_size} vs {input_size})")
@@ -298,11 +302,11 @@ def add_combined_overlays(input_video, agent_name, agency_name, agent_phone=None
     
     if replace_in_place:
         try:
-            print(f"DEBUG: Replacing original file: {output_path} → {input_video}")
-            print(f"DEBUG: Combined overlays file size: {os.path.getsize(output_path)}")
+            print(f"Replacing original file: {output_path} → {input_video}")
+            print(f"Combined overlays file size: {os.path.getsize(output_path)}")
             os.replace(output_path, input_video)
             print(f"In-place combined overlays complete")
-            print(f"DEBUG: Final file size: {os.path.getsize(input_video)}")
+            print(f"Final file size: {os.path.getsize(input_video)}")
             return True
         except OSError as exc:
             print(f"Could not replace original video: {exc}")
@@ -328,7 +332,7 @@ def _qr_overlay_fallback(input_video, qr_image_path, output_path, x_expr, y_expr
         '-y', output_path
     ]
     
-    print(f"DEBUG: QR fallback FFmpeg command: {' '.join(cmd)}")
+    print(f"QR fallback FFmpeg command: {' '.join(cmd)}")
     try:
         result = subprocess.run(cmd, capture_output=True, text=True, timeout=180)
         if result.returncode != 0:
@@ -432,8 +436,8 @@ def add_music_overlay(input_video, music_path, volume=0.3, output_path=None):
 
 def add_agent_watermark(input_video, agent_name, agency_name, agent_phone=None, output_path=None):
     input_video = str(input_video)
-    print(f"DEBUG: Watermark function called with: '{agent_name}' @ '{agency_name}' | {agent_phone}")
-    print(f"DEBUG: Input video: {input_video}")
+    print(f"Watermark function called with: '{agent_name}' @ '{agency_name}' | {agent_phone}")
+    print(f"Input video: {input_video}")
     
     if not os.path.exists(input_video):
         print(f"Video not found for agent watermark: {input_video}")
@@ -448,39 +452,39 @@ def add_agent_watermark(input_video, agent_name, agency_name, agent_phone=None, 
         base, ext = os.path.splitext(input_video)
         output_path = f"{base}_agent{ext}"
     
-    print(f"DEBUG: Output path: {output_path}")
-    print(f"DEBUG: Replace in place: {replace_in_place}")
+    print(f"Output path: {output_path}")
+    print(f"Replace in place: {replace_in_place}")
     
     agent_clean = agent_name.replace("'", "\\'").replace(":", "\\:")
     agency_clean = agency_name.replace("'", "\\'").replace(":", "\\:")
     phone_clean = agent_phone.replace("'", "\\'").replace(":", "\\:") if agent_phone else None
-    print(f"DEBUG: Cleaned names: '{agent_clean}' @ '{agency_clean}' | {phone_clean}")
+    print(f"Cleaned names: '{agent_clean}' @ '{agency_clean}' | {phone_clean}")
     
     try:
         agent_display = agent_name.replace('_', ' ').title()
         agency_display = agency_name.replace('_', ' ').title()
         
-        print(f"DEBUG: Display names: '{agent_display}' @ '{agency_display}' | {agent_phone}")
+        print(f"Display names: '{agent_display}' @ '{agency_display}' | {agent_phone}")
         
         text_overlays = [
-            f"drawtext=text='{agent_display}':fontfile=/Windows/Fonts/arialbd.ttf:"
+            f"drawtext=text='{agent_display}':fontfile=/Windows/Fonts/segoeuib.ttf:"
             f"fontsize=48:fontcolor=white:shadowcolor=black:shadowx=3:shadowy=1:"
             f"x=50:y=150",
-            f"drawtext=text='{agency_display}':fontfile=/Windows/Fonts/arialbd.ttf:"
+            f"drawtext=text='{agency_display}':fontfile=/Windows/Fonts/segoeuib.ttf:"
             f"fontsize=32:fontcolor=white:shadowcolor=black:shadowx=3:shadowy=1:"
             f"x=50:y=200"
         ]
         
         if agent_phone:
             text_overlays.append(
-                f"drawtext=text='{agent_phone}':fontfile=/Windows/Fonts/arialbd.ttf:"
+                f"drawtext=text='{agent_phone}':fontfile=/Windows/Fonts/segoeuib.ttf:"
                 f"fontsize=28:fontcolor=white:shadowcolor=black:shadowx=3:shadowy=1:"
                 f"x=50:y=240"
             )
         
         text_overlay = ",".join(text_overlays)
         
-        print(f"DEBUG: Using watermark overlay: {text_overlay}")
+        print(f"Using watermark overlay: {text_overlay}")
         
         cmd = [
             'ffmpeg', 
@@ -495,15 +499,15 @@ def add_agent_watermark(input_video, agent_name, agency_name, agent_phone=None, 
         ]
         
         print(f"Adding agent watermark: '{agent_name}' @ '{agency_name}' | {agent_phone} → {output_path}")
-        print(f"DEBUG: FFmpeg command: {' '.join(cmd)}")
+        print(f"FFmpeg command: {' '.join(cmd)}")
         
         result = subprocess.run(cmd, capture_output=True, text=True, timeout=180)
         
-        print(f"DEBUG: FFmpeg return code: {result.returncode}")
+        print(f"FFmpeg return code: {result.returncode}")
         if result.stdout:
-            print(f"DEBUG: FFmpeg stdout: {result.stdout[-200:]}")
+            print(f"FFmpeg stdout: {result.stdout[-200:]}")
         if result.stderr:
-            print(f"DEBUG: FFmpeg stderr: {result.stderr[-300:]}")
+            print(f"FFmpeg stderr: {result.stderr[-300:]}")
         
         if result.returncode != 0:
             print(f"Agent watermark failed with font, trying without font...")
@@ -562,7 +566,7 @@ def add_agent_watermark(input_video, agent_name, agency_name, agent_phone=None, 
         print(f"Agent watermark failed: output file too small ({output_size} bytes)")
         return False
         
-    print(f"DEBUG: File sizes - Input: {input_size}, Output: {output_size}")
+    print(f"File sizes - Input: {input_size}, Output: {output_size}")
     
     if output_size < (input_size * 0.8):
         print(f"Warning: Output file significantly smaller than input ({output_size} vs {input_size})")
@@ -571,11 +575,11 @@ def add_agent_watermark(input_video, agent_name, agency_name, agent_phone=None, 
     
     if replace_in_place:
         try:
-            print(f"DEBUG: Replacing original file: {output_path} → {input_video}")
-            print(f"DEBUG: Watermarked file size: {os.path.getsize(output_path)}")
+            print(f"Replacing original file: {output_path} → {input_video}")
+            print(f"Watermarked file size: {os.path.getsize(output_path)}")
             os.replace(output_path, input_video)
             print(f"In-place agent watermark complete")
-            print(f"DEBUG: Final file size: {os.path.getsize(input_video)}")
+            print(f"Final file size: {os.path.getsize(input_video)}")
             return True
         except OSError as exc:
             print(f"Could not replace original video: {exc}")

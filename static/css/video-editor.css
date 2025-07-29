@@ -71,114 +71,187 @@
 }
 
 .timeline-container {
-    background: rgba(255, 255, 255, 0.05);
+    margin-top: 20px;
     padding: 20px;
-    border-radius: 8px;
-    margin: 16px 0;
+    background: linear-gradient(145deg, #1a1a1a 0%, #0f0f0f 100%);
+    border-radius: 12px;
+    border: 1px solid #333;
+}
+
+.timeline-container h4 {
+    margin: 0 0 15px 0;
+    color: #fff;
+    font-size: 16px;
+    font-weight: 600;
 }
 
 .timeline {
     position: relative;
-    height: 120px;
-    background: linear-gradient(to bottom, #0c0c0c 0%, #1a1a1a 50%, #0c0c0c 100%);
-    border-radius: 6px;
-    border: 2px solid #0A3696;
-    cursor: crosshair;
+    width: 100%;
+    height: 40px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    cursor: pointer;
     overflow: hidden;
+    transition: all 0.3s ease;
+}
+
+.timeline:hover {
+    background: rgba(255, 255, 255, 0.15);
+}
+
+.timeline.scrubbing {
+    background: rgba(75, 145, 247, 0.2);
+    cursor: grabbing;
+    transform: scale(1.02);
+    box-shadow: 0 0 20px rgba(75, 145, 247, 0.3);
 }
 
 .timeline-track {
-    position: absolute;
-    top: 0;
-    left: 0;
+    position: relative;
     width: 100%;
     height: 100%;
+    border-radius: 8px;
+    overflow: hidden;
 }
 
 .timeline-segment {
     position: absolute;
     height: 100%;
+    background: linear-gradient(135deg, #4CAF50, #45a049);
     border-radius: 6px;
-    border: 2px solid #fff;
-    cursor: move;
     display: flex;
     align-items: center;
     justify-content: center;
     color: white;
     font-weight: bold;
-    font-size: 13px;
-    transition: all 0.3s ease;
-    text-shadow: 1px 1px 2px rgba(0,0,0,0.8);
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
 }
 
 .timeline-segment:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(255, 255, 255, 0.3);
+    transform: scale(1.05) translateY(-1px);
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4);
+    z-index: 15;
 }
 
 .timeline-segment.kitchen { 
-    background: linear-gradient(135deg, #ffb300, #ff8f00); 
+    background: linear-gradient(135deg, #FF9800, #F57C00);
 }
 
 .timeline-segment.bedroom { 
-    background: linear-gradient(135deg, #7cb342, #689f38); 
+    background: linear-gradient(135deg, #2196F3, #1976D2);
 }
 
 .timeline-segment.bathroom { 
-    background: linear-gradient(135deg, #42a5f5, #1e88e5); 
+    background: linear-gradient(135deg, #9C27B0, #7B1FA2);
 }
 
 .timeline-segment.living_room { 
-    background: linear-gradient(135deg, #00acc1, #0097a7); 
+    background: linear-gradient(135deg, #4CAF50, #388E3C);
 }
 
 .timeline-segment.closet { 
-    background: linear-gradient(135deg, #ab47bc, #8e24aa); 
+    background: linear-gradient(135deg, #795548, #5D4037);
 }
 
 .timeline-segment.exterior { 
-    background: linear-gradient(135deg, #e53935, #d32f2f); 
+    background: linear-gradient(135deg, #607D8B, #455A64);
 }
 
 .timeline-segment.office { 
-    background: linear-gradient(135deg, #5e35b1, #4527a0); 
+    background: linear-gradient(135deg, #FF5722, #D84315);
 }
 
 .timeline-segment.common_area { 
-    background: linear-gradient(135deg, #6d4c41, #5d4037); 
+    background: linear-gradient(135deg, #00BCD4, #0097A7);
 }
 
 .timeline-segment.dining_room { 
-    background: linear-gradient(135deg, #f57c00, #ef6c00); 
+    background: linear-gradient(135deg, #E91E63, #C2185B);
 }
 
 .timeline-segment.balcony { 
-    background: linear-gradient(135deg, #26a69a, #00695c); 
+    background: linear-gradient(135deg, #8BC34A, #689F38);
 }
 
 .timeline-segment.unlabeled { 
-    background: linear-gradient(135deg, #78909c, #607d8b); 
+    background: linear-gradient(135deg, #9E9E9E, #757575);
 }
 
 .playhead {
     position: absolute;
     top: 0;
+    left: 0%;
     width: 3px;
     height: 100%;
-    background: linear-gradient(to bottom, #00ff88, #ff4444);
+    background: #FF5722;
+    border-radius: 2px;
+    z-index: 20;
+    box-shadow: 0 0 8px rgba(255, 87, 34, 0.6);
+    transition: left 0.1s ease;
     pointer-events: none;
-    z-index: 100;
-    border-radius: 1px;
-    box-shadow: 0 0 4px rgba(0, 255, 136, 0.8);
+}
+
+.timeline.scrubbing .playhead {
+    background: #00BCD4;
+    box-shadow: 0 0 12px rgba(0, 188, 212, 0.8);
+    width: 4px;
 }
 
 .timeline-markers {
     display: flex;
     justify-content: space-between;
-    margin-top: 10px;
+    margin-top: 8px;
     font-size: 11px;
     color: #888;
     font-family: 'Courier New', monospace;
+}
+
+.timeline-markers span {
+    flex: 1;
+    text-align: center;
+    padding: 2px;
+}
+
+/* Enhanced scrubbing feedback */
+.timeline.scrubbing .timeline-track {
+    background: rgba(75, 145, 247, 0.1);
+}
+
+.timeline.scrubbing .timeline-segment {
+    opacity: 0.8;
+    transform: scale(0.98);
+}
+
+/* Smooth transitions for all timeline elements */
+.timeline-segment,
+.playhead,
+.timeline {
+    transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Hover effects for better interactivity */
+.timeline:hover .playhead {
+    box-shadow: 0 0 12px rgba(255, 87, 34, 0.8);
+}
+
+.timeline-segment:hover {
+    transform: scale(1.05) translateY(-1px);
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4);
+    z-index: 15;
+}
+
+/* Cursor feedback during scrubbing */
+.timeline.scrubbing {
+    cursor: grabbing !important;
+}
+
+.timeline:not(.scrubbing):hover {
+    cursor: pointer;
 }
 
 .segment-selection {
@@ -210,7 +283,49 @@
 
 .segment-actions {
     display: flex;
-    gap: 12px;
+    gap: 8px;
+    align-items: center;
+}
+
+.segment-actions .btn {
+    background: transparent;
+    border: none;
+    color: #fff;
+    padding: 8px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 32px;
+    height: 32px;
+}
+
+.segment-actions .btn:hover {
+    background: rgba(255, 255, 255, 0.1);
+    transform: scale(1.1);
+}
+
+.segment-actions .btn-primary {
+    color: #2196f3;
+}
+
+.segment-actions .btn-primary:hover {
+    background: rgba(33, 150, 243, 0.1);
+}
+
+.segment-actions .btn-danger {
+    color: #f44336;
+}
+
+.segment-actions .btn-danger:hover {
+    background: rgba(244, 67, 54, 0.1);
+}
+
+.segment-actions svg {
+    width: 16px;
+    height: 16px;
 }
 
 .segments-panel {
@@ -315,7 +430,7 @@
 }
 
 .music-header h4::before {
-    content: "♪";
+    content: "";
     font-size: 1.1rem;
     font-weight: bold;
     color: #4B91F7;
@@ -447,26 +562,24 @@
 }
 
 .music-card-play {
-    background: linear-gradient(145deg, #0A3696, #1e4db7);
+    background: transparent;
     border: none;
-    color: white;
-    width: 28px;
-    height: 28px;
+    color: #4B91F7;
+    width: 32px;
+    height: 32px;
     border-radius: 50%;
     cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 10px;
     transition: all 0.3s ease;
-    box-shadow: 0 1px 4px rgba(10, 54, 150, 0.3);
     flex-shrink: 0;
 }
 
 .music-card-play:hover {
-    background: linear-gradient(145deg, #1e4db7, #2855d1);
+    background: rgba(75, 145, 247, 0.1);
     transform: scale(1.1);
-    box-shadow: 0 4px 12px rgba(10, 54, 150, 0.4);
+    color: #00ff88;
 }
 
 .music-card-details {

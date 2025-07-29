@@ -17,7 +17,7 @@ def extract_clip_simple(video_path, video_info, start, end, output, room_type=No
             display_text = room_type.replace('_', ' ').upper()
             fontsize = max(width // 25, 90)
             text_overlay = (
-                f"drawtext=text='{display_text}':fontfile=/Windows/Fonts/arialbd.ttf:"
+                f"drawtext=text='{display_text}':fontfile=/Windows/Fonts/segoeuib.ttf:"
                 f"fontsize={fontsize * 1.5}:fontcolor=white:shadowcolor=black:shadowx=3:shadowy=1:"
                 f"x=(w-text_w)/2:y=h-text_h-250"
             )
@@ -35,11 +35,11 @@ def extract_clip_simple(video_path, video_info, start, end, output, room_type=No
             '-preset', 'veryfast',
             '-crf', '23',
             '-maxrate', '5M',
-            '-bufsize', '5M',  # Reduced from 10M
+            '-bufsize', '5M',   
             '-avoid_negative_ts', 'make_zero',
             '-threads', '2',
-            '-tune', 'fastdecode',  # Memory optimization
-            '-x264-params', 'ref=1:subme=1:me=hex:trellis=0'  # Low memory x264 settings
+            '-tune', 'fastdecode',  
+            '-x264-params', 'ref=1:subme=1:me=hex:trellis=0'  
         ] + filter_arg + ['-y', output]
         
         print(f"Memory-optimized clip: {start:.1f}s-{end:.1f}s → {output}")
@@ -81,7 +81,6 @@ def extract_clip_hq(video_path, video_info, start, end, output, speed_factor=1.0
             '-threads', quality_settings.get('threads', '2')
         ]
         
-        # Memory-optimized x264 parameters
         if quality_settings.get('memory_optimized', False):
             cmd.extend([
                 '-tune', 'fastdecode',
@@ -96,7 +95,7 @@ def extract_clip_hq(video_path, video_info, start, end, output, speed_factor=1.0
             display_text = room_type.replace('_', ' ').upper()
             fontsize = max(width // 25, 48)
             text_filter = (
-                f"drawtext=text='{display_text}':fontfile=/Windows/Fonts/arialbd.ttf:"
+                f"drawtext=text='{display_text}':fontfile=/Windows/Fonts/segoeuib.ttf:"
                 f"fontsize={fontsize * 1.5}:fontcolor=white:shadowcolor=black:shadowx=3:shadowy=1:"
                 f"x=(w-text_w)/2:y=h-text_h-250"
             )
@@ -105,7 +104,7 @@ def extract_clip_hq(video_path, video_info, start, end, output, speed_factor=1.0
         if silent_mode:
             cmd.extend(['-an'])
         else:
-            cmd.extend(['-c:a', 'aac', '-b:a', '192k'])  # Reduced from 256k
+            cmd.extend(['-c:a', 'aac', '-b:a', '192k'])  
         
         cmd.extend(['-y', output])
         
@@ -143,7 +142,7 @@ def extract_speedup_clip_fast(video_path, video_info, start, end, output, speed_
             display_text = room_type.replace('_', ' ').upper()
             fontsize = max(36, width // 40)  
             text_overlay = (
-                f"drawtext=text='{display_text}':fontfile=/Windows/Fonts/arialbd.ttf:"
+                f"drawtext=text='{display_text}':fontfile=/Windows/Fonts/segoeuib.ttf:"
                 f"fontsize={fontsize * 1.5}:fontcolor=white:shadowcolor=black:shadowx=3:shadowy=1:"
                 f"x=(w-text_w)/2:y=h-text_h-250"
             )
@@ -159,11 +158,11 @@ def extract_speedup_clip_fast(video_path, video_info, start, end, output, speed_
             '-c:v', 'libx264',
             '-preset', 'veryfast',
             '-crf', '30',
-            '-maxrate', '6M',  # Reduced from 8M
-            '-bufsize', '6M',  # Reduced from 16M
-            '-threads', '2',   # Reduced from 4
-            '-tune', 'fastdecode',  # Memory optimization
-            '-x264-params', 'ref=1:subme=1:me=hex:trellis=0',  # Low memory settings
+            '-maxrate', '6M',  
+            '-bufsize', '6M',  
+            '-threads', '2',  
+            '-tune', 'fastdecode',  
+            '-x264-params', 'ref=1:subme=1:me=hex:trellis=0',  
             '-movflags', '+faststart',
             '-y', output
         ]
@@ -327,7 +326,7 @@ def combine_clips_hq(clips, output, quality_settings):
             '-threads', quality_settings.get('threads', '2'),  
             '-movflags', '+faststart',
             '-avoid_negative_ts', 'make_zero',
-            '-an',  # Remove audio to make silent video for music overlay
+            '-an',  
             '-y', output
         ]
         

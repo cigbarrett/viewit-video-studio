@@ -21,7 +21,7 @@ class GuidedVideoEditor:
         self.video_info = get_video_info(self.video_path)
         self.user_segments = []
     
-    def add_segment(self, start_time, end_time, label=None):
+    def add_segment(self, start_time, end_time, label=None, speed_factor=1.0):
         if start_time < 0 or end_time > self.video_info['duration']:
             print(f" Invalid time range")
             return False
@@ -37,11 +37,12 @@ class GuidedVideoEditor:
             'start_time': start_time,
             'end_time': end_time,
             'duration': end_time - start_time,
-            'label': label
+            'label': label,
+            'speed_factor': speed_factor
         }
 
         self.user_segments.append(segment)
-        print(f"Added: {start_time:.1f}s - {end_time:.1f}s ({label})")
+        print(f"Added: {start_time:.1f}s - {end_time:.1f}s ({label}) [speed: {speed_factor}x]")
         return True
 
     def create_tour_simple(self, output_path="guided_tour.mp4"):

@@ -1,21 +1,17 @@
-        // Global variables
         let video = null;
         let videoDuration = 0;
         let segments = [];
         let selectionMode = 'click';
         
-        // Music-related variables
         let musicTracks = [];
         let selectedMusicTrack = null;
-        let musicAudio = null;  // For music preview
+        let musicAudio = null;
         
-        // Export state tracking
         let isMusicLoading = false;
-        let detectingSegments = 0;  // Count of segments currently being detected
+        let isDetectionLoading = false;
 
-        // Export button management
         function shouldDisableExport() {
-            return isMusicLoading || detectingSegments > 0;
+            return isMusicLoading || isDetectionLoading;
         }
         
         function updateExportButtonState() {
@@ -31,9 +27,7 @@
             }
         }
 
-        // Initialize the application
         document.addEventListener('DOMContentLoaded', function() {
-            // Load video data from sessionStorage
             const videoData = sessionStorage.getItem('uploadedVideoData');
             if (videoData) {
                 window.uploadedVideoData = JSON.parse(videoData);
@@ -48,22 +42,19 @@
             setupEventListeners();
             setupGlobalKeyboardShortcuts();
             setupMusicControls();
-            loadMusicSuggestions(); // Auto-load vlog music suggestions
+            loadMusicSuggestions();
             
-            // Initialize export button state
             updateExportButtonState();
         });
 
         function initializeVideoPlayer() {
             video = document.getElementById('videoPlayer');
             
-            // Set the video source to the uploaded video
             video.src = `/${window.uploadedVideoData.video_path}`;
             
             video.addEventListener('loadedmetadata', function() {
                 console.log('Video loaded:', video.src);
                 console.log('Video duration:', video.duration);
-                // Update videoDuration with actual video duration if different
                 if (Math.abs(video.duration - videoDuration) > 1) {
                     videoDuration = video.duration;
                     createTimelineMarkers();
@@ -77,14 +68,21 @@
             });
             
             video.addEventListener('timeupdate', updateTimeDisplay);
-            video.addEventListener('timeupdate', updatePlayhead);
+            video.addEventListener('timeupdate', updatePlayheadThrottled);
             
-            // Keep play/pause button in sync with video state
             video.addEventListener('play', function() {
-                document.getElementById('playButton').innerHTML = '❚❚';
+                document.getElementById('playButton').innerHTML = `
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>
+                    </svg>
+                `;
             });
             video.addEventListener('pause', function() {
-                document.getElementById('playButton').innerHTML = '▶';
+                document.getElementById('playButton').innerHTML = `
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M8 5v14l11-7z"/>
+                    </svg>
+                `;
             });
             
             initializeVideoInterface();
@@ -110,24 +108,80 @@
         }
 
         function setupEventListeners() {
-            document.getElementById('timeline').addEventListener('click', handleTimelineClick);
+            const timeline = document.getElementById('timeline');
             
-            // Volume control
+            timeline.addEventListener('click', handleTimelineClick);
+            
+            let isScrubbing = false;
+            let wasPlaying = false;
+            
+            timeline.addEventListener('mousedown', function(e) {
+                if (!video) return;
+                
+                isScrubbing = true;
+                wasPlaying = !video.paused;
+                
+                if (!video.paused) {
+                    video.pause();
+                }
+                
+                timeline.classList.add('scrubbing');
+                
+                handleScrub(e);
+                
+                e.preventDefault();
+            });
+            
+            document.addEventListener('mousemove', function(e) {
+                if (isScrubbing && video) {
+                    handleScrub(e);
+                }
+            });
+            
+            document.addEventListener('mouseup', function() {
+                if (isScrubbing) {
+                    isScrubbing = false;
+                    timeline.classList.remove('scrubbing');
+                    
+                    if (wasPlaying && video.paused) {
+                        video.play();
+                    }
+                }
+            });
+            
             document.getElementById('volumeSlider').addEventListener('input', function() {
                 if (video) {
                     video.volume = this.value;
                 }
             });
 
-            // Export mode changes
             document.querySelectorAll('input[name="exportMode"]').forEach(radio => {
                 radio.addEventListener('change', handleExportModeChange);
             });
             
-            // Speed slider
             document.getElementById('speedSlider').addEventListener('input', function() {
                 document.getElementById('speedValue').textContent = this.value + 'x';
             });
+            
+            document.getElementById('segmentLengthSlider').addEventListener('input', function() {
+                document.getElementById('segmentLengthValue').textContent = this.value + 's';
+            });
+        }
+
+        function handleScrub(e) {
+            if (!video) return;
+            
+            const timeline = document.getElementById('timeline');
+            const rect = timeline.getBoundingClientRect();
+            const mouseX = e.clientX - rect.left;
+            const percent = Math.max(0, Math.min(1, mouseX / rect.width));
+            const scrubTime = percent * videoDuration;
+            
+            video.currentTime = scrubTime;
+            
+            updateTimeDisplay();
+            
+            updatePlayheadThrottled();
         }
 
         function handleExportModeChange(e) {
@@ -141,34 +195,33 @@
 
         function setupGlobalKeyboardShortcuts() {
             document.addEventListener('keydown', function(e) {
-                // Only apply shortcuts when not typing in inputs
                 const isTyping = ['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target.tagName);
                 
-                if (!video) return; // No video loaded
+                if (!video) return;
                 
                 switch(e.key) {
-                    case ' ': // Spacebar - Play/Pause
+                    case ' ':
                         if (!isTyping) {
                             e.preventDefault();
                             togglePlay();
                         }
                         break;
                         
-                    case 'ArrowLeft': // Left Arrow - Skip backward
+                    case 'ArrowLeft':
                         if (!isTyping) {
                             e.preventDefault();
                             skipBackward();
                         }
                         break;
                         
-                    case 'ArrowRight': // Right Arrow - Skip forward
+                    case 'ArrowRight':
                         if (!isTyping) {
                             e.preventDefault();
                             skipForward();
                         }
                         break;
                         
-                    case 'i': // I - Set start time (In point)
+                    case 'i':
                     case 'I':
                         if (!isTyping) {
                             e.preventDefault();
@@ -176,7 +229,7 @@
                         }
                         break;
                         
-                    case 'o': // O - Set end time (Out point)
+                    case 'o':
                     case 'O':
                         if (!isTyping) {
                             e.preventDefault();
@@ -184,7 +237,7 @@
                         }
                         break;
                         
-                    case 'Enter': // Enter - Add segment
+                    case 'Enter':
                         if (!isTyping) {
                             e.preventDefault();
                             const startTime = parseFloat(document.getElementById('startTime').value);
@@ -195,7 +248,7 @@
                         }
                         break;
                         
-                    case 'e': // E - Export Video
+                    case 'e':
                     case 'E':
                         if (!isTyping) {
                             e.preventDefault();
@@ -203,7 +256,7 @@
                         }
                         break;
                         
-                    case '1': // Number keys to switch modes
+                    case '1':
                         if (!isTyping) {
                             e.preventDefault();
                             setSelectionMode('click');
@@ -217,7 +270,7 @@
                         }
                         break;
                         
-                    case 'Escape': // Escape - Clear selection
+                    case 'Escape':
                         if (!isTyping) {
                             e.preventDefault();
                             clearCurrentSelection();
@@ -283,7 +336,7 @@
 
         function skipForward() {
             if (video) {
-                video.currentTime = Math.min(video.duration, video.currentTime + 5);
+                video.currentTime = Math.min(videoDuration, video.currentTime + 5);
                 console.log(`Skipped forward to ${video.currentTime.toFixed(1)}s`);
             }
         }
@@ -292,48 +345,56 @@
             const startTime = parseFloat(document.getElementById('startTime').value);
             const endTime = parseFloat(document.getElementById('endTime').value);
             
-            if (!isNaN(startTime) && !isNaN(endTime) && video) {
+            if (isNaN(startTime) || isNaN(endTime)) {
+                alert('Please set valid start and end times');
+                return;
+            }
+            
+            if (video) {
                 video.currentTime = startTime;
                 video.play();
                 
-                // Stop at end time
-                const stopPreview = () => {
+                const checkTime = () => {
                     if (video.currentTime >= endTime) {
                         video.pause();
-                        video.removeEventListener('timeupdate', stopPreview);
-                        console.log(`Preview complete: ${startTime.toFixed(1)}s - ${endTime.toFixed(1)}s`);
+                    } else {
+                        requestAnimationFrame(checkTime);
                     }
                 };
-                
-                video.addEventListener('timeupdate', stopPreview);
-                console.log(`Previewing segment: ${startTime.toFixed(1)}s - ${endTime.toFixed(1)}s`);
-            } else {
-                console.log('Invalid segment times for preview');
+                requestAnimationFrame(checkTime);
             }
         }
 
         function togglePlay() {
             if (video && video.paused) {
                 video.play();
-                document.getElementById('playButton').innerHTML = '❚❚';
+                document.getElementById('playButton').innerHTML = `
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>
+                    </svg>
+                `;
             } else if (video) {
                 video.pause();
-                document.getElementById('playButton').innerHTML = '▶';
+                document.getElementById('playButton').innerHTML = `
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M8 5v14l11-7z"/>
+                    </svg>
+                `;
             }
-        }
-
-        function skipBackward() {
-            if (video) video.currentTime = Math.max(0, video.currentTime - 5);
-        }
-
-        function skipForward() {
-            if (video) video.currentTime = Math.min(videoDuration, video.currentTime + 5);
         }
 
         function toggleMute() {
             if (video) {
                 video.muted = !video.muted;
-                document.getElementById('muteButton').innerHTML = video.muted ? '✕' : '♪';
+                document.getElementById('muteButton').innerHTML = video.muted ? `
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51C20.63 14.91 21 13.5 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06c1.38-.31 2.63-.95 3.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4L9.91 6.09 12 8.18V4z"/>
+                    </svg>
+                ` : `
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/>
+                    </svg>
+                `;
             }
         }
 
@@ -374,111 +435,35 @@
                 return;
             }
             
-            // Create initial segment
             const segment = {
                 id: Date.now(),
                 start: startTime,
                 end: endTime,
                 duration: endTime - startTime,
                 room: roomType === 'auto' ? null : roomType,
-                detecting: roomType === 'auto'  // Flag to show loading state
+                detecting: roomType === 'auto',
+                manual: roomType !== 'auto'
             };
             
             segments.push(segment);
             console.log('Segment added:', segment);
             
-            // Update UI immediately to show the segment
             updateSegmentsList();
             updateTimeline();
             
-            // Clear inputs
+            if (roomType === 'auto') {
+                await autoDetectRoomLabel(segment);
+            }
+            
             document.getElementById('startTime').value = '';
             document.getElementById('endTime').value = '';
-            
-            // If auto-detection is selected, detect the label immediately
-            if (roomType === 'auto') {
-                try {
-                    console.log('🔍 Starting real-time auto-detection...');
-                    detectingSegments++;
-                    updateExportButtonState();
-                    
-                    const response = await fetch('/detect_segment_label', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify({
-                            video_id: window.uploadedVideoData?.video_id,
-                            start_time: startTime,
-                            end_time: endTime
-                        })
-                    });
-                    
-                    const result = await response.json();
-                    
-                    if (result.success) {
-                        // Update the segment with detected label
-                        const segmentIndex = segments.findIndex(s => s.id === segment.id);
-                        if (segmentIndex !== -1) {
-                            segments[segmentIndex].room = result.detected_label;
-                            segments[segmentIndex].display_name = result.display_name;
-                            segments[segmentIndex].detecting = false;
-                            segments[segmentIndex].confidence = result.confidence;
-                            
-                            console.log(`✅ Auto-detected: "${result.display_name}" (${result.confidence} confidence)`);
-                        
-                        // Update UI with detected label
-                        updateSegmentsList();
-                        updateTimeline();
-                        
-                        // Update export button state
-                        detectingSegments--;
-                        updateExportButtonState();
-                        }
-                    } else {
-                        // Handle detection failure
-                        const segmentIndex = segments.findIndex(s => s.id === segment.id);
-                        if (segmentIndex !== -1) {
-                            segments[segmentIndex].room = result.fallback_label || 'unlabeled';
-                            segments[segmentIndex].display_name = result.fallback_display || 'Unlabeled';
-                            segments[segmentIndex].detecting = false;
-                            segments[segmentIndex].confidence = 'failed';
-                            
-                            console.log(`❌ Auto-detection failed: ${result.error}`);
-                        updateSegmentsList();
-                        updateTimeline();
-                        
-                        // Update export button state
-                        detectingSegments--;
-                        updateExportButtonState();
-                        }
-                    }
-                } catch (error) {
-                    console.error('Auto-detection error:', error);
-                    
-                    // Handle network/fetch errors
-                    const segmentIndex = segments.findIndex(s => s.id === segment.id);
-                    if (segmentIndex !== -1) {
-                        segments[segmentIndex].room = 'unlabeled';
-                        segments[segmentIndex].display_name = 'Unlabeled (Detection Failed)';
-                        segments[segmentIndex].detecting = false;
-                        segments[segmentIndex].confidence = 'error';
-                        
-                        updateSegmentsList();
-                        updateTimeline();
-                        
-                        // Update export button state
-                        detectingSegments--;
-                        updateExportButtonState();
-                    }
-                }
-            }
             
             console.log('Total segments:', segments.length);
         }
 
         function updateSegmentsList() {
             const container = document.getElementById('segmentsList');
+            console.log('updateSegmentsList called with segments:', segments);
             
             if (segments.length === 0) {
                 container.innerHTML = '<p style="color: #90a4ae; text-align: center; padding: 20px;">No segments selected yet</p>';
@@ -492,7 +477,12 @@
             segments.sort((a, b) => a.start - b.start);
             
             segments.forEach((segment, index) => {
-                totalDuration += segment.duration;
+                console.log(`Processing segment ${index}:`, segment);
+                
+                const segStart = typeof segment.start === 'number' ? segment.start : (segment.start_time ?? 0);
+                const segEnd = typeof segment.end === 'number' ? segment.end : (segment.end_time ?? 0);
+                const segDuration = typeof segment.duration === 'number' ? segment.duration : (segEnd - segStart);
+                totalDuration += segDuration;
                 const roomLabels = {
                     kitchen: 'Kitchen',
                     bedroom: 'Bedroom',
@@ -510,61 +500,66 @@
                 let roomDisplayName, statusIcon, statusColor, titleClass;
                 
                 if (segment.detecting) {
-                    // Show loading state during detection
                     roomDisplayName = 'Detecting...';
-                    statusIcon = '⏳';
+                    statusIcon = `
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                        </svg>
+                    `;
                     statusColor = '#ff9800';
                     titleClass = 'detecting';
-                } else if (segment.display_name) {
-                    // Use the detected display name
-                    roomDisplayName = segment.display_name;
-                    if (segment.confidence === 'high') {
-                        statusIcon = '✅';
-                        statusColor = '#4caf50';
-                    } else if (segment.confidence === 'low') {
-                        statusIcon = '❓';
-                        statusColor = '#ff9800';
-                    } else if (segment.confidence === 'failed' || segment.confidence === 'error') {
-                        statusIcon = '❌';
-                        statusColor = '#f44336';
-                    } else {
-                        statusIcon = '';
-                        statusColor = '#ffffff';
-                    }
-                    titleClass = 'detected';
                 } else if (segment.room) {
-                    // Manual selection
                     roomDisplayName = roomLabels[segment.room] || segment.room.replace('_', ' ');
-                    statusIcon = '👤';
-                    statusColor = '#2196f3';
-                    titleClass = 'manual';
+                    const isAutoDetected = segment.room && segment.room !== 'auto' && !segment.manual;
+                    statusIcon = isAutoDetected ? `
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                        </svg>
+                    ` : `
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
+                        </svg>
+                    `;
+                    statusColor = isAutoDetected ? '#4caf50' : '#2196f3';
+                    titleClass = isAutoDetected ? 'detected' : 'manual';
                 } else {
-                    // Fallback
-                    roomDisplayName = 'Auto-detect';
+                    roomDisplayName = 'Unlabeled';
                     statusIcon = '';
                     statusColor = '#90a4ae';
                     titleClass = '';
                 }
                 
                 html += `
-                    <div class="segment-item ${segment.detecting ? 'detecting' : ''}">
+                    <div class="segment-item ${segment.detecting ? 'detecting' : ''}" data-segment-id="${segment.id}">
                         <div class="segment-info">
                             <div class="segment-title ${titleClass}">
-                                <span class="status-icon" style="color: ${statusColor}; margin-right: 6px;"></span>
+                                <span class="status-icon" style="color: ${statusColor}; margin-right: 6px;">${statusIcon}</span>
                                 ${roomDisplayName}
                             </div>
                             <div class="segment-details">
-                                ${formatTime(segment.start)} - ${formatTime(segment.end)} 
-                                (${segment.duration.toFixed(1)}s)
+                                ${formatTime(segStart)} - ${formatTime(segEnd)} 
+                                (${segDuration ? segDuration.toFixed(1) : '?'}s)
                             </div>
                         </div>
-                        <button class="btn btn-danger" onclick="removeSegment(${segment.id})" style="padding: 6px 12px; font-size: 12px;">
-                            ×
-                        </button>
+                        <div class="segment-actions">
+                            ${segment.editable ? `
+                                <button class="btn btn-primary" onclick="editSegment(${segment.id})">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                                        <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
+                                    </svg>
+                                </button>
+                            ` : ''}
+                            <button class="btn btn-danger" onclick="removeSegment(${segment.id})">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                                    <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
+                                </svg>
+                            </button>
+                        </div>
                     </div>
                 `;
             });
             
+            console.log('Generated HTML for segments list');
             container.innerHTML = html;
             document.getElementById('totalDuration').textContent = 
                 `Total: ${totalDuration.toFixed(1)}s (${segments.length} segments)`;
@@ -592,13 +587,118 @@
                 div.textContent = `${index + 1}`;
                 const roomTitle = segment.room || 'Auto-detect';
                 div.title = `${roomTitle}: ${formatTime(segment.start)} - ${formatTime(segment.end)}`;
+                div.setAttribute('data-segment-id', segment.id);
+                
+                if (segment.editable) {
+                    div.style.cursor = 'move';
+                    div.setAttribute('draggable', 'true');
+                    
+                    const leftHandle = document.createElement('div');
+                    leftHandle.className = 'resize-handle left';
+                    leftHandle.style.cssText = `
+                        position: absolute;
+                        left: 0;
+                        top: 0;
+                        width: 4px;
+                        height: 100%;
+                        background: rgba(255, 255, 255, 0.3);
+                        cursor: ew-resize;
+                        z-index: 10;
+                    `;
+                    
+                    const rightHandle = document.createElement('div');
+                    rightHandle.className = 'resize-handle right';
+                    rightHandle.style.cssText = `
+                        position: absolute;
+                        right: 0;
+                        top: 0;
+                        width: 4px;
+                        height: 100%;
+                        background: rgba(255, 255, 255, 0.3);
+                        cursor: ew-resize;
+                        z-index: 10;
+                    `;
+                    
+                    div.appendChild(leftHandle);
+                    div.appendChild(rightHandle);
+                    
+                    setupSegmentDragAndResize(div, segment);
+                }
                 
                 div.addEventListener('click', function(e) {
-                    e.stopPropagation();
-                    if (video) video.currentTime = segment.start;
+                    if (!e.target.classList.contains('resize-handle')) {
+                        e.stopPropagation();
+                        if (video) video.currentTime = segment.start;
+                    }
                 });
                 
                 track.appendChild(div);
+            });
+        }
+
+        function setupSegmentDragAndResize(element, segment) {
+            let isDragging = false;
+            let isResizing = false;
+            let resizeHandle = null;
+            let startX, startLeft, startWidth;
+            
+            element.addEventListener('mousedown', function(e) {
+                if (e.target.classList.contains('resize-handle')) {
+                    isResizing = true;
+                    resizeHandle = e.target;
+                    startX = e.clientX;
+                    startLeft = parseFloat(element.style.left);
+                    startWidth = parseFloat(element.style.width);
+                } else {
+                    isDragging = true;
+                    startX = e.clientX;
+                    startLeft = parseFloat(element.style.left);
+                }
+            });
+            
+            document.addEventListener('mousemove', function(e) {
+                if (!isDragging && !isResizing) return;
+                
+                const deltaX = e.clientX - startX;
+                const timelineWidth = document.getElementById('timelineTrack').offsetWidth;
+                const percentDelta = (deltaX / timelineWidth) * 100;
+                
+                if (isDragging) {
+                    const newLeft = Math.max(0, Math.min(100 - parseFloat(element.style.width), startLeft + percentDelta));
+                    element.style.left = newLeft + '%';
+                    
+                    const newStart = (newLeft / 100) * videoDuration;
+                    segment.start = newStart;
+                    segment.end = newStart + segment.duration;
+                } else if (isResizing) {
+                    if (resizeHandle.classList.contains('left')) {
+                        const newLeft = Math.max(0, Math.min(startLeft + percentDelta, startLeft + startWidth - 5));
+                        const newWidth = startWidth - (newLeft - startLeft);
+                        
+                        if (newWidth > 5) {
+                            element.style.left = newLeft + '%';
+                            element.style.width = newWidth + '%';
+                            
+                            segment.start = (newLeft / 100) * videoDuration;
+                            segment.duration = (newWidth / 100) * videoDuration;
+                            segment.end = segment.start + segment.duration;
+                        }
+                    } else if (resizeHandle.classList.contains('right')) {
+                        const newWidth = Math.max(5, Math.min(100 - startLeft, startWidth + percentDelta));
+                        element.style.width = newWidth + '%';
+                        
+                        segment.duration = (newWidth / 100) * videoDuration;
+                        segment.end = segment.start + segment.duration;
+                    }
+                }
+                
+                updateSegmentsList();
+            });
+            
+            document.addEventListener('mouseup', function() {
+                isDragging = false;
+                isResizing = false;
+                resizeHandle = null;
             });
         }
 
@@ -615,7 +715,6 @@
                 video.currentTime = startTime;
                 video.play();
                 
-                // Stop at end time
                 const checkTime = () => {
                     if (video.currentTime >= endTime) {
                         video.pause();
@@ -634,6 +733,50 @@
                 updateTimeline();
                 clearCurrentSelection();
                 console.log('All segments cleared');
+            }
+        }
+
+        async function autoDetectRoomLabel(segment) {
+            try {
+                console.log('Auto-detecting room label for segment:', segment);
+                
+                const response = await fetch('/auto_detect_room_label', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        video_id: window.uploadedVideoData?.video_id,
+                        start_time: segment.start,
+                        end_time: segment.end
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    segment.room = result.room_label;
+                    segment.detecting = false;
+                    segment.manual = false;
+                    console.log('Auto-detected room:', result.room_label);
+                    
+                    updateSegmentsList();
+                    updateTimeline();
+                    
+                } else {
+                    console.error('Auto-detection failed:', result.error);
+                    segment.room = 'unlabeled';
+                    segment.detecting = false;
+                    updateSegmentsList();
+                    updateTimeline();
+                }
+                
+            } catch (error) {
+                console.error('Auto-detection error:', error);
+                segment.room = 'unlabeled';
+                segment.detecting = false;
+                updateSegmentsList();
+                updateTimeline();
             }
         }
 
@@ -685,7 +828,6 @@
                         processNextStep();
                     }, step.delay);
                 }
-                // Don't complete to 100% here - let the actual API response handle completion
             }
             
             processNextStep();
@@ -703,7 +845,22 @@
             if (!video || !videoDuration) return;
             
             const percent = (video.currentTime / videoDuration) * 100;
-            document.getElementById('playhead').style.left = percent + '%';
+            const playhead = document.getElementById('playhead');
+            
+            requestAnimationFrame(() => {
+                playhead.style.left = percent + '%';
+            });
+        }
+
+        let lastPlayheadUpdate = 0;
+        const PLAYHEAD_UPDATE_THROTTLE = 16;
+
+        function updatePlayheadThrottled() {
+            const now = Date.now();
+            if (now - lastPlayheadUpdate >= PLAYHEAD_UPDATE_THROTTLE) {
+                updatePlayhead();
+                lastPlayheadUpdate = now;
+            }
         }
 
         function formatTime(seconds) {
@@ -719,10 +876,7 @@
             }
         }
 
-        // ========== MUSIC FUNCTIONALITY ==========
-        
         function setupMusicControls() {
-            // Setup Enter key for custom music search
             const customMusicQuery = document.getElementById('customMusicQuery');
             if (customMusicQuery) {
                 customMusicQuery.addEventListener('keypress', function(e) {
@@ -740,7 +894,6 @@
             loadingEl.style.display = 'block';
             tracksEl.innerHTML = '';
             
-            // Random vlog-style search terms
             const vlogTerms = ['upbeat', 'background music', 'vlog', 'ambient', 'chill', 'cinematic', 'happy'];
             const randomTerm = vlogTerms[Math.floor(Math.random() * vlogTerms.length)];
             
@@ -837,10 +990,8 @@
             const div = document.createElement('div');
             div.className = 'music-card';
             
-            // Format duration
             const durationText = formatTime(track.duration);
             
-            // Format tags (show only first 2-3)
             const displayTags = track.tags.slice(0, 2).join(', ');
             const tagsText = track.tags.length > 2 
                 ? displayTags + '...'
@@ -850,7 +1001,9 @@
                 <div class="music-card-header">
                     <div class="music-card-title">${track.name}</div>
                     <button class="music-card-play" onclick="previewTrackFromCard(event, '${track.id}')">
-                        ▶
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M8 5v14l11-7z"/>
+                        </svg>
                     </button>
                 </div>
                 <div class="music-card-details">
@@ -860,7 +1013,6 @@
                 <div class="music-card-tags">${tagsText}</div>
             `;
             
-            // Add click handler for selecting track (but not on play button)
             div.addEventListener('click', (e) => {
                 if (!e.target.closest('.music-card-play')) {
                     selectMusicTrack(track);
@@ -873,12 +1025,10 @@
         async function selectMusicTrack(track) {
             console.log('Selecting music track:', track);
             
-            // Set music loading state
             isMusicLoading = true;
             updateExportButtonState();
             
             try {
-                // Download the track
                 const response = await fetch('/download_music', {
                     method: 'POST',
                     headers: {
@@ -901,12 +1051,10 @@
                     
                     displaySelectedMusic(selectedMusicTrack);
                     
-                    // Update UI - highlight selected card and show selected music section
                     document.querySelectorAll('.music-card').forEach(card => {
                         card.classList.remove('selected');
                     });
                     
-                    // Find and highlight the selected card by track id in play button
                     document.querySelectorAll('.music-card-play').forEach(playBtn => {
                         if (playBtn.getAttribute('onclick').includes(track.id)) {
                             playBtn.closest('.music-card').classList.add('selected');
@@ -923,7 +1071,6 @@
                 console.error('Music selection error:', error);
                 alert('Failed to select music track. Please try again.');
             } finally {
-                // Clear music loading state
                 isMusicLoading = false;
                 updateExportButtonState();
             }
@@ -944,29 +1091,30 @@
             `;
         }
 
-        // Preview track from individual card play button
         function previewTrackFromCard(event, trackId) {
-            event.stopPropagation(); // Prevent card selection
+            event.stopPropagation();
             
             const track = musicTracks.find(t => t.id == trackId);
             if (!track) return;
             
             const playButton = event.target;
-            const wasPlaying = playButton.textContent === '⏸';
+            const wasPlaying = playButton.innerHTML.includes('M6 19h4V5H6v14zm8-14v14h4V5h-4z');
             
-            // Stop any currently playing preview
             if (musicAudio) {
                 musicAudio.pause();
                 musicAudio = null;
             }
             
-            // Reset all play buttons
             document.querySelectorAll('.music-card-play').forEach(btn => {
-                btn.textContent = '▶';
-                btn.style.background = 'linear-gradient(145deg, #0A3696, #1e4db7)';
+                btn.innerHTML = `
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M8 5v14l11-7z"/>
+                    </svg>
+                `;
+                btn.style.background = 'transparent';
+                btn.style.color = '#4B91F7';
             });
             
-            // If we were playing this track, just stop
             if (wasPlaying) {
                 return;
             }
@@ -978,37 +1126,54 @@
             }
             
             musicAudio = new Audio(previewUrl);
-            musicAudio.volume = 0.7; // Default preview volume
+            musicAudio.volume = 0.7;
             
-            // Update button to show playing state
-            playButton.textContent = '⏸';
-            playButton.style.background = 'linear-gradient(145deg, #00ff88, #00cc6a)';
+            playButton.innerHTML = `
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>
+                </svg>
+            `;
+            playButton.style.background = 'rgba(0, 255, 136, 0.1)';
+            playButton.style.color = '#00ff88';
             
             musicAudio.play().then(() => {
                 console.log('Card preview started for:', track.name);
                 
-                // Auto-stop after 15 seconds
                 setTimeout(() => {
                     if (musicAudio && !musicAudio.paused) {
                         musicAudio.pause();
                         musicAudio = null;
-                        playButton.textContent = '▶';
-                        playButton.style.background = 'linear-gradient(145deg, #0A3696, #1e4db7)';
+                        playButton.innerHTML = `
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M8 5v14l11-7z"/>
+                            </svg>
+                        `;
+                        playButton.style.background = 'transparent';
+                        playButton.style.color = '#4B91F7';
                         console.log('Card preview auto-stopped');
                     }
                 }, 15000);
                 
-                // Handle when preview ends naturally
                 musicAudio.addEventListener('ended', () => {
-                    playButton.textContent = '▶';
-                    playButton.style.background = 'linear-gradient(145deg, #0A3696, #1e4db7)';
+                    playButton.innerHTML = `
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M8 5v14l11-7z"/>
+                        </svg>
+                    `;
+                    playButton.style.background = 'transparent';
+                    playButton.style.color = '#4B91F7';
                     musicAudio = null;
                 });
                 
             }).catch(error => {
                 console.error('Card preview failed:', error);
-                playButton.textContent = '▶';
-                playButton.style.background = 'linear-gradient(145deg, #0A3696, #1e4db7)';
+                playButton.innerHTML = `
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M8 5v14l11-7z"/>
+                    </svg>
+                `;
+                playButton.style.background = 'transparent';
+                playButton.style.color = '#4B91F7';
                 alert('Failed to preview music');
             });
         }
@@ -1016,7 +1181,6 @@
         function previewMusic() {
             if (!selectedMusicTrack) return;
             
-            // Stop any currently playing preview
             if (musicAudio) {
                 musicAudio.pause();
                 musicAudio = null;
@@ -1034,7 +1198,6 @@
             musicAudio.play().then(() => {
                 console.log('Music preview started');
                 
-                // Auto-stop after 10 seconds
                 setTimeout(() => {
                     if (musicAudio && !musicAudio.paused) {
                         musicAudio.pause();
@@ -1050,24 +1213,21 @@
         function clearSelectedMusic() {
             selectedMusicTrack = null;
             
-            // Stop music preview if playing
             if (musicAudio) {
                 musicAudio.pause();
                 musicAudio = null;
             }
             
-            // Update UI
             document.getElementById('selectedMusicTimeline').style.display = 'none';
             document.querySelectorAll('.music-card').forEach(card => card.classList.remove('selected'));
             
             console.log('Selected music cleared');
         }
 
-        // Go to export page with segment data
         async function goToExport() {
-            // Check if export is currently disabled
             if (shouldDisableExport()) {
                 console.log('Export blocked: Processing in progress');
+                showDetectionStatus('Please wait for AI detection to complete before exporting.');
                 return;
             }
             
@@ -1081,11 +1241,9 @@
                 return;
             }
             
-            // Get export mode and speed factor
             const exportMode = document.querySelector('input[name="exportMode"]:checked').value;
             const speedFactor = document.getElementById('speedSlider').value;
             
-            // Prepare processing data
             const processingData = {
                 video_id: window.uploadedVideoData.video_id,
                 segments: segments.map(seg => ({
@@ -1100,7 +1258,6 @@
                 music_volume: selectedMusicTrack ? 1.0 : undefined
             };
 
-            // Start background processing and wait for processing ID
             console.log('Starting background video processing...', processingData);
             
             try {
@@ -1117,7 +1274,6 @@
                 if (result.success) {
                     console.log('Background processing started successfully:', result.processing_id);
                     
-                    // Prepare export data for the export page with correct processing ID
                     const exportData = {
                         processing_id: result.processing_id,
                         video_id: window.uploadedVideoData.video_id,
@@ -1132,10 +1288,8 @@
                         processing_status: 'in_progress'
                     };
 
-                    // Store data for export page
                     sessionStorage.setItem('exportData', JSON.stringify(exportData));
                     
-                    // Redirect to export page
                     window.location.href = '/export';
                 } else {
                     console.error('Background processing failed:', result.error);
@@ -1146,3 +1300,447 @@
                 alert('Failed to start video processing: ' + error.message);
             }
         } 
+
+        async function startAISegmentDetection() {
+            const aiDetectBtn = document.getElementById('aiDetectBtn');
+            
+            const detectionInterval = Math.min(3.5, Math.max(1.0, videoDuration / 20));
+            
+            isDetectionLoading = true;
+            updateExportButtonState();
+            
+            aiDetectBtn.disabled = true;
+            aiDetectBtn.innerHTML = '<span style="font-size: 16px; margin-right: 8px;"></span>AI Detection in Progress...';
+            
+            showDetectionStatus('AI detection started...');
+            
+            try {
+                const response = await fetch('/ai_segment_detect', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        video_id: window.uploadedVideoData?.video_id,
+                        detection_interval: detectionInterval
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    pollForAISegments(result.detection_id);
+                    
+                } else {
+                    throw new Error(result.error || 'AI detection failed');
+                }
+                
+            } catch (error) {
+                console.error('AI detection error:', error);
+                showDetectionStatus('AI detection failed. Please try again.');
+                
+                isDetectionLoading = false;
+                updateExportButtonState();
+                
+                aiDetectBtn.disabled = false;
+                aiDetectBtn.innerHTML = '<span style="font-size: 14px; margin-right: 6px;"></span>Segment with AI';
+            }
+        }
+
+        async function pollForAISegments(detectionId) {
+            const maxAttempts = 300;
+            let attempts = 0;
+            let lastSegmentCount = 0;
+            let lastSegmentHash = '';
+            
+            while (attempts < maxAttempts) {
+                try {
+                    const response = await fetch(`/check_detection_status/${detectionId}`);
+                    
+                    if (!response.ok) {
+                        if (response.status === 404) {
+                            console.log('Detection ID not found, assuming complete');
+                            return;
+                        }
+                        throw new Error(`HTTP ${response.status}`);
+                    }
+                    
+                    const result = await response.json();
+                    console.log('Polling result:', result);
+                    
+                    if (result.status === 'completed') {
+                        console.log('AI detection completed');
+                        if (result.segments && result.segments.length > 0) {
+                            updateAISegmentsInUI(result.segments);
+                        }
+                        
+                        isDetectionLoading = false;
+                        updateExportButtonState();
+                        
+                        const aiDetectBtn = document.getElementById('aiDetectBtn');
+                        aiDetectBtn.disabled = false;
+                        aiDetectBtn.innerHTML = '<span style="font-size: 14px; margin-right: 6px;"></span>Segment with AI';
+                        
+                        showDetectionStatus('AI detection completed!');
+                        return;
+                        
+                    } else if (result.status === 'failed') {
+                        isDetectionLoading = false;
+                        updateExportButtonState();
+                        
+                        const aiDetectBtn = document.getElementById('aiDetectBtn');
+                        aiDetectBtn.disabled = false;
+                        aiDetectBtn.innerHTML = '<span style="font-size: 14px; margin-right: 6px;"></span>Segment with AI';
+                        
+                        throw new Error(result.error || 'AI detection failed');
+                        
+                    } else if (result.status === 'in_progress') {
+                        if (result.segments && result.segments.length > 0) {
+                            const segmentHash = JSON.stringify(result.segments.map(s => ({start: s.start, end: s.end, room: s.room})));
+                            
+                            if (segmentHash !== lastSegmentHash) {
+                                console.log(`Segments updated: ${result.segments.length} total`);
+                                updateAISegmentsInUI(result.segments);
+                                lastSegmentHash = segmentHash;
+                                
+                                const latestSegment = result.segments[result.segments.length - 1];
+                                if (latestSegment && latestSegment.temporary) {
+                                    console.log('Temporary segment detected:', latestSegment);
+                                }
+                            }
+                        }
+                        
+                        await new Promise(resolve => setTimeout(resolve, 1000));
+                        attempts++;
+                    }
+                    
+                } catch (error) {
+                    console.error('Polling error:', error);
+                    await new Promise(resolve => setTimeout(resolve, 5000));
+                    attempts++;
+                }
+            }
+            
+            console.log('AI detection polling timed out');
+            
+            isDetectionLoading = false;
+            updateExportButtonState();
+            
+            const aiDetectBtn = document.getElementById('aiDetectBtn');
+            aiDetectBtn.disabled = false;
+            aiDetectBtn.innerHTML = '<span style="font-size: 14px; margin-right: 6px;"></span>Segment with AI';
+            
+            showDetectionStatus('AI detection timed out. Please try again.');
+        }
+
+        function updateAISegmentsInUI(aiSegments) {
+            console.log('updateAISegmentsInUI called with:', aiSegments);
+            console.log('Current segments before update:', segments);
+            
+            segments = segments.filter(s => s.manual);
+            
+            aiSegments.forEach((aiSegment, index) => {
+                console.log(`Processing AI segment ${index}:`, aiSegment);
+                
+                const newSegment = {
+                    id: Date.now() + Math.random(),
+                    start: aiSegment.start,
+                    end: aiSegment.end,
+                    duration: aiSegment.end - aiSegment.start,
+                    room: aiSegment.room,
+                    manual: false,
+                    display_name: getRoomDisplayName(aiSegment.room),
+                    editable: true,
+                    temporary: aiSegment.temporary || false
+                };
+                
+                segments.push(newSegment);
+                console.log('Added AI segment:', newSegment);
+                
+                if (aiSegment.temporary) {
+                    showDetectionFeedback(aiSegment.room, aiSegment.start);
+                }
+            });
+            
+            console.log('Segments after update:', segments);
+            console.log('Calling updateSegmentsList and updateTimeline');
+            
+            updateSegmentsList();
+            updateTimeline();
+        }
+
+        function showDetectionStatus(message) {
+            const notification = document.createElement('div');
+            notification.style.cssText = `
+                position: fixed;
+                top: 20px;
+                left: 50%;
+                transform: translateX(-50%);
+                background: #2196f3;
+                color: white;
+                padding: 12px 24px;
+                border-radius: 8px;
+                font-size: 14px;
+                font-weight: 600;
+                z-index: 1000;
+                box-shadow: 0 4px 16px rgba(33, 150, 243, 0.4);
+                animation: slideInFromTop 0.3s ease-out;
+            `;
+            notification.innerHTML = `${message}`;
+            
+            const style = document.createElement('style');
+            style.textContent = `
+                @keyframes slideInFromTop {
+                    from { transform: translateX(-50%) translateY(-100%); opacity: 0; }
+                    to { transform: translateX(-50%) translateY(0); opacity: 1; }
+                }
+                @keyframes slideOutToTop {
+                    from { transform: translateX(-50%) translateY(0); opacity: 1; }
+                    to { transform: translateX(-50%) translateY(-100%); opacity: 0; }
+                }
+            `;
+            document.head.appendChild(style);
+            
+            document.body.appendChild(notification);
+            
+            setTimeout(() => {
+                notification.style.animation = 'slideOutToTop 0.3s ease-in';
+                setTimeout(() => {
+                    if (notification.parentNode) {
+                        notification.parentNode.removeChild(notification);
+                    }
+                }, 300);
+            }, 2000);
+        }
+
+        function showDetectionFeedback(room, time) {
+            const notification = document.createElement('div');
+            notification.style.cssText = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                background: #4caf50;
+                color: white;
+                padding: 12px 16px;
+                border-radius: 6px;
+                font-size: 14px;
+                z-index: 1000;
+                box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+                animation: slideIn 0.3s ease-out;
+            `;
+            notification.innerHTML = `Detecting: ${getRoomDisplayName(room)} at ${formatTime(time)}s`;
+            
+            const style = document.createElement('style');
+            style.textContent = `
+                @keyframes slideIn {
+                    from { transform: translateX(100%); opacity: 0; }
+                    to { transform: translateX(0); opacity: 1; }
+                }
+            `;
+            document.head.appendChild(style);
+            
+            document.body.appendChild(notification);
+            
+            setTimeout(() => {
+                notification.style.animation = 'slideOut 0.3s ease-in';
+                setTimeout(() => {
+                    if (notification.parentNode) {
+                        notification.parentNode.removeChild(notification);
+                    }
+                }, 300);
+            }, 3000);
+        }
+
+        function showAISegmentEditing() {
+            const editingPanel = document.getElementById('aiSegmentEditing');
+            const segmentsList = document.getElementById('aiSegmentsList');
+            
+            editingPanel.style.display = 'block';
+            
+            let html = '';
+            window.aiSegments.forEach((segment, index) => {
+                const roomLabels = {
+                    kitchen: 'Kitchen',
+                    bedroom: 'Bedroom',
+                    bathroom: 'Bathroom',
+                    living_room: 'Living Room',
+                    closet: 'Closet',
+                    exterior: 'Exterior',
+                    office: 'Office',
+                    common_area: 'Common Area',
+                    dining_room: 'Dining Room',
+                    balcony: 'Balcony'
+                };
+                
+                const displayName = roomLabels[segment.room] || segment.display_name || segment.room;
+                
+                html += `
+                    <div class="ai-segment-item" style="margin-bottom: 12px; padding: 12px; background: rgba(255, 255, 255, 0.05); border-radius: 6px; border: 1px solid #333;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                            <div style="font-size: 12px; color: #aaa;">Segment ${index + 1}</div>
+                            <div style="font-size: 11px; color: #888;">${formatTime(segment.start)} - ${formatTime(segment.end)}</div>
+                        </div>
+                        <div style="display: flex; gap: 8px; align-items: center;">
+                            <select class="ai-segment-room" data-index="${index}" style="flex: 1; padding: 6px 8px; border-radius: 4px; border: 1px solid #444; background: #2a2a2a; color: #fff; font-size: 12px;">
+                                <option value="kitchen" ${segment.room === 'kitchen' ? 'selected' : ''}>Kitchen</option>
+                                <option value="bedroom" ${segment.room === 'bedroom' ? 'selected' : ''}>Bedroom</option>
+                                <option value="bathroom" ${segment.room === 'bathroom' ? 'selected' : ''}>Bathroom</option>
+                                <option value="living_room" ${segment.room === 'living_room' ? 'selected' : ''}>Living Room</option>
+                                <option value="closet" ${segment.room === 'closet' ? 'selected' : ''}>Closet</option>
+                                <option value="exterior" ${segment.room === 'exterior' ? 'selected' : ''}>Exterior</option>
+                                <option value="office" ${segment.room === 'office' ? 'selected' : ''}>Office</option>
+                                <option value="common_area" ${segment.room === 'common_area' ? 'selected' : ''}>Common Area</option>
+                                <option value="dining_room" ${segment.room === 'dining_room' ? 'selected' : ''}>Dining Room</option>
+                                <option value="balcony" ${segment.room === 'balcony' ? 'selected' : ''}>Balcony</option>
+                            </select>
+                            <input type="number" class="ai-segment-start" data-index="${index}" value="${segment.start.toFixed(1)}" step="0.1" min="0" max="${videoDuration}" style="width: 60px; padding: 6px 8px; border-radius: 4px; border: 1px solid #444; background: #2a2a2a; color: #fff; font-size: 12px;">
+                            <input type="number" class="ai-segment-end" data-index="${index}" value="${segment.end.toFixed(1)}" step="0.1" min="0" max="${videoDuration}" style="width: 60px; padding: 6px 8px; border-radius: 4px; border: 1px solid #444; background: #2a2a2a; color: #fff; font-size: 12px;">
+                        </div>
+                    </div>
+                `;
+            });
+            
+            segmentsList.innerHTML = html;
+        }
+
+        function applyAISegmentChanges() {
+            const segmentLength = parseFloat(document.getElementById('segmentLengthSlider').value);
+            const aiSegments = window.aiSegments || [];
+            
+            segments = [];
+            
+            aiSegments.forEach((aiSegment, index) => {
+                const roomSelect = document.querySelector(`.ai-segment-room[data-index="${index}"]`);
+                const startInput = document.querySelector(`.ai-segment-start[data-index="${index}"]`);
+                const endInput = document.querySelector(`.ai-segment-end[data-index="${index}"]`);
+                
+                const room = roomSelect ? roomSelect.value : aiSegment.room;
+                const start = startInput ? parseFloat(startInput.value) : aiSegment.start;
+                const end = endInput ? parseFloat(endInput.value) : aiSegment.end;
+                
+                if (end - start >= segmentLength) {
+                                segments.push({
+                                    id: Date.now() + Math.random(),
+                        start: start,
+                        end: end,
+                        duration: end - start,
+                        room: room,
+                        manual: false,
+                        display_name: getRoomDisplayName(room)
+                    });
+                }
+            });
+            
+            updateSegmentsList();
+            updateTimeline();
+            
+            document.getElementById('aiSegmentEditing').style.display = 'none';
+            
+            console.log(`Applied ${segments.length} AI segments with minimum length ${segmentLength}s`);
+        }
+
+        function getRoomDisplayName(room) {
+            const roomLabels = {
+                kitchen: 'Kitchen',
+                bedroom: 'Bedroom',
+                bathroom: 'Bathroom',
+                living_room: 'Living Room',
+                closet: 'Closet',
+                exterior: 'Exterior',
+                office: 'Office',
+                common_area: 'Common Area',
+                dining_room: 'Dining Room',
+                balcony: 'Balcony'
+            };
+            return roomLabels[room] || room;
+        }
+
+        function editSegment(segmentId) {
+            const segment = segments.find(s => s.id === segmentId);
+            if (!segment) return;
+            
+            const modal = document.createElement('div');
+            modal.style.cssText = `
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: rgba(0, 0, 0, 0.8);
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                z-index: 1000;
+            `;
+            
+            modal.innerHTML = `
+                <div style="background: #1a1a1a; border-radius: 8px; padding: 24px; min-width: 400px; border: 1px solid #333;">
+                    <h3 style="margin: 0 0 20px 0; color: #fff;">Edit Segment</h3>
+                    <div style="margin-bottom: 16px;">
+                        <label style="color: #888; font-size: 12px; display: block; margin-bottom: 4px;">Room Type</label>
+                        <select id="editRoomType" style="width: 100%; padding: 8px; border-radius: 4px; border: 1px solid #444; background: #2a2a2a; color: #fff;">
+                            <option value="kitchen" ${segment.room === 'kitchen' ? 'selected' : ''}>Kitchen</option>
+                            <option value="bedroom" ${segment.room === 'bedroom' ? 'selected' : ''}>Bedroom</option>
+                            <option value="bathroom" ${segment.room === 'bathroom' ? 'selected' : ''}>Bathroom</option>
+                            <option value="living_room" ${segment.room === 'living_room' ? 'selected' : ''}>Living Room</option>
+                            <option value="closet" ${segment.room === 'closet' ? 'selected' : ''}>Closet</option>
+                            <option value="exterior" ${segment.room === 'exterior' ? 'selected' : ''}>Exterior</option>
+                            <option value="office" ${segment.room === 'office' ? 'selected' : ''}>Office</option>
+                            <option value="common_area" ${segment.room === 'common_area' ? 'selected' : ''}>Common Area</option>
+                            <option value="dining_room" ${segment.room === 'dining_room' ? 'selected' : ''}>Dining Room</option>
+                            <option value="balcony" ${segment.room === 'balcony' ? 'selected' : ''}>Balcony</option>
+                        </select>
+                    </div>
+                    <div style="display: flex; gap: 12px; margin-bottom: 16px;">
+                        <div style="flex: 1;">
+                            <label style="color: #888; font-size: 12px; display: block; margin-bottom: 4px;">Start Time (s)</label>
+                            <input type="number" id="editStartTime" value="${segment.start.toFixed(1)}" step="0.1" min="0" max="${videoDuration}" style="width: 100%; padding: 8px; border-radius: 4px; border: 1px solid #444; background: #2a2a2a; color: #fff;">
+                        </div>
+                        <div style="flex: 1;">
+                            <label style="color: #888; font-size: 12px; display: block; margin-bottom: 4px;">End Time (s)</label>
+                            <input type="number" id="editEndTime" value="${segment.end.toFixed(1)}" step="0.1" min="0" max="${videoDuration}" style="width: 100%; padding: 8px; border-radius: 4px; border: 1px solid #444; background: #2a2a2a; color: #fff;">
+                        </div>
+                    </div>
+                    <div style="display: flex; gap: 8px; justify-content: flex-end;">
+                        <button onclick="closeEditModal()" style="padding: 8px 16px; border-radius: 4px; border: 1px solid #444; background: #333; color: #fff; cursor: pointer;">Cancel</button>
+                        <button onclick="saveSegmentEdit(${segmentId})" style="padding: 8px 16px; border-radius: 4px; border: none; background: #4caf50; color: #fff; cursor: pointer;">Save</button>
+                    </div>
+                </div>
+            `;
+            
+            document.body.appendChild(modal);
+            window.currentEditModal = modal;
+        }
+
+        function closeEditModal() {
+            if (window.currentEditModal) {
+                document.body.removeChild(window.currentEditModal);
+                window.currentEditModal = null;
+            }
+        }
+
+        function saveSegmentEdit(segmentId) {
+            const segment = segments.find(s => s.id === segmentId);
+            if (!segment) return;
+            
+            const roomType = document.getElementById('editRoomType').value;
+            const startTime = parseFloat(document.getElementById('editStartTime').value);
+            const endTime = parseFloat(document.getElementById('editEndTime').value);
+            
+            if (isNaN(startTime) || isNaN(endTime) || startTime >= endTime) {
+                alert('Please enter valid start and end times');
+                return;
+            }
+            
+            segment.room = roomType;
+            segment.start = startTime;
+            segment.end = endTime;
+            segment.duration = endTime - startTime;
+            segment.display_name = getRoomDisplayName(roomType);
+            
+            updateSegmentsList();
+            updateTimeline();
+            
+            closeEditModal();
+        }
+

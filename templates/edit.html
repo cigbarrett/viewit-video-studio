@@ -4,12 +4,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Edit Video | Viewit Video Studio</title>
-    <link rel="icon" type="image/x-icon" href="static/favicon.ico">
-    <link rel="stylesheet" href="static/css/main.css">
-    <link rel="stylesheet" href="static/css/video-editor.css">
+    <link rel="icon" type="image/x-icon" href="/static/favicon.ico">
+    <link rel="stylesheet" href="/static/css/main.css">
+    <link rel="stylesheet" href="/static/css/video-editor.css">
     
     <style>
-        /* Real-time detection animations and styles */
         .segment-item.detecting {
             animation: detectingPulse 2s ease-in-out infinite;
             border-left-color: #ff9800 !important;
@@ -73,8 +72,9 @@
             background: #555 !important;
             color: #999 !important;
             cursor: not-allowed !important;
-            opacity: 0.5;
+            opacity: 0.6;
             box-shadow: none !important;
+            position: relative;
         }
         
         .btn-primary:disabled:hover,
@@ -82,6 +82,22 @@
             background: #555 !important;
             transform: none !important;
         }
+        
+        .btn-primary:disabled::after,
+        .btn-primary.disabled::after {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 10px;
+            color: #ff9800;
+            font-weight: bold;
+            text-shadow: 0 0 4px rgba(255, 152, 0, 0.5);
+        }
+        
+
+        
+
     </style>
 
 </head>
@@ -89,12 +105,14 @@
     <div class="container">
         <div class="logo-container header">
             <div class="logo-section">
-                <img src="static/Logo-primary.png" alt="Video Studio Logo">
+                <img src="/static/Logo-primary.png" alt="Video Studio Logo">
                 <span class="logo-text">Video Studio</span>
             </div>
+            <div style="display: flex; gap: 12px; align-items: center;">
             <button class="btn btn-primary" id="exportButton" onclick="goToExport()">
                 Export Video
             </button>
+            </div>
         </div>
 
         <div class="main-container grid">
@@ -111,14 +129,32 @@
                 <div class="video-controls" id="videoControls">
                     <div class="playback-controls">
                         <div class="time-display" id="timeDisplay">00:00 / 00:00</div>
-                        <button class="control-btn scrub" onclick="skipBackward()">◀◀</button>
-                        <button class="control-btn play" onclick="togglePlay()" id="playButton">▶</button>
-                        <button class="control-btn scrub" onclick="skipForward()">▶▶</button>
+                        <button class="control-btn scrub" onclick="skipBackward()">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/>
+                            </svg>
+                        </button>
+                        <button class="control-btn play" onclick="togglePlay()" id="playButton">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M8 5v14l11-7z"/>
+                            </svg>
+                        </button>
+                        <button class="control-btn scrub" onclick="skipForward()">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M18 6h-2v12h2zm-3.5 6l-8.5 6V6z"/>
+                            </svg>
+                        </button>
                         <div class="volume-section">
-                            <button class="control-btn volume" onclick="toggleMute()" id="muteButton">♪</button>
+                            <button class="control-btn volume" onclick="toggleMute()" id="muteButton">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                                    <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/>
+                                </svg>
+                            </button>
                             <input type="range" id="volumeSlider" min="0" max="1" step="0.1" value="1" class="volume-slider">
                         </div>
                     </div>
+                    
+
                 </div>
 
                 <!-- Timeline -->
@@ -192,9 +228,26 @@
             <!-- Sidebar -->
             <div class="sidebar">
 
+
+
                 <!-- Segment Selection -->
                 <div class="segment-selection" id="segmentSelection">
-                    <h4>Select Video Segments</h4>
+                    <h4>Segment Selection</h4>
+                    
+                    <!-- AI Detection Section -->
+                    <div style="margin-bottom: 20px; padding: 16px; background: linear-gradient(145deg, #1a1a1a 0%, #0f0f0f 100%); border-radius: 8px; border: 1px solid #333;">
+                        <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px;">
+                            <!-- <span style="font-size: 16px;"></span> -->
+                            <h5 style="margin: 0; color: #fff; font-size: 14px;">AI Auto-Detection</h5>
+                        </div>
+                        <p style="margin: 0 0 12px 0; color: #b0bec5; font-size: 12px; line-height: 1.3;">
+                            Automatically detect room segments.
+                        </p>
+                        <button class="btn btn-success" id="aiDetectBtn" onclick="startAISegmentDetection()" style="width: 100%; font-size: 13px; padding: 10px 16px;">
+                            <span style="font-size: 14px; margin-right: 6px;"></span>
+                            Segment with AI
+                        </button>
+                    </div>
                     
                     <!-- Keyboard Shortcuts Hint -->
                     <div style="margin-bottom: 15px; padding: 12px; background: rgba(255, 255, 255, 0.05); border-radius: 6px;">
@@ -249,6 +302,37 @@
                         <button class="btn btn-primary" onclick="addSegment()" style="flex: 1;">Add Segment</button>
                         <button class="btn btn-danger" onclick="clearAll()" style="flex: 1;">Clear All</button>
                     </div>
+                </div>
+
+
+
+                <!-- AI Segment Editing -->
+                <div class="ai-segment-editing" id="aiSegmentEditing" style="margin-bottom: 20px; padding: 16px; background: linear-gradient(145deg, #1a1a1a 0%, #0f0f0f 100%); border-radius: 8px; border: 1px solid #333; display: none;">
+                    <h4 style="margin: 0 0 12px 0; color: #fff; display: flex; align-items: center; gap: 8px;">
+                        <span style="font-size: 18px;"></span>
+                        Edit AI Segments
+                    </h4>
+                    <p style="margin: 0 0 16px 0; color: #b0bec5; font-size: 13px; line-height: 1.4;">
+                        Adjust segment lengths and room labels for AI-detected segments.
+                    </p>
+                    
+                    <!-- Segment Length Slider -->
+                    <div style="margin-bottom: 16px;">
+                        <label style="color: #888; font-size: 11px; font-weight: 600; margin-bottom: 4px; display: block;">Minimum Segment Length</label>
+                        <input type="range" id="segmentLengthSlider" min="1" max="10" step="0.5" value="2" style="width: 100%;">
+                        <div style="text-align: center; font-size: 12px; color: #aaa; margin-top: 4px;">
+                            <span id="segmentLengthValue">2.0s</span>
+                        </div>
+                    </div>
+                    
+                    <!-- AI Segments List -->
+                    <div id="aiSegmentsList" style="max-height: 200px; overflow-y: auto;">
+                        <!-- AI segments will be listed here -->
+                    </div>
+                    
+                    <button class="btn btn-primary" onclick="applyAISegmentChanges()" style="width: 100%; margin-top: 12px;">
+                        Apply Changes
+                    </button>
                 </div>
                 
                 <!-- Segments Panel -->
@@ -316,6 +400,23 @@
         </div>
     </div>
 
-    <script src="static/js/edit.js"></script>
+    <!-- AI Detection Loading Overlay -->
+    <div id="aiDetectionOverlay" class="loading-overlay" style="display: none; z-index: 1001;">
+        <div class="loading-content">
+            <div class="loading-spinner"></div>
+            <div class="loading-text">
+                <h3 id="aiDetectionTitle">Detecting Room Segments...</h3>
+                <p id="aiDetectionStatus">Analyzing video for room transitions</p>
+                <div class="loading-progress">
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="aiDetectionProgressFill"></div>
+                    </div>
+                    <span id="aiDetectionProgressText">0%</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/js/edit.js"></script>
 </body>
 </html> 

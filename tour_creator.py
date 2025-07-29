@@ -99,7 +99,7 @@ def create_speedup_tour_simple(user_segments, video_path, video_info, output_pat
                 if part.get('label'):
                     display_text = part['label'].replace('_', ' ').upper()
                     text_overlay = (
-                        f"drawtext=text='{display_text}':fontfile=/Windows/Fonts/arialbd.ttf:"
+                        f"drawtext=text='{display_text}':fontfile=/Windows/Fonts/segoeuib.ttf:"
                         f"fontsize=65:fontcolor=white:shadowcolor=black:shadowx=3:shadowy=1:"
                         f"x=(w-text_w)/2:y=h-text_h-250"
                     )
@@ -158,7 +158,9 @@ def create_tour(user_segments, video_path, video_info, output_path="guided_tour.
             'end_time': segment['end_time'],
             'duration': segment['end_time'] - segment['start_time'],
             'scene_type': segment.get('label', 'room'),
-            'label': segment['label']
+            'label': segment['label'],
+            'speed_factor': segment.get('speed_factor', 1.0)   
+            
         })
     
     enhanced.sort(key=lambda x: x['start_time'])
@@ -169,13 +171,14 @@ def create_tour(user_segments, video_path, video_info, output_path="guided_tour.
         
         success = extract_clip_hq(
             video_path, video_info, segment['start_time'], segment['end_time'], clip_path,
-            speed_factor=1.0, quality_settings=quality_settings, 
+            speed_factor=segment['speed_factor'], quality_settings=quality_settings, 
             silent_mode=True, room_type=segment['label']
         )
         
         if success:
             temp_clips.append(clip_path)
-            print(f"HQ Clip {i+1}: {segment['scene_type']} ({segment['duration']:.1f}s)")
+            speed_text = f" ({segment['speed_factor']}x)" if segment['speed_factor'] != 1.0 else ""
+            print(f"HQ Clip {i+1}: {segment['scene_type']}{speed_text} ({segment['duration']:.1f}s)")
         else:
             print(f"Failed to extract HQ clip {i+1}")
     

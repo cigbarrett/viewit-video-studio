@@ -54,7 +54,7 @@
             .then(data => {
                 if (data.success) {
                     qrPath = data.qr_path;
-                    showStatus('✅ Listing verified - QR code ready for export', 'success');
+                    showStatus('Listing verified - QR code ready for export', 'success');
                     console.log('Listing verified, QR:', qrPath);
                 } else {
                     qrPath = null;

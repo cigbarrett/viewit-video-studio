@@ -39,7 +39,7 @@ def get_quality_settings(quality='professional'):
             'preset': 'fast',
             'maxrate': '35M',
             'bufsize': '25M',  
-            'timeout': 180,
+            'timeout': 900,  
             'target_resolution': '1080:1920',
             'threads': '2',
             'memory_optimized': True
@@ -59,7 +59,7 @@ def get_quality_settings(quality='professional'):
             'preset': 'slow',
             'maxrate': '100M',  
             'bufsize': '100M',  
-            'timeout': 1200,
+            'timeout': 1800,  
             'target_resolution': '1080:1920',
             'threads': '3',  
             'memory_optimized': True

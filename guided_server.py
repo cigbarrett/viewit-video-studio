@@ -13,8 +13,12 @@ import json
 import time
 import threading
 from post_processor import add_combined_overlays
+from openai import OpenAI
+from scene_detection import get_room_display_name
 
 load_dotenv() 
+
+client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 app = Flask(__name__)
 CORS(app)  
@@ -100,7 +104,7 @@ def upload_video():
         ]
         
         try:
-            result = subprocess.run(remux_cmd, capture_output=True, text=True, timeout=120) # Increased timeout
+            result = subprocess.run(remux_cmd, capture_output=True, text=True, timeout=120)  
             if result.returncode == 0:
                 print(f"Successfully remuxed to {new_video_path}")
                 video_path = new_video_path  
@@ -236,7 +240,6 @@ def download_music():
         return jsonify({'error': 'No preview URL provided'}), 400
     
     try:
-        # Create music path
         music_filename = f"music_{int(time.time())}.mp3"
         music_path = os.path.join('temp', music_filename)
         os.makedirs('temp', exist_ok=True)
@@ -268,88 +271,7 @@ def download_music():
         print(f"Music download error: {e}")
         return jsonify({'error': 'Music download failed'}), 500
 
-@app.route('/detect_segment_label', methods=['POST'])
-def detect_segment_label():
 
-    data = request.json
-    video_id = data.get('video_id')
-    start_time = data.get('start_time')
-    end_time = data.get('end_time')
-    
-    if not all([video_id is not None, start_time is not None, end_time is not None]):
-        return jsonify({'error': 'Missing required parameters: video_id, start_time, end_time'}), 400
-    
-    try:
-        start_time = float(start_time)
-        end_time = float(end_time)
-    except (ValueError, TypeError):
-        return jsonify({'error': 'Invalid time values - must be numbers'}), 400
-    
-    if start_time >= end_time:
-        return jsonify({'error': 'End time must be after start time'}), 400
-    
-    if video_id and video_id in uploaded_videos:
-        video_path = uploaded_videos[video_id]
-        print(f"Detecting label for segment: {start_time:.1f}s-{end_time:.1f}s in {video_path}")
-    elif len(uploaded_videos) > 0:
-        video_path = list(uploaded_videos.values())[-1]
-        print(f"Using most recent video for detection: {video_path}")
-    else:
-        return jsonify({'error': 'No video uploaded. Please upload a video first.'}), 400
-    
-    if not os.path.exists(video_path):
-        return jsonify({'error': f'Video file not found: {video_path}'}), 400
-    
-    try:
-        from scene_detection import detect_scene_label
-        
-        print(f"Starting real-time label detection for {start_time:.1f}s-{end_time:.1f}s...")
-        detected_label = detect_scene_label(video_path, start_time, end_time)
-        
-        if detected_label:
-            print(f"Label detected: '{detected_label}' for segment {start_time:.1f}s-{end_time:.1f}s")
-            
-            label_mapping = {
-                'kitchen': 'Kitchen',
-                'bedroom': 'Bedroom', 
-                'bathroom': 'Bathroom',
-                'living_room': 'Living Room',
-                'closet': 'Closet',
-                'exterior': 'Exterior',
-                'office': 'Office',
-                'common_area': 'Common Area',
-                'dining_room': 'Dining Room',
-                'balcony': 'Balcony',
-                'unlabeled': 'Unlabeled'
-            }
-            
-            display_name = label_mapping.get(detected_label, detected_label.replace('_', ' ').title())
-            
-            return jsonify({
-                'success': True,
-                'detected_label': detected_label,
-                'display_name': display_name,
-                'confidence': 'high',  
-                'processing_time': f"{end_time - start_time:.1f}s segment processed"
-            })
-        else:
-            print(f"No label detected for segment {start_time:.1f}s-{end_time:.1f}s")
-            return jsonify({
-                'success': True,
-                'detected_label': 'unlabeled',
-                'display_name': 'Unlabeled',
-                'confidence': 'low',
-                'processing_time': f"{end_time - start_time:.1f}s segment processed"
-            })
-            
-    except Exception as e:
-        print(f"❌ Label detection failed: {e}")
-        return jsonify({
-            'success': False,
-            'error': f'Label detection failed: {str(e)}',
-            'fallback_label': 'unlabeled',
-            'fallback_display': 'Unlabeled'
-        }), 500
 
 @app.route('/start_video_processing', methods=['POST'])
 def start_video_processing():
@@ -563,7 +485,6 @@ def create_tour():
             except OSError as e:
                 print(f"Warning: Could not remove QR file {qr_path}: {e}")
         
-        # Store the output file path in processing results for later retrieval
         app.processing_results[processing_id]['output_file'] = output_filename
         save_processing_results()
         
@@ -653,6 +574,174 @@ def export_page():
 @app.route('/<path:filename>')
 def serve_static(filename):
     return safe_send_file(filename)
+
+@app.route('/ai_segment_detect', methods=['POST'])
+def ai_segment_detect():
+
+    data = request.json
+    video_id = data.get('video_id')
+    detection_interval = data.get('detection_interval', 2.0)   
+    
+    if video_id and video_id in uploaded_videos:
+        video_path = uploaded_videos[video_id]
+        print(f"AI segment detection for video: {video_path}")
+    elif len(uploaded_videos) > 0:
+        video_path = list(uploaded_videos.values())[-1]
+        print(f"Using most recent video for AI segment detection: {video_path}")
+    else:
+        return jsonify({'error': 'No video uploaded. Please upload a video first.'}), 400
+    
+    if not os.path.exists(video_path):
+        return jsonify({'error': f'Video file not found: {video_path}'}), 400
+    
+    try:
+        from scene_detection import detect_room_transitions_realtime
+        
+        print(f"Starting AI segment detection with interval: {detection_interval}s")
+        
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        detection_id = f"detect_{timestamp}"
+        
+        if not hasattr(app, 'detection_sessions'):
+            app.detection_sessions = {}
+        
+        app.detection_sessions[detection_id] = {
+            'video_path': video_path,
+            'status': 'in_progress',
+            'segments': [],
+            'created_at': timestamp
+        }
+        
+        def detection_callback(update):
+            if detection_id in app.detection_sessions:
+                session = app.detection_sessions[detection_id]
+                
+                if update['type'] == 'segment_complete':
+                    session['segments'] = [s for s in session['segments'] if not (s.get('temporary') and s.get('room') == update['segment']['room'])]
+                    session['segments'].append(update['segment'])
+                    print(f"Segment detected: {update['segment']['room']} ({update['segment']['start']:.1f}s - {update['segment']['end']:.1f}s)")
+                elif update['type'] == 'room_entry':
+                    temp_segment = {
+                        'start': update['time'],
+                        'end': update['time'] + 2.0, 
+                        'room': update['room'],
+                        'display_name': get_room_display_name(update['room']),
+                        'temporary': True  
+                    }
+                    session['segments'] = [s for s in session['segments'] if not (s.get('temporary') and s.get('room') == update['room'])]
+                    session['segments'].append(temp_segment)
+                    print(f"Room entry detected: {update['room']} at {update['time']:.1f}s")
+                elif update['type'] == 'progress':
+                    session['progress'] = update['progress']
+            else:
+                print(f"Warning: Detection session {detection_id} not found")
+        
+        def run_detection():
+            try:
+                segments = detect_room_transitions_realtime(video_path, detection_callback, detection_interval)
+                
+                if detection_id in app.detection_sessions:
+                    app.detection_sessions[detection_id]['status'] = 'completed'
+                    app.detection_sessions[detection_id]['segments'] = segments
+                    print(f"AI detection completed for {detection_id}")
+                
+            except Exception as e:
+                print(f"AI detection error for {detection_id}: {e}")
+                if detection_id in app.detection_sessions:
+                    app.detection_sessions[detection_id]['status'] = 'failed'
+                    app.detection_sessions[detection_id]['error'] = str(e)
+        
+        thread = threading.Thread(target=run_detection)
+        thread.daemon = True
+        thread.start()
+        
+        return jsonify({
+            'success': True,
+            'detection_id': detection_id,
+            'message': 'AI segment detection started'
+        })
+        
+    except Exception as e:
+        print(f"AI segment detection failed: {e}")
+        return jsonify({'error': f'AI segment detection failed: {str(e)}'}), 500
+
+@app.route('/check_detection_status/<detection_id>', methods=['GET'])
+def check_detection_status(detection_id):
+    if not hasattr(app, 'detection_sessions') or detection_id not in app.detection_sessions:
+        return jsonify({'status': 'not_found', 'message': 'Detection ID not found'}), 404
+    
+    session = app.detection_sessions[detection_id]
+    status = session.get('status', 'in_progress')
+    segments = session.get('segments', [])
+    
+    if status == 'completed':
+        return jsonify({
+            'status': 'completed',
+            'segments': segments,
+            'segments_count': len(segments)
+        })
+    elif status == 'failed':
+        return jsonify({
+            'status': 'failed',
+            'error': session.get('error', 'Unknown error')
+        })
+    else:
+        return jsonify({
+            'status': 'in_progress',
+            'progress': session.get('progress', 0),
+            'segments': segments,
+            'segments_count': len(segments)
+        })
+
+@app.route('/auto_detect_room_label', methods=['POST'])
+def auto_detect_room_label():
+
+    data = request.json
+    video_id = data.get('video_id')
+    start_time = data.get('start_time')
+    end_time = data.get('end_time')
+    
+    if not all([video_id, start_time is not None, end_time is not None]):
+        return jsonify({'error': 'Missing required parameters: video_id, start_time, end_time'}), 400
+    
+    if video_id and video_id in uploaded_videos:
+        video_path = uploaded_videos[video_id]
+        print(f"Auto-detecting room label for segment: {start_time}s - {end_time}s")
+    elif len(uploaded_videos) > 0:
+        video_path = list(uploaded_videos.values())[-1]
+        print(f"Using most recent video for auto-detection: {video_path}")
+    else:
+        return jsonify({'error': 'No video uploaded. Please upload a video first.'}), 400
+    
+    if not os.path.exists(video_path):
+        return jsonify({'error': f'Video file not found: {video_path}'}), 400
+    
+    try:
+        from scene_detection import detect_scene_label
+        
+        print(f"Auto-detecting room label for segment {start_time}s - {end_time}s")
+        room_label = detect_scene_label(video_path, start_time, end_time)
+        
+        if room_label:
+            from scene_detection import get_room_display_name
+            display_name = get_room_display_name(room_label)
+            
+            return jsonify({
+                'success': True,
+                'room_label': room_label,
+                'display_name': display_name,
+                'message': f'Auto-detected room: {display_name}'
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'error': 'Could not detect room label for this segment'
+            }), 400
+        
+    except Exception as e:
+        print(f"Auto-detection failed: {e}")
+        return jsonify({'error': f'Auto-detection failed: {str(e)}'}), 500
+
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
