@@ -12,7 +12,7 @@ class TutorialSystem {
         this.steps = [
             {
                 target: '.video-player-container',
-                title: 'Welcome to Video Editor! 🎬',
+                title: 'Welcome to Video Editor!',
                 description: 'This is your video preview area. Your uploaded video will play here, and you can see filters and effects applied in real-time.',
                 position: 'right',
                 highlightPadding: 8,
@@ -23,14 +23,14 @@ class TutorialSystem {
             },
             {
                 target: '.editor-tabs',
-                title: 'Feature Tabs 📑',
+                title: 'Feature Tabs',
                 description: 'These tabs give you access to different editing features: Segments for selecting parts of your video, Filters for visual effects, Music for background audio, and Export for final output.',
                 position: 'bottom',
                 highlightPadding: 8
             },
             {
                 target: '.ai-detect-btn',
-                title: 'AI Segment Detection 🤖',
+                title: 'AI Segment Detection',
                 description: 'Click this magic button to let AI automatically detect different rooms and areas in your property tour video. It\'ll create segments for each room transition!',
                 position: 'bottom',
                 highlightPadding: 12,
@@ -40,21 +40,21 @@ class TutorialSystem {
             },
             {
                 target: '.shortcuts-collapsible',
-                title: 'Keyboard Shortcuts ⌨️',
+                title: 'Keyboard Shortcuts',
                 description: 'Click here to see all available keyboard shortcuts. These can speed up your editing workflow significantly - try Space for play/pause or I/O for setting in/out points.',
                 position: 'bottom',
                 highlightPadding: 8
             },
             {
                 target: '.manual-selection-section',
-                title: 'Manual Segment Creation ✂️',
+                title: 'Manual Segment Creation',
                 description: 'Use these controls to manually create segments. Set start/end times, choose the room type, and add segments to build your property tour.',
                 position: 'bottom',
                 highlightPadding: 12
             },
             {
                 target: '[data-tab="filters"]',
-                title: 'Video Filters Tab 🎨',
+                title: 'Video Filters Tab',
                 description: 'Switch to this tab to enhance your video with filters. Adjust brightness, contrast, saturation, and apply preset looks like "Cinematic" or "Warm".',
                 position: 'bottom',
                 highlightPadding: 8,
@@ -64,7 +64,7 @@ class TutorialSystem {
             },
             {
                 target: '[data-tab="music"]',
-                title: 'Background Music Tab 🎵',
+                title: 'Background Music Tab',
                 description: 'Add background music to your property tour. Browse suggested tracks or search for specific moods and genres to enhance the viewing experience.',
                 position: 'bottom',
                 highlightPadding: 8,
@@ -74,7 +74,7 @@ class TutorialSystem {
             },
             {
                 target: '[data-tab="export"]',
-                title: 'Export Settings Tab 📤',
+                title: 'Export Settings Tab',
                 description: 'Configure your final video output. Choose between "Segments Only" (remove transitions) or "Speed up transitions" (keep all footage but speed up walking).',
                 position: 'bottom',
                 highlightPadding: 8,
@@ -84,7 +84,7 @@ class TutorialSystem {
             },
             {
                 target: '#exportButton',
-                title: 'Export Your Video 🚀',
+                title: 'Export Your Video',
                 description: 'Once you\'ve created segments and applied your desired effects, click here to export your final property tour video. High-quality 1080p output guaranteed!',
                 position: 'bottom',
                 highlightPadding: 8,
@@ -363,7 +363,6 @@ class TutorialSystem {
         `;
         
         message.innerHTML = `
-            <div style="font-size: 48px; margin-bottom: 16px;">🎉</div>
             <h3 style="color: #ffffff; margin: 0 0 12px 0; font-size: 20px;">Tutorial Complete!</h3>
             <p style="color: #b0bec5; margin: 0 0 20px 0; font-size: 14px;">
                 You're now ready to create amazing walkthroughs! 
