@@ -12,7 +12,7 @@ class TutorialSystem {
         this.steps = [
             {
                 target: '.video-player-container',
-                title: 'Welcome to Video Editor!',
+                title: 'Welcome to Viewit Video Studio!',
                 description: 'This is your video preview area. Your uploaded video will play here, and you can see filters and effects applied in real-time.',
                 position: 'right',
                 highlightPadding: 8,
