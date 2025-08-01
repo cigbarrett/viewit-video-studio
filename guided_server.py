@@ -397,6 +397,7 @@ def start_video_processing():
                     print("Failed to add music overlay - continuing without music")
             
             app.processing_results[processing_id]['status'] = 'completed'
+            app.processing_results[processing_id]['output_file'] = temp_filename
             print(f"Background processing completed for {processing_id}")
             save_processing_results()
             
@@ -560,11 +561,14 @@ def get_tour_result(processing_id):
     processing_result = app.processing_results[processing_id]
     print(f"Found processing result: {processing_result}")
     
-    if 'output_file' in processing_result:
-        print(f"Output file found: {processing_result['output_file']}")
+    # Check for both output_file and temp_file (for backward compatibility)
+    output_file = processing_result.get('output_file') or processing_result.get('temp_file')
+    
+    if output_file and os.path.exists(output_file):
+        print(f"Output file found: {output_file}")
         return jsonify({
             'success': True,
-            'output_file': processing_result['output_file'],
+            'output_file': output_file,
             'message': 'Tour created successfully!',
             'export_mode': processing_result['export_mode'],
             'speed_factor': processing_result.get('speed_factor'),
@@ -572,7 +576,10 @@ def get_tour_result(processing_id):
             'segments_count': processing_result.get('segments_count')
         })
     else:
-        print(f"No output_file in processing result")
+        print(f"No valid output file found in processing result")
+        print(f"Status: {processing_result.get('status')}")
+        print(f"Output file path: {output_file}")
+        print(f"File exists: {os.path.exists(output_file) if output_file else 'No file path'}")
         return jsonify({'error': 'Tour not yet created'}), 404
 
 @app.route('/download/<path:filename>')
