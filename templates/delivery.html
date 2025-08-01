@@ -6,41 +6,321 @@
     <title>Video Delivery | Viewit Video Studio</title>
     <link rel="icon" type="image/x-icon" href="/static/favicon.ico">
     <link rel="stylesheet" href="/static/css/main.css">
+    <style>
+        .main-container {
+            display: grid;
+            grid-template-columns: 400px 1fr;
+            gap: 12px;
+            height: calc(100vh - 100px);
+            margin: 0;
+            padding: 12px;
+            max-width: none;
+        }
+
+        .video-area {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            height: 100%;
+        }
+
+        .video-container {
+            flex: 1;
+            background: #000;
+            border-radius: 8px;
+            overflow: hidden;
+            position: relative;
+            min-height: 400px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .video-container video {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            background: #000;
+        }
+
+        .content-area {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 8px;
+            padding: 20px;
+            overflow-y: auto;
+            height: 100%;
+            margin-right: 0;
+        }
+
+        .success-message {
+            text-align: center;
+            margin-bottom: 8px;
+        }
+
+        .success-message h2 {
+            color: #4B91F7;
+            font-size: 1.5rem;
+            margin-bottom: 4px;
+        }
+
+        .success-message p {
+            color: #b0bec5;
+            font-size: 0.9rem;
+        }
+
+        .action-buttons {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            flex-wrap: wrap;
+            margin-bottom: 8px;
+        }
+
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 0.85rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            min-width: 120px;
+            justify-content: center;
+        }
+
+        .btn-success {
+            background: #10b981;
+            color: white;
+        }
+
+        .btn-success:hover {
+            background: #059669;
+            transform: translateY(-1px);
+        }
+
+        .btn-primary {
+            background: #4B91F7;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #3b82f6;
+            transform: translateY(-1px);
+        }
+
+        .btn-warning {
+            background: #f59e0b;
+            color: white;
+        }
+
+        .btn-warning:hover {
+            background: #d97706;
+            transform: translateY(-1px);
+        }
+
+        .details-card {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 8px;
+            padding: 16px;
+            flex: 1;
+            width: 100%;
+        }
+
+        .details-card h3 {
+            color: #4B91F7;
+            font-size: 0.95rem;
+            margin-bottom: 10px;
+        }
+
+        .detail-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 6px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            width: 100%;
+        }
+
+        .detail-item:last-child {
+            border-bottom: none;
+        }
+
+        .detail-label {
+            color: #b0bec5;
+            font-size: 0.8rem;
+            flex-shrink: 0;
+            min-width: 100px;
+        }
+
+        .detail-value {
+            color: #e8e8e8;
+            font-weight: 600;
+            font-size: 0.8rem;
+            text-align: right;
+            flex: 1;
+            margin-left: 10px;
+        }
+
+        .quality-badge {
+            display: inline-flex;
+            padding: 2px 6px;
+            border-radius: 10px;
+            font-size: 0.65rem;
+            font-weight: 600;
+        }
+
+        .quality-badge.high {
+            background: #10b981;
+            color: white;
+        }
+
+        .quality-badge.medium {
+            background: #f59e0b;
+            color: white;
+        }
+
+        .quality-badge.low {
+            background: #ef4444;
+            color: white;
+        }
+
+        @media (max-width: 768px) {
+            .main-container {
+                grid-template-columns: 1fr;
+                height: auto;
+                gap: 10px;
+            }
+
+            .video-area {
+                order: 1;
+                height: auto;
+            }
+
+            .video-container {
+                min-height: 300px;
+            }
+
+            .content-area {
+                order: 2;
+                height: auto;
+            }
+
+            .action-buttons {
+                flex-direction: column;
+                align-items: center;
+            }
+
+            .btn {
+                width: 100%;
+                max-width: 280px;
+            }
+        }
+    </style>
 </head>
 <body>
     <div class="container">
-        <div class="logo-container">
+        <div class="logo-container header">
+            <div class="logo-section">
             <img src="/static/Logo-primary.png" alt="Video Studio Logo">
             <span class="logo-text">Video Studio</span>
+            </div>
+            <div style="display: flex; gap: 12px; align-items: center;">
+                <button class="btn btn-primary" onclick="createAnother()">Create Another</button>
+            </div>
         </div>
 
-        <div class="result-container" id="tourResult">
-            <h3>Tour Complete!</h3>
-            <p>Your video has been successfully processed.</p>
-            <video controls>
+        <div class="main-container">
+            <div class="video-area">
+                <div class="video-container" id="videoContainer">
+                    <video controls id="tourVideo">
                 <source src="/path/to/processed/video.mp4" type="video/mp4">
                 Your browser does not support the video tag.
             </video>
-            <div style="display: flex; gap: 10px; flex-wrap: wrap;">
-                <button class="btn btn-success" onclick="downloadTour('/path/to/processed/video.mp4')">
-                    Download Tour
+                </div>
+            </div>
+
+            <div class="content-area">
+                <div class="success-message">
+                    <h2>🎉 Your Video is Ready!</h2>
+                    <p>Your property tour has been successfully processed and is ready for download.</p>
+                </div>
+
+                <div class="action-buttons">
+                    <button class="btn btn-success" onclick="downloadTour()">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/>
+                        </svg>
+                        Download Video
                 </button>
-                <button class="btn btn-primary" onclick="location.href='/'">
-                    Create Another
-                </button>
-                <button class="btn btn-warning" onclick="playTourFullscreen('/path/to/processed/video.mp4')">
+                    <button class="btn btn-warning" onclick="playTourFullscreen()">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M7 14H5v5h2v-5zm3.5 2.5c0-.83-.67-1.5-1.5-1.5H9v3h1.5c.83 0 1.5-.67 1.5-1.5zM10.5 12c0-.83-.67-1.5-1.5-1.5H9v3h1.5c.83 0 1.5-.67 1.5-1.5zM9 7h1.5c.83 0 1.5.67 1.5 1.5S11.33 10 10.5 10H9V7zm6 6h1.5c.83 0 1.5-.67 1.5-1.5S16.33 12 15.5 12H15v3zm0-4.5h1.5c.83 0 1.5-.67 1.5-1.5S16.33 9 15.5 9H15v3z"/>
+                        </svg>
                     Play Fullscreen
                 </button>
             </div>
-            <div style="margin-top: 15px; padding: 10px; background: #1e1e1e; border-radius: 6px; font-size: 14px;">
-                <strong>Tour Details:</strong><br>
-                File: /path/to/processed/video.mp4<br>
-                ⏱Total Duration: 0:00
+
+                <div class="details-card">
+                    <h3>📋 Tour Details</h3>
+                    <div class="detail-item">
+                        <span class="detail-label">File Name</span>
+                        <span class="detail-value" id="fileName">-</span>
+                    </div>
+                    <div class="detail-item">
+                        <span class="detail-label">Duration</span>
+                        <span class="detail-value" id="durationValue">0:00</span>
+                    </div>
+                    <div class="detail-item">
+                        <span class="detail-label">Quality</span>
+                        <span class="detail-value" id="qualityDetail">-</span>
+                    </div>
+                    <div class="detail-item">
+                        <span class="detail-label">Export Mode</span>
+                        <span class="detail-value" id="exportMode">-</span>
+                    </div>
+                    <div class="detail-item">
+                        <span class="detail-label">Speed Factor</span>
+                        <span class="detail-value" id="speedFactor">-</span>
+                    </div>
+                    <div class="detail-item">
+                        <span class="detail-label">Resolution</span>
+                        <span class="detail-value" id="resolution">-</span>
+                    </div>
+                    <div class="detail-item">
+                        <span class="detail-label">Frame Rate</span>
+                        <span class="detail-value" id="frameRate">-</span>
+                    </div>
+                    <div class="detail-item">
+                        <span class="detail-label">Codec</span>
+                        <span class="detail-value" id="codec">-</span>
+                    </div>
+                    <div class="detail-item">
+                        <span class="detail-label">Processing Time</span>
+                        <span class="detail-value" id="processingTime">-</span>
+                    </div>
+                    <div class="detail-item">
+                        <span class="detail-label">Created</span>
+                        <span class="detail-value" id="createdDate">-</span>
+                    </div>
+                    <div class="detail-item">
+                        <span class="detail-label">Status</span>
+                        <span class="detail-value" style="color: #10b981;">✓ Complete</span>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
 
     <script>
+        let tourData = null;
+
         // Load tour result data on page load
         document.addEventListener('DOMContentLoaded', function() {
             console.log('Delivery page loaded');
@@ -92,43 +372,61 @@
         });
 
         function displayTourResult(data) {
-            const container = document.getElementById('tourResult');
+            tourData = data;
             
-            container.innerHTML = `
-                <h3>Property Tour Complete!</h3>
-                <p style="color: #ccc; margin-bottom: 20px;">${data.message}</p>
+            // Update video source
+            const video = document.getElementById('tourVideo');
+            video.src = `/${data.output_file}`;
+            
+            // Update file information
+            document.getElementById('fileName').textContent = data.output_file.split('/').pop();
+            document.getElementById('exportMode').textContent = data.export_mode || 'Standard';
+            document.getElementById('speedFactor').textContent = data.speed_factor ? `${data.speed_factor}x` : '1x';
+            
+            // Update quality information
+            const quality = data.quality || 'high';
+            document.getElementById('qualityDetail').innerHTML = `<span class="quality-badge ${quality}">${quality.toUpperCase()}</span>`;
+            
+            // Update duration if available
+            if (data.duration) {
+                document.getElementById('durationValue').textContent = formatTime(data.duration);
+            }
+            
+            // Update new fields with default/calculated values
+            document.getElementById('resolution').textContent = data.resolution || '1920x1080';
+            document.getElementById('frameRate').textContent = data.frame_rate || '30 fps';
+            document.getElementById('codec').textContent = data.codec || 'H.264';
+            document.getElementById('processingTime').textContent = data.processing_time || '~2 minutes';
+            document.getElementById('createdDate').textContent = data.created_date || new Date().toLocaleDateString();
+            
+            // Add video event listeners
+            video.addEventListener('loadedmetadata', function() {
+                if (!data.duration) {
+                    document.getElementById('durationValue').textContent = formatTime(video.duration);
+                }
                 
-                <video controls style="width: 100%; max-width: 600px; border-radius: 8px; margin-bottom: 20px;">
-                    <source src="/${data.output_file}" type="video/mp4">
-                    Your browser does not support the video tag.
-                </video>
-                
-                <div style="display: flex; gap: 10px; flex-wrap: wrap;">
-                    <button class="btn btn-success" onclick="downloadTour('${data.output_file}')">
-                        Download Tour
-                    </button>
-                    <button class="btn btn-primary" onclick="createAnother()">
-                        Create Another
-                    </button>
-                    <button class="btn btn-warning" onclick="playTourFullscreen('${data.output_file}')">
-                        Play Fullscreen
-                    </button>
-                </div>
-                
-                <div style="margin-top: 15px; padding: 10px; background: #1e1e1e; border-radius: 6px; font-size: 14px;">
-                    <strong>Tour Details:</strong><br>
-                    File: ${data.output_file}<br>
-                    Mode: ${data.export_mode}<br>
-                    ${data.speed_factor ? `Speed Factor: ${data.speed_factor}x<br>` : ''}
-                    Quality: ${data.quality}
+                // Update resolution if available
+                if (video.videoWidth && video.videoHeight) {
+                    document.getElementById('resolution').textContent = `${video.videoWidth}x${video.videoHeight}`;
+                }
+            });
+            
+            video.addEventListener('error', function() {
+                console.error('Video loading error');
+                document.getElementById('videoContainer').innerHTML = `
+                    <div style="display: flex; align-items: center; justify-content: center; height: 200px; background: #1a1a1a; border-radius: 8px;">
+                        <div style="width: 30px; height: 30px; border: 3px solid #333; border-top: 3px solid #4B91F7; border-radius: 50%; animation: spin 1s linear infinite;"></div>
                 </div>
             `;
+            });
         }
 
-        function downloadTour(filename) {
+        function downloadTour() {
+            if (!tourData) return;
+            
             const link = document.createElement('a');
-            link.href = `/download/${filename}`;
-            link.download = filename;
+            link.href = `/download/${tourData.output_file}`;
+            link.download = tourData.output_file.split('/').pop();
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
@@ -141,17 +439,73 @@
             window.location.href = '/';
         }
 
-        function playTourFullscreen(filename) {
-            const video = document.createElement('video');
-            video.src = `/${filename}`;
-            video.controls = true;
-            video.style.width = '100%';
-            video.style.height = '100%';
+        function playTourFullscreen() {
+            if (!tourData) return;
             
-            if (video.requestFullscreen) {
-                video.requestFullscreen();
+            // Create a new video element for fullscreen
+            const fullscreenVideo = document.createElement('video');
+            fullscreenVideo.src = `/${tourData.output_file}`;
+            fullscreenVideo.controls = true;
+            fullscreenVideo.style.width = '100vw';
+            fullscreenVideo.style.height = '100vh';
+            fullscreenVideo.style.backgroundColor = '#000';
+            fullscreenVideo.style.objectFit = 'contain';
+            
+            // Add to body and make fullscreen
+            document.body.appendChild(fullscreenVideo);
+            
+            // Try to enter fullscreen
+            if (fullscreenVideo.requestFullscreen) {
+                fullscreenVideo.requestFullscreen().then(() => {
+                    fullscreenVideo.play();
+                }).catch(err => {
+                    console.error('Fullscreen failed:', err);
+                    // Fallback: just play the video
+                    fullscreenVideo.play();
+                });
+            } else if (fullscreenVideo.webkitRequestFullscreen) {
+                fullscreenVideo.webkitRequestFullscreen().then(() => {
+                    fullscreenVideo.play();
+                }).catch(err => {
+                    console.error('Fullscreen failed:', err);
+                    fullscreenVideo.play();
+                });
+            } else if (fullscreenVideo.mozRequestFullScreen) {
+                fullscreenVideo.mozRequestFullScreen().then(() => {
+                    fullscreenVideo.play();
+                }).catch(err => {
+                    console.error('Fullscreen failed:', err);
+                    fullscreenVideo.play();
+                });
+            } else {
+                // Fallback: just play the video
+                fullscreenVideo.play();
             }
-            video.play();
+            
+            // Remove video element when fullscreen exits
+            fullscreenVideo.addEventListener('fullscreenchange', function() {
+                if (!document.fullscreenElement) {
+                    document.body.removeChild(fullscreenVideo);
+                }
+            });
+            
+            fullscreenVideo.addEventListener('webkitfullscreenchange', function() {
+                if (!document.webkitFullscreenElement) {
+                    document.body.removeChild(fullscreenVideo);
+                }
+            });
+            
+            fullscreenVideo.addEventListener('mozfullscreenchange', function() {
+                if (!document.mozFullScreenElement) {
+                    document.body.removeChild(fullscreenVideo);
+                }
+            });
+        }
+
+        function formatTime(seconds) {
+            const minutes = Math.floor(seconds / 60);
+            const remainingSeconds = Math.floor(seconds % 60);
+            return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
         }
     </script>
 </body>

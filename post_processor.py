@@ -213,8 +213,8 @@ def add_combined_overlays(input_video, agent_name, agency_name, agent_phone=None
             print(f"Error was: {result.stderr[-300:]}")
             
             simple_text_overlays = [
-                f"drawtext=text='{agent_display}':x=30:y=100:fontsize=64:fontcolor=white:shadowcolor=black:shadowx=4:shadowy=2",
-                f"drawtext=text='{agency_display}':x=30:y=180:fontsize=40:fontcolor=white:shadowcolor=black:shadowx=3:shadowy=2"
+                f"drawtext=text='{agent_display}':x=30:y=300:fontsize=64:fontcolor=white:shadowcolor=black:shadowx=4:shadowy=2",
+                f"drawtext=text='{agency_display}':x=30:y=260:fontsize=40:fontcolor=white:shadowcolor=black:shadowx=3:shadowy=2"
             ]
             
             if agent_phone:
@@ -469,10 +469,10 @@ def add_agent_watermark(input_video, agent_name, agency_name, agent_phone=None, 
         text_overlays = [
             f"drawtext=text='{agent_display}':fontfile=/Windows/Fonts/segoeuib.ttf:"
             f"fontsize=48:fontcolor=white:shadowcolor=black:shadowx=3:shadowy=1:"
-            f"x=50:y=150",
+            f"x=50:y=300",
             f"drawtext=text='{agency_display}':fontfile=/Windows/Fonts/segoeuib.ttf:"
             f"fontsize=32:fontcolor=white:shadowcolor=black:shadowx=3:shadowy=1:"
-            f"x=50:y=200"
+            f"x=50:y=260"
         ]
         
         if agent_phone:

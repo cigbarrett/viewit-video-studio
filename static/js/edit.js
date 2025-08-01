@@ -45,6 +45,7 @@
             setupFilterControls();
             loadMusicSuggestions();
             loadFilterPresets();
+            initializeFilters(); // Initialize filters with proper defaults
             
             updateExportButtonState();
         });
@@ -286,6 +287,11 @@
         }
 
         function handleTimelineClick(e) {
+            // Don't handle clicks on segments or their children
+            if (e.target.classList.contains('timeline-segment') || e.target.closest('.timeline-segment')) {
+                return;
+            }
+            
             if (selectionMode !== 'click') return;
             
             const rect = e.currentTarget.getBoundingClientRect();
@@ -444,7 +450,8 @@
                 duration: endTime - startTime,
                 room: roomType === 'auto' ? null : roomType,
                 detecting: roomType === 'auto',
-                manual: roomType !== 'auto'
+                manual: roomType !== 'auto',
+                editable: true
             };
             
             segments.push(segment);
@@ -591,40 +598,26 @@
                 div.title = `${roomTitle}: ${formatTime(segment.start)} - ${formatTime(segment.end)}`;
                 div.setAttribute('data-segment-id', segment.id);
                 
+                console.log(`Creating segment ${index}:`, segment);
+                console.log(`Segment editable:`, segment.editable);
+                
                 if (segment.editable) {
+                    console.log(`Setting up drag/resize for segment ${index}`);
                     div.style.cursor = 'move';
                     div.setAttribute('draggable', 'true');
                     
                     const leftHandle = document.createElement('div');
                     leftHandle.className = 'resize-handle left';
-                    leftHandle.style.cssText = `
-                        position: absolute;
-                        left: 0;
-                        top: 0;
-                        width: 4px;
-                        height: 100%;
-                        background: rgba(255, 255, 255, 0.3);
-                        cursor: ew-resize;
-                        z-index: 10;
-                    `;
                     
                     const rightHandle = document.createElement('div');
                     rightHandle.className = 'resize-handle right';
-                    rightHandle.style.cssText = `
-                        position: absolute;
-                        right: 0;
-                        top: 0;
-                        width: 4px;
-                        height: 100%;
-                        background: rgba(255, 255, 255, 0.3);
-                        cursor: ew-resize;
-                        z-index: 10;
-                    `;
                     
                     div.appendChild(leftHandle);
                     div.appendChild(rightHandle);
                     
                     setupSegmentDragAndResize(div, segment);
+                } else {
+                    console.log(`Segment ${index} is not editable`);
                 }
                 
                 div.addEventListener('click', function(e) {
@@ -639,19 +632,29 @@
         }
 
         function setupSegmentDragAndResize(element, segment) {
+            console.log('Setting up drag and resize for segment:', segment);
+            console.log('Element:', element);
+            console.log('Segment editable:', segment.editable);
+            
             let isDragging = false;
             let isResizing = false;
             let resizeHandle = null;
             let startX, startLeft, startWidth;
             
             element.addEventListener('mousedown', function(e) {
+                console.log('Mouse down on segment:', e.target);
+                e.stopPropagation(); // Prevent timeline click handler
+                e.preventDefault(); // Prevent default drag behavior
+                
                 if (e.target.classList.contains('resize-handle')) {
+                    console.log('Starting resize');
                     isResizing = true;
                     resizeHandle = e.target;
                     startX = e.clientX;
                     startLeft = parseFloat(element.style.left);
                     startWidth = parseFloat(element.style.width);
                 } else {
+                    console.log('Starting drag');
                     isDragging = true;
                     startX = e.clientX;
                     startLeft = parseFloat(element.style.left);
@@ -666,6 +669,7 @@
                 const percentDelta = (deltaX / timelineWidth) * 100;
                 
                 if (isDragging) {
+                    console.log('Dragging segment');
                     const newLeft = Math.max(0, Math.min(100 - parseFloat(element.style.width), startLeft + percentDelta));
                     element.style.left = newLeft + '%';
                     
@@ -673,6 +677,7 @@
                     segment.start = newStart;
                     segment.end = newStart + segment.duration;
                 } else if (isResizing) {
+                    console.log('Resizing segment');
                     if (resizeHandle.classList.contains('left')) {
                         const newLeft = Math.max(0, Math.min(startLeft + percentDelta, startLeft + startWidth - 5));
                         const newWidth = startWidth - (newLeft - startLeft);
@@ -698,6 +703,9 @@
             });
             
             document.addEventListener('mouseup', function() {
+                if (isDragging || isResizing) {
+                    console.log('Ending drag/resize');
+                }
                 isDragging = false;
                 isResizing = false;
                 resizeHandle = null;
@@ -1258,7 +1266,7 @@
                 })),
                 export_mode: exportMode,
                 speed_factor: parseFloat(speedFactor),
-                quality: exportMode === 'speedup' ? 'standard' : 'professional',
+                quality: 'high', // Always use high quality for 1080p exports
                 music_path: selectedMusicTrack ? selectedMusicTrack.local_path : undefined,
                 music_volume: selectedMusicTrack ? 1.0 : undefined,
                 filter_settings: filterSettings
@@ -1821,62 +1829,60 @@
             }
         }
 
-        function applyFilterPreset(event) {
-            const preset = event.target.dataset.preset;
-            currentPreset = preset;
-            
+        function applyFilterPreset(presetName) {
             // Clear other active presets
             document.querySelectorAll('.preset-btn').forEach(btn => {
                 btn.classList.remove('active');
             });
-            event.target.classList.add('active');
 
-            // Apply preset values to sliders
+            // Apply preset values to sliders - updated for backend-compatible ranges
             const presets = {
                 warm: {
-                    brightness: 10,
-                    contrast: 110,
-                    saturation: 120,
-                    hue: 15,
-                    blur: 0,
-                    sharpen: 0
+                    brightness: 0.15,   // Slightly brighter for warm effect
+                    contrast: 1.1,       // Subtle contrast boost
+                    saturation: 1.3,     // Enhanced saturation for warmth
+                    hue: 10,             // Slight warm tint
+                    blur: 0,             // No blur
+                    sharpen: 0           // No sharpening
                 },
                 cool: {
-                    brightness: 5,
-                    contrast: 115,
-                    saturation: 110,
-                    hue: -15,
-                    blur: 0,
-                    sharpen: 0
+                    brightness: 0.1,    // Slight brightness boost
+                    contrast: 1.15,      // Moderate contrast
+                    saturation: 1.1,     // Slight saturation boost
+                    hue: -10,            // Cool tint
+                    blur: 0,             // No blur
+                    sharpen: 0           // No sharpening
                 },
                 vibrant: {
-                    brightness: 10,
-                    contrast: 120,
-                    saturation: 140,
-                    hue: 0,
-                    blur: 0,
-                    sharpen: 20
+                    brightness: 0.1,    // Slight brightness boost
+                    contrast: 1.3,       // Strong contrast for vibrancy
+                    saturation: 1.5,     // High saturation for vibrant colors
+                    hue: 0,              // No hue shift
+                    blur: 0,             // No blur
+                    sharpen: 0.5         // Light sharpening for crispness
                 },
                 cinematic: {
-                    brightness: 5,
-                    contrast: 120,
-                    saturation: 110,
-                    hue: 5,
-                    blur: 0,
-                    sharpen: 10
+                    brightness: 0.05,   // Subtle brightness
+                    contrast: 1.25,      // Strong contrast for cinematic look
+                    saturation: 1.1,     // Slight saturation boost
+                    hue: 5,              // Very slight warm tint
+                    blur: 0,             // No blur
+                    sharpen: 0.2         // Light sharpening
                 },
                 vintage: {
-                    brightness: 15,
-                    contrast: 130,
-                    saturation: 80,
-                    hue: 20,
-                    blur: 1,
-                    sharpen: 0
+                    brightness: 0.2,    // Brighter for vintage look
+                    contrast: 1.4,       // High contrast for vintage feel
+                    saturation: 0.7,     // Reduced saturation for vintage look
+                    hue: 25,             // Warm vintage tint
+                    blur: 1.5,           // Light blur for vintage softness
+                    sharpen: 0           // No sharpening for vintage softness
                 }
             };
 
-            if (presets[preset]) {
-                const values = presets[preset];
+            if (presets[presetName]) {
+                const values = presets[presetName];
+                
+                // Update slider values
                 document.getElementById('brightnessSlider').value = values.brightness;
                 document.getElementById('contrastSlider').value = values.contrast;
                 document.getElementById('saturationSlider').value = values.saturation;
@@ -1884,13 +1890,23 @@
                 document.getElementById('blurSlider').value = values.blur;
                 document.getElementById('sharpenSlider').value = values.sharpen;
 
-                // Update all display values
-                updateAllDisplayValues();
+                // Update display values
+                updateFilterValue('brightness', values.brightness);
+                updateFilterValue('contrast', values.contrast);
+                updateFilterValue('saturation', values.saturation);
+                updateFilterValue('hue', values.hue);
+                updateFilterValue('blur', values.blur);
+                updateFilterValue('sharpen', values.sharpen);
                 
-                // Apply live preview
-                if (isPreviewEnabled) {
-                    applyLivePreview();
-                }
+                // Mark the preset as active
+                const presetButtons = document.querySelectorAll('.preset-btn');
+                presetButtons.forEach(btn => {
+                    if (btn.textContent.toLowerCase() === presetName.toLowerCase()) {
+                        btn.classList.add('active');
+                    }
+                });
+                
+                console.log(`Applied ${presetName} preset with backend-compatible values`);
             }
         }
 
@@ -1913,37 +1929,72 @@
 
         function applyLivePreview() {
             const videoPlayer = document.getElementById('videoPlayer');
-            if (!videoPlayer) return;
+            if (!videoPlayer) {
+                console.error('Video player not found');
+                return;
+            }
 
-            // Get current values
-            const brightness = parseInt(document.getElementById('brightnessSlider').value);
-            const contrast = parseInt(document.getElementById('contrastSlider').value);
-            const saturation = parseInt(document.getElementById('saturationSlider').value);
+            // Check if video is ready
+            if (videoPlayer.readyState < 2) {
+                console.log('Video not ready, skipping filter application');
+                return;
+            }
+
+            // Check if video is actually playing or has loaded
+            if (videoPlayer.videoWidth === 0 || videoPlayer.videoHeight === 0) {
+                console.log('Video dimensions not available, skipping filter application');
+                return;
+            }
+
+            // Get current values from sliders
+            const brightness = parseFloat(document.getElementById('brightnessSlider').value);
+            const contrast = parseFloat(document.getElementById('contrastSlider').value);
+            const saturation = parseFloat(document.getElementById('saturationSlider').value);
             const hue = parseInt(document.getElementById('hueSlider').value);
             const blur = parseInt(document.getElementById('blurSlider').value);
             const sharpen = parseInt(document.getElementById('sharpenSlider').value);
 
-            // Build CSS filter string
+            console.log('Filter values:', { brightness, contrast, saturation, hue, blur, sharpen });
+
+            // Build CSS filter string with proper calculations
             let filterString = '';
             
-            if (brightness !== 0) {
-                filterString += `brightness(${1 + (brightness / 100)}) `;
+            // Only apply filters if they differ from default values (backend expectations)
+            if (brightness !== 0.0) {
+                filterString += `brightness(${1 + brightness}) `; // CSS brightness is 1-based
             }
-            if (contrast !== 100) {
-                filterString += `contrast(${contrast / 100}) `;
+            
+            if (contrast !== 1.0) {
+                filterString += `contrast(${contrast}) `;
             }
-            if (saturation !== 100) {
-                filterString += `saturate(${saturation / 100}) `;
+            
+            if (saturation !== 1.0) {
+                filterString += `saturate(${saturation}) `;
             }
+            
             if (hue !== 0) {
                 filterString += `hue-rotate(${hue}deg) `;
             }
+            
             if (blur > 0) {
                 filterString += `blur(${blur}px) `;
             }
 
-            // Apply CSS filters
-            videoPlayer.style.filter = filterString.trim();
+            // Apply CSS filters with error handling
+            try {
+                if (filterString.trim() === '') {
+                    // No filters to apply, clear any existing filters
+                    videoPlayer.style.filter = '';
+                    console.log('Cleared all filters');
+                } else {
+                    videoPlayer.style.filter = filterString.trim();
+                    console.log('Applied filters successfully:', filterString.trim());
+                }
+            } catch (error) {
+                console.error('Error applying filters:', error);
+                // Reset filters if there's an error
+                videoPlayer.style.filter = '';
+            }
         }
 
         function toggleFilterPreview() {
@@ -1990,21 +2041,21 @@
                 custom: {}
             };
             
-            // Get current slider values
-            const brightness = (parseInt(document.getElementById('brightnessSlider').value) - 0) / 100;
-            const contrast = parseInt(document.getElementById('contrastSlider').value) / 100;
-            const saturation = parseInt(document.getElementById('saturationSlider').value) / 100;
+            // Get current slider values - use the actual values, don't divide by 100
+            const brightness = parseFloat(document.getElementById('brightnessSlider').value);
+            const contrast = parseFloat(document.getElementById('contrastSlider').value);
+            const saturation = parseFloat(document.getElementById('saturationSlider').value);
             const hue = parseInt(document.getElementById('hueSlider').value);
             const blur = parseInt(document.getElementById('blurSlider').value);
             const sharpen = parseInt(document.getElementById('sharpenSlider').value);
             
-            // Include non-default values
-            if (brightness !== 0) settings.custom.brightness = brightness;
+            // Include non-default values (matching backend expectations)
+            if (brightness !== 0.0) settings.custom.brightness = brightness;
             if (contrast !== 1.0) settings.custom.contrast = contrast;
             if (saturation !== 1.0) settings.custom.saturation = saturation;
             if (hue !== 0) settings.custom.hue = hue;
             if (blur > 0) settings.custom.blur = blur;
-            if (sharpen > 0) settings.custom.sharpness = sharpen / 100;
+            if (sharpen > 0) settings.custom.sharpness = sharpen;
             
             return settings;
         }
@@ -2024,5 +2075,241 @@
             } catch (error) {
                 console.error('Error loading filter presets:', error);
             }
+        }
+
+        // Tab switching functionality
+        function setupTabSwitching() {
+            const tabButtons = document.querySelectorAll('.tab-btn');
+            const tabContents = document.querySelectorAll('.tab-content');
+            
+            tabButtons.forEach(button => {
+                button.addEventListener('click', function() {
+                    const targetTab = this.getAttribute('data-tab');
+                    
+                    // Remove active class from all tabs and contents
+                    tabButtons.forEach(btn => btn.classList.remove('active'));
+                    tabContents.forEach(content => content.classList.remove('active'));
+                    
+                    // Add active class to clicked tab and corresponding content
+                    this.classList.add('active');
+                    document.getElementById(`tab-${targetTab}`).classList.add('active');
+                    
+                    console.log(`Switched to ${targetTab} tab`);
+                });
+            });
+        }
+
+        // Initialize tab switching when DOM is loaded
+        document.addEventListener('DOMContentLoaded', function() {
+            setupTabSwitching();
+        });
+
+        // Additional utility functions for the new interface
+        function updateFilterValue(filterName, value) {
+            const videoPlayer = document.getElementById('videoPlayer');
+            if (!videoPlayer) return;
+            
+            // Update the corresponding slider value display
+            const valueElement = document.getElementById(`${filterName}Value`);
+            if (valueElement) {
+                let displayValue;
+                switch (filterName) {
+                    case 'brightness':
+                        displayValue = parseFloat(value).toFixed(1);
+                        break;
+                    case 'contrast':
+                        displayValue = parseFloat(value).toFixed(1);
+                        break;
+                    case 'saturation':
+                        displayValue = parseFloat(value).toFixed(1);
+                        break;
+                    case 'hue':
+                        displayValue = value + '°';
+                        break;
+                    case 'blur':
+                        displayValue = value;
+                        break;
+                    case 'sharpen':
+                        displayValue = value;
+                        break;
+                    default:
+                        displayValue = value;
+                }
+                valueElement.textContent = displayValue;
+            }
+            
+            // Apply live preview
+            applyLivePreview();
+        }
+
+        function resetFilters() {
+            // Reset all filter sliders to default values (matching backend expectations)
+            const defaultValues = {
+                'brightnessSlider': 0.0,  // Backend expects 0.0 as default
+                'contrastSlider': 1.0,    // Backend expects 1.0 as default
+                'saturationSlider': 1.0,  // Backend expects 1.0 as default
+                'hueSlider': 0,           // Backend expects 0 as default
+                'blurSlider': 0,          // Backend expects 0 as default
+                'sharpenSlider': 0        // Backend expects 0 as default
+            };
+            
+            // Apply default values
+            Object.keys(defaultValues).forEach(sliderId => {
+                const slider = document.getElementById(sliderId);
+                if (slider) {
+                    slider.value = defaultValues[sliderId];
+                    const filterName = sliderId.replace('Slider', '');
+                    updateFilterValue(filterName, defaultValues[sliderId]);
+                }
+            });
+            
+            // Clear active preset
+            document.querySelectorAll('.preset-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            
+            console.log('Filters reset to backend-compatible default values');
+        }
+
+        function previewFilters() {
+            // Toggle filter preview mode
+            const videoPlayer = document.getElementById('videoPlayer');
+            const previewBtn = document.getElementById('previewFiltersBtn');
+            
+            if (videoPlayer) {
+                if (videoPlayer.style.filter === '') {
+                    // Apply current filter values
+                    applyLivePreview();
+                    previewBtn.style.color = '#3b82f6'; // Blue when active
+                } else {
+                    // Remove filters
+                    videoPlayer.style.filter = '';
+                    previewBtn.style.color = '#ccc'; // Grey when inactive
+                }
+            }
+        }
+
+        // Music-related functions
+        function toggleCustomSearch() {
+            const searchSection = document.getElementById('customSearchSection');
+            if (searchSection) {
+                const isVisible = searchSection.style.display !== 'none';
+                searchSection.style.display = isVisible ? 'none' : 'block';
+                
+                if (!isVisible) {
+                    const searchInput = document.getElementById('customMusicQuery');
+                    if (searchInput) {
+                        searchInput.focus();
+                    }
+                }
+            }
+        }
+
+        function searchCustomMusic() {
+            const query = document.getElementById('customMusicQuery');
+            if (query && query.value.trim()) {
+                // This function is already implemented in the existing code
+                // Just call the existing searchCustomMusic function
+                searchCustomMusic();
+            } else {
+                alert('Please enter a search term');
+            }
+        }
+
+        // Export mode functions
+        function handleExportModeChange(event) {
+            const speedSettings = document.getElementById('speedSettings');
+            if (event.target.value === 'speedup') {
+                speedSettings.style.display = 'block';
+            } else {
+                speedSettings.style.display = 'none';
+            }
+        }
+
+        // Initialize all the new functionality
+        document.addEventListener('DOMContentLoaded', function() {
+            // Setup export mode change listeners
+            document.querySelectorAll('input[name="exportMode"]').forEach(radio => {
+                radio.addEventListener('change', handleExportModeChange);
+            });
+            
+            // Setup speed slider
+            const speedSlider = document.getElementById('speedSlider');
+            if (speedSlider) {
+                speedSlider.addEventListener('input', function() {
+                    const speedValue = document.getElementById('speedValue');
+                    if (speedValue) {
+                        speedValue.textContent = this.value + 'x';
+                    }
+                });
+            }
+            
+            // Setup segment length slider
+            const segmentLengthSlider = document.getElementById('segmentLengthSlider');
+            if (segmentLengthSlider) {
+                segmentLengthSlider.addEventListener('input', function() {
+                    const segmentLengthValue = document.getElementById('segmentLengthValue');
+                    if (segmentLengthValue) {
+                        segmentLengthValue.textContent = this.value + 's';
+                    }
+                });
+            }
+            
+            console.log('New interface functionality initialized');
+        });
+
+        function testFilterCompatibility() {
+            const videoPlayer = document.getElementById('videoPlayer');
+            if (!videoPlayer) return false;
+            
+            // Test if CSS filters are supported
+            try {
+                // Apply a simple test filter
+                videoPlayer.style.filter = 'brightness(1.1)';
+                const testFilter = videoPlayer.style.filter;
+                videoPlayer.style.filter = '';
+                
+                console.log('CSS filters are supported:', testFilter);
+                return true;
+            } catch (error) {
+                console.error('CSS filters not supported:', error);
+                return false;
+            }
+        }
+
+        function initializeFilters() {
+            // Test filter compatibility first
+            if (!testFilterCompatibility()) {
+                console.warn('CSS filters not supported, disabling filter functionality');
+                return;
+            }
+            
+            // Set default values for all sliders - matching backend expectations
+            const defaultValues = {
+                'brightnessSlider': 0.0,  // Backend expects 0.0 as default
+                'contrastSlider': 1.0,    // Backend expects 1.0 as default
+                'saturationSlider': 1.0,  // Backend expects 1.0 as default
+                'hueSlider': 0,           // Backend expects 0 as default
+                'blurSlider': 0,          // Backend expects 0 as default
+                'sharpenSlider': 0        // Backend expects 0 as default
+            };
+            
+            // Apply default values
+            Object.keys(defaultValues).forEach(sliderId => {
+                const slider = document.getElementById(sliderId);
+                if (slider) {
+                    slider.value = defaultValues[sliderId];
+                    const filterName = sliderId.replace('Slider', '');
+                    updateFilterValue(filterName, defaultValues[sliderId]);
+                }
+            });
+            
+            // Clear any existing filters
+            const videoPlayer = document.getElementById('videoPlayer');
+            if (videoPlayer) {
+                videoPlayer.style.filter = '';
+            }
+            
+            console.log('Filters initialized with backend-compatible default values');
         }
 
