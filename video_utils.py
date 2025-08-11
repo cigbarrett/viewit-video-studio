@@ -24,16 +24,6 @@ def get_video_info(video_path):
 
 def get_quality_settings(quality='professional'):
     settings = {
-        'draft': {
-            'crf': '23',
-            'preset': 'veryfast',
-            'maxrate': '20M',
-            'bufsize': '10M',  
-            'timeout': 60,
-            'target_resolution': '1080:1920',
-            'threads': '2',
-            'memory_optimized': True
-        },
         'standard': {
             'crf': '20',
             'preset': 'fast',

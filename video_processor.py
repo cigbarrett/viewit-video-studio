@@ -18,8 +18,8 @@ def extract_clip_simple(video_path, video_info, start, end, output, room_type=No
             fontsize = max(width // 25, 90)
             text_overlay = (
                 f"drawtext=text='{display_text}':fontfile=/Windows/Fonts/segoeuib.ttf:"
-                f"fontsize={fontsize * 1.5}:fontcolor=white:shadowcolor=black:shadowx=3:shadowy=1:"
-                f"x=(w-text_w)/2:y=h-text_h-250"
+                f"fontsize={fontsize * 1.5}:fontcolor=black:"
+                f"x=(w-text_w)/2:y=h-text_h-275"
             )
             filters.append(text_overlay)
 
@@ -96,8 +96,8 @@ def extract_clip_hq(video_path, video_info, start, end, output, speed_factor=1.0
             fontsize = max(width // 25, 48)
             text_filter = (
                 f"drawtext=text='{display_text}':fontfile=/Windows/Fonts/segoeuib.ttf:"
-                f"fontsize={fontsize * 1.5}:fontcolor=white:shadowcolor=black:shadowx=3:shadowy=1:"
-                f"x=(w-text_w)/2:y=h-text_h-250"
+                f"fontsize={fontsize * 1.5}:fontcolor=black:"
+                f"x=(w-text_w)/2:y=h-text_h-275"
             )
             cmd.extend(['-vf', text_filter])
         
@@ -142,9 +142,9 @@ def extract_speedup_clip_fast(video_path, video_info, start, end, output, speed_
             display_text = room_type.replace('_', ' ').upper()
             fontsize = max(36, width // 40)  
             text_overlay = (
-                f"drawtext=text='{display_text}':fontfile=/Windows/Fonts/segoeuib.ttf:"
-                f"fontsize={fontsize * 1.5}:fontcolor=white:shadowcolor=black:shadowx=3:shadowy=1:"
-                f"x=(w-text_w)/2:y=h-text_h-250"
+                f"drawtext=text='{display_text}':fontcolor=black:"
+                f"fontsize={fontsize * 1.5}:fontfile=/Windows/Fonts/segoeuib.ttf:"
+                f"x=(w-text_w)/2:y=h-text_h-275"
             )
             filters.append(text_overlay)
         
@@ -182,69 +182,16 @@ def extract_speedup_clip_fast(video_path, video_info, start, end, output, speed_
             return True
         else:
             print(f"Fast speedup failed: {result.stderr[-200:]}")
-            return extract_speedup_clip_fallback(video_path, video_info, start, end, output, speed_factor)
+            return False
             
     except subprocess.TimeoutExpired:
-        print(f"Fast speedup timeout, using fallback")
-        return extract_speedup_clip_fallback(video_path, video_info, start, end, output, speed_factor)
+        print(f"Fast speedup timeout")
+        return False
     except Exception as e:
         print(f"Fast speedup error: {e}")
         return False
 
-def extract_speedup_clip_fallback(video_path, video_info, start, end, output, speed_factor=1.0):
-    try:
-        duration = end - start
-        
-        if duration > 20 or video_info.get('width', 1920) > 1920:
-            cmd = [
-                'ffmpeg', '-i', str(video_path),
-                '-ss', str(start), '-t', str(duration),
-                '-filter:v', f'scale=480:854:force_original_aspect_ratio=increase,crop=480:854,setpts=PTS/{speed_factor}',
-                '-an',
-                '-c:v', 'libx264',
-                '-preset', 'ultrafast',
-                '-crf', '40',
-                '-maxrate', '1M',
-                '-bufsize', '2M',
-                '-threads', '1',
-                '-r', '15',  
-                '-y', output
-            ]
-            timeout_duration = min(120, int(duration * 3))
-            print(f"EXTREME fallback: {start:.1f}s-{end:.1f}s at {speed_factor}x (480p, {timeout_duration}s timeout)")
-        else:
-            cmd = [
-                'ffmpeg', '-i', str(video_path),
-                '-ss', str(start), '-t', str(duration),
-                '-filter:v', f'scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,setpts=PTS/{speed_factor}',
-                '-an',
-                '-c:v', 'libx264',
-                '-preset', 'ultrafast',
-                '-crf', '23',
-                '-maxrate', '2M',
-                '-bufsize', '4M',
-                '-threads', '2',
-                '-y', output
-            ]
-            timeout_duration = min(60, int(duration * 2))
-            print(f"Ultra-fast fallback: {start:.1f}s-{end:.1f}s at {speed_factor}x ({timeout_duration}s timeout)")
-        
-        result = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout_duration)
-        
-        if result.returncode == 0:
-            file_size = os.path.getsize(output) / (1024 * 1024) if os.path.exists(output) else 0
-            print(f"Fallback speedup: {output} ({file_size:.1f}MB)")
-            return True
-        else:
-            print(f"Fallback failed: {result.stderr[-150:]}")
-            return False
-            
-    except subprocess.TimeoutExpired:
-        print(f"Fallback timeout: Even extreme settings couldn't process this clip in time")
-        return False
-    except Exception as e:
-        print(f"Fallback error: {e}")
-        return False
+
 
 def combine_clips(clips, output, silent_mode=True):
     try:
@@ -362,68 +309,4 @@ def combine_clips_hq(clips, output, quality_settings):
         print(f"HQ combine error: {e}")
         return False
 
-def process_video_chunked(video_path, video_info, segments, output_path, chunk_size_mb=100):
-
-    try:
-        print(f"Processing video in chunks (max {chunk_size_mb}MB per chunk) for minimal memory usage...")
-        
-        duration = video_info.get('duration', 0)
-        if duration == 0:
-            return False
-        
-        file_size_mb = os.path.getsize(video_path) / (1024 * 1024)
-        estimated_bitrate_mbps = file_size_mb / duration * 8 
-        
-        chunk_duration = min(chunk_size_mb / max(estimated_bitrate_mbps, 1), 300)  
-        
-        temp_chunks = []
-        current_time = 0
-        chunk_index = 0
-        
-        while current_time < duration:
-            chunk_end = min(current_time + chunk_duration, duration)
-            chunk_output = f"temp/chunk_{chunk_index}.mp4"
-            
-            chunk_segments = []
-            for segment in segments:
-                seg_start = max(segment['start_time'], current_time)
-                seg_end = min(segment['end_time'], chunk_end)
-                if seg_start < seg_end:
-                    chunk_segments.append({
-                        'start_time': seg_start - current_time,  
-                        'end_time': seg_end - current_time,
-                        'label': segment.get('label', 'room')
-                    })
-            
-            if chunk_segments:
-                success = extract_clip_simple(
-                    video_path, video_info, current_time, chunk_end, 
-                    chunk_output, room_type=None
-                )
-                
-                if success:
-                    temp_chunks.append(chunk_output)
-                    print(f"Chunk {chunk_index + 1}: {current_time:.1f}s-{chunk_end:.1f}s processed")
-                else:
-                    print(f"Failed to process chunk {chunk_index + 1}")
-                    return False
-            
-            current_time = chunk_end
-            chunk_index += 1
-        
-        if temp_chunks:
-            success = combine_clips(temp_chunks, output_path, silent_mode=True)
-            
-            for chunk in temp_chunks:
-                if os.path.exists(chunk):
-                    os.unlink(chunk)
-            
-            if success:
-                print(f"Chunked processing complete: {output_path}")
-                return True
-        
-        return False
-        
-    except Exception as e:
-        print(f"Chunked processing error: {e}")
-        return False 
+ 

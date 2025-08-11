@@ -2,7 +2,8 @@
 from flask import Flask, request, jsonify, send_file
 from flask_cors import CORS
 import os
-import tempfile
+import shutil
+import base64, uuid
 from datetime import datetime
 from guided_editor import GuidedVideoEditor
 from video_filters import get_available_presets
@@ -13,13 +14,13 @@ import requests
 import json
 import time
 import threading
-from post_processor import add_combined_overlays
-from openai import OpenAI
+from post_processor import add_combined_overlays, add_agent_property_overlays
+from scene_detection import detect_room_transitions_realtime, detect_scene_label, get_room_display_name
 from scene_detection import get_room_display_name
 
 load_dotenv() 
 
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+
 
 app = Flask(__name__)
 CORS(app)  
@@ -59,6 +60,70 @@ def save_processing_results():
         print(f"Error saving processing results: {e}")
 
 app.processing_results = load_processing_results()
+
+def cleanup_temp_files():
+    """Clean up old temporary files to prevent disk space issues"""
+    try:
+        temp_dir = 'temp'
+        if not os.path.exists(temp_dir):
+            return
+        
+        current_time = time.time()
+        cleaned_count = 0
+        
+        for filename in os.listdir(temp_dir):
+            file_path = os.path.join(temp_dir, filename)
+            
+            # Skip if not a file
+            if not os.path.isfile(file_path):
+                continue
+            
+            # Check if file should be cleaned up
+            should_clean = False
+            
+            # Music files
+            if filename.startswith('music_') and filename.endswith('.mp3'):
+                should_clean = True
+            # Video clip files
+            elif filename.startswith('simple_clip_') and filename.endswith('.mp4'):
+                should_clean = True
+            elif filename.startswith('temp_hq_clip_') and filename.endswith('.mp4'):
+                should_clean = True
+            # Concat files
+            elif filename.startswith('temp_concat') and filename.endswith('.txt'):
+                should_clean = True
+            # Logo files
+            elif filename.startswith('agency_logo_') and filename.endswith('.png'):
+                should_clean = True
+            # QR files
+            elif filename.startswith('qr_') and filename.endswith('.png'):
+                should_clean = True
+            # Processing files
+            elif filename.startswith('processing_') and filename.endswith('.mp4'):
+                should_clean = True
+            elif filename.startswith('filtered_') and filename.endswith('.mp4'):
+                should_clean = True
+            # Frame files
+            elif filename.startswith('temp_frame_') and filename.endswith('.jpg'):
+                should_clean = True
+            
+            # Clean up files older than 2 hours (1 hour for music files)
+            file_age = current_time - os.path.getmtime(file_path)
+            cleanup_threshold = 3600 if filename.startswith('music_') else 7200  # 1 hour for music, 2 hours for others
+            
+            if should_clean and file_age > cleanup_threshold:
+                try:
+                    os.remove(file_path)
+                    cleaned_count += 1
+                    print(f"Cleaned up old temp file: {file_path} (age: {file_age/3600:.1f}h)")
+                except OSError as e:
+                    print(f"Warning: Could not remove old temp file {file_path}: {e}")
+        
+        if cleaned_count > 0:
+            print(f"Cleaned up {cleaned_count} old temporary files")
+            
+    except Exception as e:
+        print(f"Warning: Error during temp file cleanup: {e}")
 
 def safe_send_file(filename):
     if not os.path.isfile(filename):
@@ -393,6 +458,8 @@ def start_video_processing():
                 music_success = editor.add_music_overlay(temp_filename, music_path, music_volume)
                 if music_success:
                     print("Music overlay added successfully")
+                    # Store music path for cleanup later
+                    app.processing_results[processing_id]['music_path'] = music_path
                 else:
                     print("Failed to add music overlay - continuing without music")
             
@@ -457,14 +524,15 @@ def create_tour():
     processing_id = data.get('processing_id')
     qr_path = data.get('qr_path')
     agent_name = data.get('agent_name')
-    agency_name = data.get('agency_name')
     agent_phone = data.get('agent_phone')
+    agency_logo_data = data.get('agency_logo_data')
+    property_price = data.get('property_price')
+    beds = data.get('beds')
+    baths = data.get('baths')
+    sqft = data.get('sqft')
     
     if not processing_id:
         return jsonify({'error': 'Processing ID required'}), 400
-    
-    if not agent_name or not agency_name:
-        return jsonify({'error': 'Agent name and agency name are required'}), 400
     
     if not hasattr(app, 'processing_results') or processing_id not in app.processing_results:
         return jsonify({'error': 'Processing ID not found or expired'}), 404
@@ -476,7 +544,7 @@ def create_tour():
         return jsonify({'error': 'Processed video file not found'}), 404
     
     print(f"Adding overlays to processed video: {temp_file}")
-    print(f"Agent info: {agent_name} @ {agency_name} | {agent_phone}")
+    print(f"Agent info: {agent_name} | {agent_phone}")
     
     try:
         archive_dir = 'archive'
@@ -485,43 +553,71 @@ def create_tour():
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         output_filename = os.path.join(archive_dir, f'guided_tour_{timestamp}.mp4')
         
-        import shutil
         shutil.copy2(temp_file, output_filename)
         
-        if qr_path and os.path.exists(qr_path):
-            print(f"Adding combined overlays with QR code")
-            overlay_success = add_combined_overlays(
-                output_filename,
-                agent_name,
-                agency_name,
-                agent_phone=agent_phone,
-                qr_image_path=qr_path,
-                qr_position='top_right'
-            )
-        else:
-            print(f"Adding agent watermark only")
-            overlay_success = add_combined_overlays(
-                output_filename,
-                agent_name,
-                agency_name,
-                agent_phone=agent_phone
-            )
+        logo_path = None
+        if agency_logo_data:
+            os.makedirs('temp', exist_ok=True)
+            logo_path = os.path.join('temp', f"agency_logo_{uuid.uuid4().hex}.png")
+            with open(logo_path, 'wb') as lf:
+                lf.write(base64.b64decode(agency_logo_data.split(',')[-1]))
+
+        print("Adding agent/property overlays…")
+        overlay_success = add_agent_property_overlays(
+            output_filename,
+            agent_name=agent_name,
+            agent_phone=agent_phone,
+            logo_path=logo_path,
+            beds=beds,
+            baths=baths,
+            sqft=sqft,
+            qr_image_path=qr_path
+        )
         
         if not overlay_success:
             print("Failed to add overlays - using video without overlays")
         
-        try:
-            os.remove(temp_file)
-            print(f"Cleaned up temporary file: {temp_file}")
-        except OSError as e:
-            print(f"Warning: Could not remove temporary file {temp_file}: {e}")
+        # Clean up all temporary files
+        temp_files_to_clean = []
         
+        # Add main temp file
+        if os.path.exists(temp_file):
+            temp_files_to_clean.append(temp_file)
+        
+        # Add QR file
         if qr_path and os.path.exists(qr_path):
+            temp_files_to_clean.append(qr_path)
+        
+        # Add logo file
+        if logo_path and os.path.exists(logo_path):
+            temp_files_to_clean.append(logo_path)
+        
+        # Add music file if it was used in processing
+        if processing_result.get('music_path') and os.path.exists(processing_result['music_path']):
+            temp_files_to_clean.append(processing_result['music_path'])
+        
+        # Clean up all temp files
+        for temp_file_path in temp_files_to_clean:
             try:
-                os.remove(qr_path)
-                print(f"Cleaned up QR file: {qr_path}")
+                os.remove(temp_file_path)
+                print(f"Cleaned up temporary file: {temp_file_path}")
             except OSError as e:
-                print(f"Warning: Could not remove QR file {qr_path}: {e}")
+                print(f"Warning: Could not remove temporary file {temp_file_path}: {e}")
+        
+        # Also clean up ALL music files in temp directory after delivery
+        try:
+            temp_dir = 'temp'
+            if os.path.exists(temp_dir):
+                for filename in os.listdir(temp_dir):
+                    if filename.startswith('music_') and filename.endswith('.mp3'):
+                        music_file_path = os.path.join(temp_dir, filename)
+                        try:
+                            os.remove(music_file_path)
+                            print(f"Cleaned up music file after delivery: {music_file_path}")
+                        except OSError as e:
+                            print(f"Warning: Could not remove music file {music_file_path}: {e}")
+        except Exception as e:
+            print(f"Warning: Error during music cleanup: {e}")
         
         app.processing_results[processing_id]['output_file'] = output_filename
         save_processing_results()
@@ -561,7 +657,6 @@ def get_tour_result(processing_id):
     processing_result = app.processing_results[processing_id]
     print(f"Found processing result: {processing_result}")
     
-    # Check for both output_file and temp_file (for backward compatibility)
     output_file = processing_result.get('output_file') or processing_result.get('temp_file')
     
     if output_file and os.path.exists(output_file):
@@ -639,7 +734,6 @@ def ai_segment_detect():
         return jsonify({'error': f'Video file not found: {video_path}'}), 400
     
     try:
-        from scene_detection import detect_room_transitions_realtime
         
         print(f"Starting AI segment detection with interval: {detection_interval}s")
         
@@ -649,16 +743,27 @@ def ai_segment_detect():
         if not hasattr(app, 'detection_sessions'):
             app.detection_sessions = {}
         
+        for existing_id, existing_session in list(app.detection_sessions.items()):
+            if existing_session.get('status') == 'in_progress' and existing_session.get('video_path') == video_path:
+                print(f"Cancelling existing detection session: {existing_id}")
+                existing_session['status'] = 'cancelled'
+                existing_session['stop_flag'] = True
+        
         app.detection_sessions[detection_id] = {
             'video_path': video_path,
             'status': 'in_progress',
             'segments': [],
-            'created_at': timestamp
+            'created_at': timestamp,
+            'stop_flag': False
         }
         
         def detection_callback(update):
             if detection_id in app.detection_sessions:
                 session = app.detection_sessions[detection_id]
+                
+                if session.get('stop_flag', False):
+                    print(f"Detection {detection_id} stopped by flag")
+                    return False  
                 
                 if update['type'] == 'segment_complete':
                     session['segments'] = [s for s in session['segments'] if not (s.get('temporary') and s.get('room') == update['segment']['room'])]
@@ -679,6 +784,7 @@ def ai_segment_detect():
                     session['progress'] = update['progress']
             else:
                 print(f"Warning: Detection session {detection_id} not found")
+                return False   
         
         def run_detection():
             try:
@@ -761,13 +867,11 @@ def auto_detect_room_label():
         return jsonify({'error': f'Video file not found: {video_path}'}), 400
     
     try:
-        from scene_detection import detect_scene_label
         
         print(f"Auto-detecting room label for segment {start_time}s - {end_time}s")
         room_label = detect_scene_label(video_path, start_time, end_time)
         
         if room_label:
-            from scene_detection import get_room_display_name
             display_name = get_room_display_name(room_label)
             
             return jsonify({
@@ -785,6 +889,111 @@ def auto_detect_room_label():
     except Exception as e:
         print(f"Auto-detection failed: {e}")
         return jsonify({'error': f'Auto-detection failed: {str(e)}'}), 500
+
+@app.route('/stop_ai_detection', methods=['POST'])
+def stop_ai_detection():
+    """Stop any ongoing AI detection sessions"""
+    try:
+        if hasattr(app, 'detection_sessions'):
+            stopped_count = 0
+            for detection_id, session in app.detection_sessions.items():
+                if session.get('status') == 'in_progress':
+                    print(f"Stopping AI detection session: {detection_id}")
+                    session['status'] = 'stopped'
+                    session['stop_flag'] = True
+                    stopped_count += 1
+            
+            return jsonify({
+                'success': True,
+                'message': f'Stopped {stopped_count} active detection sessions'
+            })
+        else:
+            return jsonify({
+                'success': True,
+                'message': 'No active detection sessions found'
+            })
+    except Exception as e:
+        print(f"Error stopping AI detection: {e}")
+        return jsonify({'error': f'Failed to stop detection: {str(e)}'}), 500
+
+@app.route('/cleanup_temp_files', methods=['POST'])
+def cleanup_temp_files_endpoint():
+    """Manually trigger cleanup of temporary files"""
+    try:
+        cleanup_temp_files()
+        return jsonify({
+            'success': True,
+            'message': 'Temporary files cleanup completed'
+        })
+    except Exception as e:
+        print(f"Error during manual cleanup: {e}")
+        return jsonify({'error': f'Cleanup failed: {str(e)}'}), 500
+
+@app.route('/force_cleanup_temp_files', methods=['POST'])
+def force_cleanup_temp_files_endpoint():
+    """Force cleanup of ALL temporary files regardless of age"""
+    try:
+        temp_dir = 'temp'
+        if not os.path.exists(temp_dir):
+            return jsonify({
+                'success': True,
+                'message': 'No temp directory found'
+            })
+        
+        cleaned_count = 0
+        
+        for filename in os.listdir(temp_dir):
+            file_path = os.path.join(temp_dir, filename)
+            
+            # Skip if not a file
+            if not os.path.isfile(file_path):
+                continue
+            
+            # Check if file should be cleaned up
+            should_clean = False
+            
+            # Music files
+            if filename.startswith('music_') and filename.endswith('.mp3'):
+                should_clean = True
+            # Video clip files
+            elif filename.startswith('simple_clip_') and filename.endswith('.mp4'):
+                should_clean = True
+            elif filename.startswith('temp_hq_clip_') and filename.endswith('.mp4'):
+                should_clean = True
+            # Concat files
+            elif filename.startswith('temp_concat') and filename.endswith('.txt'):
+                should_clean = True
+            # Logo files
+            elif filename.startswith('agency_logo_') and filename.endswith('.png'):
+                should_clean = True
+            # QR files
+            elif filename.startswith('qr_') and filename.endswith('.png'):
+                should_clean = True
+            # Processing files
+            elif filename.startswith('processing_') and filename.endswith('.mp4'):
+                should_clean = True
+            elif filename.startswith('filtered_') and filename.endswith('.mp4'):
+                should_clean = True
+            # Frame files
+            elif filename.startswith('temp_frame_') and filename.endswith('.jpg'):
+                should_clean = True
+            
+            if should_clean:
+                try:
+                    os.remove(file_path)
+                    cleaned_count += 1
+                    print(f"Force cleaned up temp file: {file_path}")
+                except OSError as e:
+                    print(f"Warning: Could not remove temp file {file_path}: {e}")
+        
+        return jsonify({
+            'success': True,
+            'message': f'Force cleanup completed. Removed {cleaned_count} files.'
+        })
+        
+    except Exception as e:
+        print(f"Error during force cleanup: {e}")
+        return jsonify({'error': f'Force cleanup failed: {str(e)}'}), 500
 
 
 if __name__ == '__main__':

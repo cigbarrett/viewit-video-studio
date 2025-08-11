@@ -20,6 +20,9 @@
         function setupEventListeners() {
             // DLD verification
             document.getElementById('verifyListingBtn').addEventListener('click', verifyListing);
+            
+            // Custom file upload
+            setupCustomFileUpload();
         }
 
 
@@ -79,26 +82,38 @@
             window.location.href = '/edit';
         }
 
-        function createTour() {
+        async function createTour() {
             if (!exportData) {
                 alert('No export data available');
                 return;
             }
 
             const agentName = document.getElementById('agentName').value.trim();
-            const agencyName = document.getElementById('agencyName').value.trim();
             const agentPhone = document.getElementById('agentPhone').value.trim();
 
-            if (!agentName || !agencyName || !agentPhone) {
-                alert('Please enter agent name, agency name, and phone number');
+            // Validate phone number format only if provided
+            const phonePattern = /^\+971[0-9]{8,9}$/;
+            if (agentPhone && !phonePattern.test(agentPhone)) {
+                alert('Please enter a valid UAE phone number in format +971XXXXXXXXX');
                 return;
             }
 
-            // Validate phone number format
-            const phonePattern = /^\+971[0-9]{8,9}$/;
-            if (!phonePattern.test(agentPhone)) {
-                alert('Please enter a valid UAE phone number in format +971XXXXXXXXX');
-                return;
+            // Gather property details
+            const beds = document.getElementById('beds').value.trim();
+            const baths = document.getElementById('baths').value.trim();
+            const sqft = document.getElementById('sqft').value.trim();
+
+            // Read agency logo (if provided) as base64
+            let logoBase64 = null;
+            const logoInput = document.getElementById('agencyLogo');
+            console.log('Logo input element:', logoInput);
+            console.log('Logo files:', logoInput?.files);
+            if (logoInput && logoInput.files && logoInput.files[0]) {
+                console.log('Logo file selected:', logoInput.files[0].name, logoInput.files[0].size);
+                logoBase64 = await toBase64(logoInput.files[0]);
+                console.log('Logo converted to base64, length:', logoBase64?.length);
+            } else {
+                console.log('No logo file selected');
             }
 
             // Show loading overlay
@@ -107,9 +122,12 @@
             const requestData = {
                 processing_id: exportData.processing_id,
                 qr_path: qrPath || undefined,
-                agent_name: agentName,
-                agency_name: agencyName,
-                agent_phone: agentPhone
+                agent_name: agentName || undefined,
+                agent_phone: agentPhone || undefined,
+                agency_logo_data: logoBase64 || undefined,
+                beds: beds || undefined,
+                baths: baths || undefined,
+                sqft: sqft || undefined
             };
 
             console.log('Starting tour creation...', requestData);
@@ -334,4 +352,105 @@
             const mins = Math.floor(seconds / 60);
             const secs = Math.floor(seconds % 60);
             return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+        }
+
+        // Utility: convert File object to base64 string
+        function toBase64(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.readAsDataURL(file);
+                reader.onload = () => resolve(reader.result);
+                reader.onerror = (err) => reject(err);
+            });
+        }
+
+        // Custom file upload functionality
+        function setupCustomFileUpload() {
+            const uploadArea = document.getElementById('uploadArea');
+            const fileInput = document.getElementById('agencyLogo');
+            const fileInfo = document.getElementById('fileInfo');
+            const fileName = document.getElementById('fileName');
+            const removeFile = document.getElementById('removeFile');
+
+            // Click to upload
+            uploadArea.addEventListener('click', () => {
+                fileInput.click();
+            });
+
+            // Drag and drop functionality
+            uploadArea.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                uploadArea.classList.add('dragover');
+            });
+
+            uploadArea.addEventListener('dragleave', (e) => {
+                e.preventDefault();
+                uploadArea.classList.remove('dragover');
+            });
+
+            uploadArea.addEventListener('drop', (e) => {
+                e.preventDefault();
+                uploadArea.classList.remove('dragover');
+                
+                const files = e.dataTransfer.files;
+                if (files.length > 0) {
+                    handleFileSelect(files[0]);
+                }
+            });
+
+            // File input change
+            fileInput.addEventListener('change', (e) => {
+                if (e.target.files.length > 0) {
+                    handleFileSelect(e.target.files[0]);
+                }
+            });
+
+            // Remove file
+            removeFile.addEventListener('click', (e) => {
+                e.stopPropagation();
+                clearFileSelection();
+            });
+
+            function handleFileSelect(file) {
+                console.log('File selected:', file.name, file.type, file.size);
+                
+                // Validate file type
+                if (!file.type.startsWith('image/')) {
+                    alert('Please select an image file.');
+                    return;
+                }
+
+                // Validate file size (max 5MB)
+                if (file.size > 5 * 1024 * 1024) {
+                    alert('File size must be less than 5MB.');
+                    return;
+                }
+
+                // Create a new FileList-like object and assign it to the input
+                const dataTransfer = new DataTransfer();
+                dataTransfer.items.add(file);
+                fileInput.files = dataTransfer.files;
+                
+                console.log('File assigned to input, files length:', fileInput.files.length);
+
+                // Update UI
+                fileName.textContent = file.name;
+                fileInfo.style.display = 'flex';
+                
+                // Hide upload text
+                const uploadText = uploadArea.querySelector('.upload-text');
+                uploadText.style.display = 'none';
+                
+                console.log('File selection UI updated');
+            }
+
+            function clearFileSelection() {
+                fileInput.value = '';
+                fileInfo.style.display = 'none';
+                fileName.textContent = '';
+                
+                // Show upload text
+                const uploadText = uploadArea.querySelector('.upload-text');
+                uploadText.style.display = 'flex';
+            }
         } 

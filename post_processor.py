@@ -1,79 +1,6 @@
 import os
 import subprocess
-
-def add_qr_overlay(input_video, qr_image_path, output_path=None, position='bottom_right'):
-    input_video = str(input_video)
-    qr_image_path = str(qr_image_path)
-
-    if not os.path.exists(input_video):
-        print(f"Video not found for QR overlay: {input_video}")
-        return False
-    if not os.path.exists(qr_image_path):
-        print(f"QR image not found: {qr_image_path}")
-        return False
-
-    pos_map = {
-        'top_left': ('50', '50'),
-        'top_right': ('W-w-30', '30'),  
-        'bottom_left': ('50', 'H-h-50'),
-        'bottom_right': ('W-w-50', 'H-h-50'),
-    }
-    x_expr, y_expr = pos_map.get(position, ('W-w-30', '30'))  
-
-    replace_in_place = output_path is None
-    if replace_in_place:
-        base, ext = os.path.splitext(input_video)
-        output_path = f"{base}_qr{ext}"
-
-    cmd = [
-        'ffmpeg', '-i', input_video,
-        '-i', qr_image_path,
-        '-filter_complex', f"[1:v]scale=120:120[qr];[0:v][qr]overlay={x_expr}:{y_expr}",
-        '-c:v', 'libx264',
-        '-preset', 'veryfast',
-        '-crf', '23',
-        '-c:a', 'copy',
-        '-threads', '4',
-        '-movflags', '+faststart',
-        '-y', output_path
-    ]
-    print(f"Overlaying QR code → {output_path}")
-    print(f"QR overlay FFmpeg command: {' '.join(cmd)}")
-    try:
-        result = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
-        print(f"QR overlay return code: {result.returncode}")
-        if result.returncode != 0:
-            print(f"QR overlay failed: {result.stderr[-300:]}")
-            print("Trying fallback method with reduced quality...")
-            return _qr_overlay_fallback(input_video, qr_image_path, output_path, x_expr, y_expr, replace_in_place)
-        else:
-            print("QR overlay FFmpeg command completed successfully")
-    except subprocess.TimeoutExpired:
-        print("QR overlay timed out, trying fallback method with reduced quality...")
-        return _qr_overlay_fallback(input_video, qr_image_path, output_path, x_expr, y_expr, replace_in_place)
-
-    if not os.path.exists(output_path):
-        print("QR overlay failed: output file was not created")
-        return False
-        
-    output_size = os.path.getsize(output_path)
-    if output_size < 1000:
-        print(f"QR overlay failed: output file too small ({output_size} bytes)")
-        return False
-        
-    print(f"QR overlay output file size: {output_size / (1024 * 1024):.1f}MB")
-
-    if replace_in_place:
-        try:
-            os.replace(output_path, input_video)
-            print("In-place QR overlay complete")
-            return True
-        except OSError as exc:
-            print(f" Could not replace original video: {exc}")
-            return False
-
-    print("QR overlay complete")
-    return True
+import os, subprocess
 
 def add_combined_overlays(input_video, agent_name, agency_name, agent_phone=None, qr_image_path=None, qr_position='top_right', output_path=None):
 
@@ -316,47 +243,7 @@ def add_combined_overlays(input_video, agent_name, agency_name, agent_phone=None
     print(f"Combined overlays complete: {output_path} ({file_size:.1f}MB)")
     return True
 
-def _qr_overlay_fallback(input_video, qr_image_path, output_path, x_expr, y_expr, replace_in_place):
-    print("Using QR overlay fallback method with lower quality")
-    
-    cmd = [
-        'ffmpeg', '-i', input_video,
-        '-i', qr_image_path,
-        '-filter_complex', f"[1:v]scale=100:100[qr];[0:v][qr]overlay={x_expr}:{y_expr}",
-        '-c:v', 'libx264',
-        '-preset', 'ultrafast',
-        '-crf', '30',
-        '-c:a', 'copy',
-        '-threads', '4',
-        '-movflags', '+faststart',
-        '-y', output_path
-    ]
-    
-    print(f"QR fallback FFmpeg command: {' '.join(cmd)}")
-    try:
-        result = subprocess.run(cmd, capture_output=True, text=True, timeout=180)
-        if result.returncode != 0:
-            print(f"QR fallback failed: {result.stderr[-200:]}")
-            return False
-    except subprocess.TimeoutExpired:
-        print("QR fallback also timed out")
-        return False
-        
-    if not os.path.exists(output_path) or os.path.getsize(output_path) < 1000:
-        print("QR fallback failed: invalid output file")
-        return False
-        
-    if replace_in_place:
-        try:
-            os.replace(output_path, input_video)
-            print("In-place QR fallback overlay complete")
-            return True
-        except OSError as exc:
-            print(f"Could not replace original video: {exc}")
-            return False
-            
-    print("QR fallback overlay complete")
-    return True
+
 
 def add_music_overlay(input_video, music_path, volume=0.3, output_path=None):
     input_video = str(input_video)
@@ -434,157 +321,152 @@ def add_music_overlay(input_video, music_path, volume=0.3, output_path=None):
     print(f"Music overlay complete: {output_path} ({file_size:.1f}MB)")
     return True 
 
-def add_agent_watermark(input_video, agent_name, agency_name, agent_phone=None, output_path=None):
+ 
+
+def add_agent_property_overlays(input_video, agent_name, agent_phone=None, logo_path=None, beds=None, baths=None, sqft=None, price=None, qr_image_path=None, output_path=None):
+
+
     input_video = str(input_video)
-    print(f"Watermark function called with: '{agent_name}' @ '{agency_name}' | {agent_phone}")
-    print(f"Input video: {input_video}")
+    print(f"Property overlay params: beds={beds}, baths={baths}, sqft={sqft}, logo_path={logo_path}")
     
     if not os.path.exists(input_video):
-        print(f"Video not found for agent watermark: {input_video}")
+        print(f"Video not found for property overlays: {input_video}")
         return False
-    
-    if not agent_name or not agency_name:
-        print(f"Agent name and agency name are required for watermark (got: '{agent_name}', '{agency_name}')")
-        return False
-    
+
     replace_in_place = output_path is None
     if replace_in_place:
         base, ext = os.path.splitext(input_video)
-        output_path = f"{base}_agent{ext}"
-    
-    print(f"Output path: {output_path}")
-    print(f"Replace in place: {replace_in_place}")
-    
-    agent_clean = agent_name.replace("'", "\\'").replace(":", "\\:")
-    agency_clean = agency_name.replace("'", "\\'").replace(":", "\\:")
-    phone_clean = agent_phone.replace("'", "\\'").replace(":", "\\:") if agent_phone else None
-    print(f"Cleaned names: '{agent_clean}' @ '{agency_clean}' | {phone_clean}")
-    
-    try:
-        agent_display = agent_name.replace('_', ' ').title()
-        agency_display = agency_name.replace('_', ' ').title()
-        
-        print(f"Display names: '{agent_display}' @ '{agency_display}' | {agent_phone}")
-        
-        text_overlays = [
-            f"drawtext=text='{agent_display}':fontfile=/Windows/Fonts/segoeuib.ttf:"
-            f"fontsize=48:fontcolor=white:shadowcolor=black:shadowx=3:shadowy=1:"
-            f"x=50:y=300",
-            f"drawtext=text='{agency_display}':fontfile=/Windows/Fonts/segoeuib.ttf:"
-            f"fontsize=32:fontcolor=white:shadowcolor=black:shadowx=3:shadowy=1:"
-            f"x=50:y=260"
-        ]
-        
-        if agent_phone:
-            text_overlays.append(
-                f"drawtext=text='{agent_phone}':fontfile=/Windows/Fonts/segoeuib.ttf:"
-                f"fontsize=28:fontcolor=white:shadowcolor=black:shadowx=3:shadowy=1:"
-                f"x=50:y=240"
-            )
-        
-        text_overlay = ",".join(text_overlays)
-        
-        print(f"Using watermark overlay: {text_overlay}")
-        
-        cmd = [
-            'ffmpeg', 
-            '-i', input_video,
-            '-vf', text_overlay,
-            '-c:a', 'copy',  
-            '-c:v', 'libx264',
-            '-preset', 'fast',
-            '-crf', '23',
-            '-movflags', '+faststart',
-            '-y', output_path
-        ]
-        
-        print(f"Adding agent watermark: '{agent_name}' @ '{agency_name}' | {agent_phone} → {output_path}")
-        print(f"FFmpeg command: {' '.join(cmd)}")
-        
-        result = subprocess.run(cmd, capture_output=True, text=True, timeout=180)
-        
-        print(f"FFmpeg return code: {result.returncode}")
-        if result.stdout:
-            print(f"FFmpeg stdout: {result.stdout[-200:]}")
-        if result.stderr:
-            print(f"FFmpeg stderr: {result.stderr[-300:]}")
-        
-        if result.returncode != 0:
-            print(f"Agent watermark failed with font, trying without font...")
-            print(f"Error was: {result.stderr[-300:]}")
-            
-            simple_text_overlays = [
-                f"drawtext=text='{agent_display}':x=30:y=100:fontsize=32:fontcolor=white:shadowcolor=black:shadowx=3:shadowy=1",
-                f"drawtext=text='{agency_display}':x=30:y=140:fontsize=24:fontcolor=white:shadowcolor=black:shadowx=3:shadowy=1"
-            ]
-            
-            if agent_phone:
-                simple_text_overlays.append(
-                    f"drawtext=text='{agent_phone}':x=30:y=175:fontsize=20:fontcolor=white:shadowcolor=black:shadowx=3:shadowy=1"
-                )
-            
-            simple_filter = ",".join(simple_text_overlays)
-            
-            simple_cmd = [
-                'ffmpeg', 
-                '-i', input_video,
-                '-vf', simple_filter,
-                '-c:a', 'copy',
-                '-c:v', 'libx264',
-                '-preset', 'fast',
-                '-crf', '23',
-                '-movflags', '+faststart',
-                '-y', output_path
-            ]
-            
-            print(f"Trying simple watermark: {' '.join(simple_cmd)}")
-            simple_result = subprocess.run(simple_cmd, capture_output=True, text=True, timeout=180)
-            
-            if simple_result.returncode != 0:
-                print(f"Simple watermark also failed: {simple_result.stderr[-300:]}")
-                return False
+        output_path = f"{base}_prop{ext}"
+
+    inputs = ['-i', input_video]
+    filter_parts = []
+    chain_tag = '0:v'
+    idx = 1
+
+    if logo_path and os.path.exists(logo_path):
+        inputs += ['-i', logo_path]
+        filter_parts.append(f'[{idx}:v]scale=600:-1,format=rgba,colorchannelmixer=aa=0.5[logo]')
+        filter_parts.append(f'[{chain_tag}][logo]overlay=(W-w)/2:(H-h)/2[o{idx}]')
+        chain_tag = f'o{idx}'
+        idx += 1
+
+    bed_icon_path = 'static/bed.PNG'
+    bath_icon_path = 'static/bath.PNG'
+
+    if beds and os.path.exists(bed_icon_path):
+        print(f"Adding bed icon: {bed_icon_path}")
+        inputs += ['-i', bed_icon_path]
+        filter_parts.append(f'[{idx}:v]scale=70:70[bed]')
+        filter_parts.append(f'[{chain_tag}][bed]overlay=W/4+20:H-220[o{idx}]')
+        chain_tag = f'o{idx}'
+        idx += 1
+
+    if baths and os.path.exists(bath_icon_path):
+        print(f"Adding bath icon: {bath_icon_path}")
+        inputs += ['-i', bath_icon_path]
+        filter_parts.append(f'[{idx}:v]scale=65:65[bath]')
+        filter_parts.append(f'[{chain_tag}][bath]overlay=W/2+20:H-220[o{idx}]')
+        chain_tag = f'o{idx}'
+        idx += 1
+
+    if qr_image_path and os.path.exists(qr_image_path):
+        # Check if QR file is valid by trying to get its size
+        try:
+            qr_size = os.path.getsize(qr_image_path)
+            if qr_size > 100:  # Basic validation - file should be at least 100 bytes
+                inputs += ['-i', qr_image_path]
+                filter_parts.append(f'[{idx}:v]scale=150:150[qr]')
+                filter_parts.append(f'[{chain_tag}][qr]overlay=W-w-50:50[o{idx}]')
+                chain_tag = f'o{idx}'
+                idx += 1
+                print(f"QR code added: {qr_image_path} ({qr_size} bytes)")
             else:
-                print("Simple watermark succeeded!")
-        else:
-            print("Complex watermark succeeded!")
-        
-    except subprocess.TimeoutExpired:
-        print("Agent watermark timed out")
-        return False
-    except Exception as e:
-        print(f"Agent watermark error: {e}")
-        return False
+                print(f"QR file too small, skipping: {qr_image_path} ({qr_size} bytes)")
+        except OSError as e:
+            print(f"QR file error, skipping: {qr_image_path} - {e}")
+
+    def escape_text(text):
+        if not text:
+            return ""
+        text = str(text)
+        text = text.replace('\\', '\\\\')  
+        text = text.replace(':', '\\:')    
+        text = text.replace("'", "\\'")    
+        text = text.replace('"', '\\"')    
+        text = text.replace('[', '\\[')    
+        text = text.replace(']', '\\]')
+        text = text.replace('=', '\\=')    
+        text = text.replace(';', '\\;')    
+        text = text.replace(',', '\\,')    
+        return text
     
-    if not os.path.exists(output_path):
-        print("Agent watermark failed: output file was not created")
-        return False
-        
-    output_size = os.path.getsize(output_path)
-    input_size = os.path.getsize(input_video)
-    
-    if output_size < 1000:
-        print(f"Agent watermark failed: output file too small ({output_size} bytes)")
-        return False
-        
-    print(f"File sizes - Input: {input_size}, Output: {output_size}")
-    
-    if output_size < (input_size * 0.8):
-        print(f"Warning: Output file significantly smaller than input ({output_size} vs {input_size})")
+    text_overlays = []
+    if agent_name:
+        safe_agent = escape_text(agent_name)
+        text_overlays.append(
+            f"drawtext=text='{safe_agent}':fontfile=/Windows/Fonts/times.ttf:fontsize=48:fontcolor=black:x=50:y=150")
+    if agent_phone:
+        safe_phone = escape_text(agent_phone)
+        text_overlays.append(
+            f"drawtext=text='{safe_phone}':fontfile=/Windows/Fonts/times.ttf:fontsize=40:fontcolor=black:x=50:y=200")
+    if beds:
+        safe_beds = escape_text(beds)
+        text_overlays.append(
+            f"drawtext=text='{safe_beds}':fontfile=/Windows/Fonts/timesbd.ttf:fontsize=56:fontcolor=black:x=W/4-tw/2:y=H-200")
+    if baths:
+        safe_baths = escape_text(baths)
+        text_overlays.append(
+            f"drawtext=text='{safe_baths}':fontfile=/Windows/Fonts/timesbd.ttf:fontsize=56:fontcolor=black:x=W/2-tw/2:y=H-200")
+    if sqft:
+        safe_sqft = escape_text(f"{sqft} sq.ft.")
+        text_overlays.append(
+            f"drawtext=text='{safe_sqft}':fontfile=/Windows/Fonts/timesbd.ttf:fontsize=56:fontcolor=black:x=3*W/4-tw/2:y=H-200")
+
+    no_icons_or_qr = len(filter_parts) == 0
+    no_text = len(text_overlays) == 0
+    if no_icons_or_qr and no_text:
+        print('No overlays provided; leaving video unchanged')
+        return True
+
+    final_map = None
+    if text_overlays:
+        draw_chain = ','.join(text_overlays)
+        filter_parts.append(f'[{chain_tag}]{draw_chain}[outv]')
+        final_map = '[outv]'
     else:
-        print(f"File size check passed")
-    
+        final_map = f'[{chain_tag}]'
+
+    filter_complex = ';'.join(filter_parts)
+
+    cmd = ['ffmpeg'] + inputs + [
+        '-filter_complex', filter_complex,
+        '-map', final_map,
+        '-map', '0:a?',
+        '-c:v', 'libx264',
+        '-preset', 'veryfast',
+        '-crf', '23',
+        '-c:a', 'copy',
+        '-movflags', '+faststart',
+        '-y', output_path
+    ]
+
+    print('Running agent/property overlay:')
+    print(' '.join(cmd))
+    try:
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=600)
+        if result.returncode != 0:
+            print('Overlay failed:', result.stderr[-300:])
+            return False
+    except subprocess.TimeoutExpired:
+        print('Overlay timed out')
+        return False
+
     if replace_in_place:
         try:
-            print(f"Replacing original file: {output_path} → {input_video}")
-            print(f"Watermarked file size: {os.path.getsize(output_path)}")
             os.replace(output_path, input_video)
-            print(f"In-place agent watermark complete")
-            print(f"Final file size: {os.path.getsize(input_video)}")
             return True
         except OSError as exc:
-            print(f"Could not replace original video: {exc}")
+            print('Could not replace original video:', exc)
             return False
-    
-    file_size = os.path.getsize(output_path) / (1024 * 1024)
-    print(f"Agent watermark complete: {output_path} ({file_size:.1f}MB)")
-    return True 
+
+    return os.path.exists(output_path) and os.path.getsize(output_path) > 1000

@@ -498,9 +498,7 @@
                     bathroom: 'Bathroom',
                     living_room: 'Living Room',
                     closet: 'Closet',
-                    exterior: 'Exterior',
                     office: 'Office',
-                    common_area: 'Common Area',
                     dining_room: 'Dining Room',
                     balcony: 'Balcony',
                     unlabeled: 'Unlabeled'
@@ -1579,9 +1577,7 @@
                     bathroom: 'Bathroom',
                     living_room: 'Living Room',
                     closet: 'Closet',
-                    exterior: 'Exterior',
                     office: 'Office',
-                    common_area: 'Common Area',
                     dining_room: 'Dining Room',
                     balcony: 'Balcony'
                 };
@@ -1601,9 +1597,7 @@
                                 <option value="bathroom" ${segment.room === 'bathroom' ? 'selected' : ''}>Bathroom</option>
                                 <option value="living_room" ${segment.room === 'living_room' ? 'selected' : ''}>Living Room</option>
                                 <option value="closet" ${segment.room === 'closet' ? 'selected' : ''}>Closet</option>
-                                <option value="exterior" ${segment.room === 'exterior' ? 'selected' : ''}>Exterior</option>
                                 <option value="office" ${segment.room === 'office' ? 'selected' : ''}>Office</option>
-                                <option value="common_area" ${segment.room === 'common_area' ? 'selected' : ''}>Common Area</option>
                                 <option value="dining_room" ${segment.room === 'dining_room' ? 'selected' : ''}>Dining Room</option>
                                 <option value="balcony" ${segment.room === 'balcony' ? 'selected' : ''}>Balcony</option>
                             </select>
@@ -1660,9 +1654,7 @@
                 bathroom: 'Bathroom',
                 living_room: 'Living Room',
                 closet: 'Closet',
-                exterior: 'Exterior',
                 office: 'Office',
-                common_area: 'Common Area',
                 dining_room: 'Dining Room',
                 balcony: 'Balcony'
             };

@@ -1,9 +1,6 @@
 opencv-python-headless
-moviepy
 openai
-pillow
 python-dotenv
 requests
 flask
-flask-cors
-numpy 
+flask-cors 

@@ -16,62 +16,102 @@
         </div>
 
         <div class="main-container">
-            <div class="card elevated">
-                <div class="page-header">
-                    <h1>Export Tour</h1>
-                    <p>Add agent details and configure export settings for your video</p>
+            <div class="page-header">
+                <h1>Export Tour</h1>
+                <p>Add agent details and use DLD to verify your video</p>
+            </div>
+
+            <div class="export-grid">
+                <!-- DLD Verification Column -->
+                <div class="export-column">
+                    <div class="section">
+                        <div class="dld-header">
+                            <img src="/static/dld.png" alt="DLD Logo" class="dld-logo">
+                            <h3>DLD Verification</h3>
+                        </div>
+                        <div class="dld-subtitle">
+                            Verify your listing with Dubai Land Department for official compliance and QR code generation.
+                        </div>
+                        <div class="dld-inputs">
+                            <div class="dld-input-group">
+                                <label for="tradeLicenseInput">Trade License #</label>
+                                <input type="text" id="tradeLicenseInput" placeholder="e.g. 898346">
+                            </div>
+                            <div class="dld-input-group">
+                                <label for="listingNumberInput">Trakheesi / Permit #</label>
+                                <input type="text" id="listingNumberInput" placeholder="e.g. 65396526244">
+                            </div>
+                        </div>
+                        <button class="verify-btn" id="verifyListingBtn">Verify Listing</button>
+                        <div id="verifyStatus" class="verification-status" style="display: none;"></div>
+                    </div>
                 </div>
 
-                <div class="section">
-                    <h3>Agent Information</h3>
-                    <div class="input-row">
+                <!-- Agent & Branding Column -->
+                <div class="export-column">
+                    <div class="section">
+                        <h3>Agent & Branding</h3>
                         <div class="input-group">
                             <label for="agentName">Agent Name</label>
                             <input type="text" id="agentName" placeholder="Enter agent name">
                         </div>
                         <div class="input-group">
-                            <label for="agencyName">Agency Name</label>
-                            <input type="text" id="agencyName" placeholder="Enter agency name">
-                        </div>
-                    </div>
-                    <div class="input-row">
-                        <div class="input-group full-width">
                             <label for="agentPhone">Agent Phone</label>
                             <input type="text" id="agentPhone" placeholder="+97150123467" pattern="^\+971[0-9]{8,9}$" title="Please enter a valid UAE phone number starting with +971">
                         </div>
+                        <div class="input-group">
+                            <label for="agencyLogo">Agency Logo</label>
+                            <div class="custom-file-upload" id="agencyLogoUpload">
+                                <div class="upload-area" id="uploadArea">
+                                    <div class="upload-icon">
+                                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                            <path d="M21 15V19C21 19.5304 20.7893 20.0391 20.4142 20.4142C20.0391 20.7893 19.5304 21 19 21H5C4.46957 21 3.96086 20.7893 3.58579 20.4142C3.21071 20.0391 3 19.5304 3 19V15" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                            <path d="M17 8L12 3L7 8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                            <path d="M12 3V15" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                        </svg>
+                                    </div>
+                                    <div class="upload-text">
+                                        <span class="upload-title">Upload Agency Logo</span>
+                                        <span class="upload-subtitle">Drag & drop or click to browse</span>
+                                    </div>
+                                    <div class="file-info" id="fileInfo" style="display: none;">
+                                        <span class="file-name" id="fileName"></span>
+                                        <button type="button" class="remove-file" id="removeFile">×</button>
+                                    </div>
+                                </div>
+                                <input type="file" id="agencyLogo" accept="image/*" style="display: none;">
+                            </div>
+                        </div>
                     </div>
                 </div>
 
-                <div class="dld-verification">
-                    <div class="dld-header">
-                        <div class="icon"></div>
-                    <h3>DLD Verification</h3>
-                    </div>
-                    <div class="dld-subtitle">
-                        Verify your listing with Dubai Land Department for official compliance and QR code generation.
-                    </div>
-                    <div class="dld-inputs">
-                        <div class="dld-input-group">
-                            <label for="tradeLicenseInput">Trade License #</label>
-                            <input type="text" id="tradeLicenseInput" placeholder="e.g. 898346">
+                <!-- Property Details Column -->
+                <div class="export-column">
+                    <div class="section">
+                        <h3>Property Details</h3>
+                        <div class="input-group">
+                            <label for="beds">Beds</label>
+                            <input type="number" id="beds" min="0" placeholder="e.g. 2">
                         </div>
-                        <div class="dld-input-group">
-                            <label for="listingNumberInput">Trakheesi / Permit #</label>
-                            <input type="text" id="listingNumberInput" placeholder="e.g. 65396526244">
+                        <div class="input-group">
+                            <label for="baths">Baths</label>
+                            <input type="number" id="baths" min="0" placeholder="e.g. 3">
+                        </div>
+                        <div class="input-group">
+                            <label for="sqft">Area (sq.ft.)</label>
+                            <input type="number" id="sqft" min="0" placeholder="e.g. 1271">
                         </div>
                     </div>
-                    <button class="verify-btn" id="verifyListingBtn">Verify Listing</button>
-                    <div id="verifyStatus" class="verification-status" style="display: none;"></div>
                 </div>
+            </div>
 
-                <div class="flex-row text-center mt-20">
-                    <button class="btn btn-secondary" onclick="goBack()">
-                        ← Back to Edit
-                    </button>
-                    <button class="btn btn-success" onclick="createTour()">
-                        Create Tour
-                    </button>
-                </div>
+            <div class="flex-row text-center mt-20">
+                <button class="btn btn-secondary" onclick="goBack()">
+                    ← Back to Edit
+                </button>
+                <button class="btn btn-success" onclick="createTour()">
+                    Create Tour
+                </button>
             </div>
         </div>
     </div>

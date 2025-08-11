@@ -2,7 +2,7 @@ import os
 import tempfile
 import base64
 import cv2
-import numpy as np
+import time
 from openai import OpenAI
 from video_utils import capture_frame, get_video_info
 
@@ -25,9 +25,7 @@ def get_room_display_name(label):
         'bathroom': 'Bathroom',
         'living_room': 'Living Room',
         'closet': 'Closet',
-        'exterior': 'Exterior',
         'office': 'Office',
-        'common_area': 'Common Area',
         'dining_room': 'Dining Room',
         'balcony': 'Balcony',
         'unlabeled': 'Unlabeled'
@@ -68,7 +66,7 @@ def classify_image_scene(image_path):
 
         categories = [
             "kitchen", "bedroom", "bathroom", "living_room", "closet", 
-            "exterior", "office", "common_area", "dining_room", "balcony"
+            "office", "dining_room", "balcony"
         ]
 
         system_prompt = (
@@ -97,7 +95,8 @@ def classify_image_scene(image_path):
                 }
             ],
             max_tokens=5,
-            temperature=0
+            temperature=0,
+            timeout=30
         )
 
         label = response.choices[0].message.content.strip().lower()
@@ -111,9 +110,10 @@ def classify_image_scene(image_path):
 
     except Exception as exc:
         print(f"OpenAI scene classification failed: {exc}")
+        time.sleep(1)
         return None 
 
-def detect_room_transitions_realtime(video_path, callback_function=None, detection_interval=2.0):
+def detect_room_transitions_realtime(video_path, callback_function=None, detection_interval=3.0):
 
     print(f"Starting simple room detection for: {video_path}")
     
@@ -150,10 +150,15 @@ def detect_room_transitions_realtime(video_path, callback_function=None, detecti
         if frame_count % sample_interval == 0:
             current_time = frame_count / fps
             
+            if int(current_time) % 30 == 0:
+                print(f"AI Detection Progress: {current_time:.1f}s / {duration:.1f}s ({current_time/duration*100:.1f}%)")
+            
             temp_frame_path = f"temp_frame_{frame_count}.jpg"
             cv2.imwrite(temp_frame_path, frame)
             
             try:
+                time.sleep(0.5)  
+                
                 room_label = classify_image_scene(temp_frame_path)
                 
                 if os.path.exists(temp_frame_path):
@@ -171,12 +176,16 @@ def detect_room_transitions_realtime(video_path, callback_function=None, detecti
                         print(f"Starting new segment: {room_label} at {current_time:.1f}s")
                         
                         if callback_function:
-                            callback_function({
+                            should_continue = callback_function({
                                 'type': 'room_entry',
                                 'room': room_label,
                                 'time': current_time,
                                 'progress': (current_time / duration) * 100
                             })
+                            if should_continue is False:
+                                print("Detection stopped by callback")
+                                cap.release()
+                                return segments
                         
                     elif room_label == current_segment['room']:
                         current_segment['frames'].append({'time': current_time, 'room': room_label})
@@ -194,11 +203,15 @@ def detect_room_transitions_realtime(video_path, callback_function=None, detecti
                             print(f"Segment complete: {current_segment['room']} ({segment['start']:.1f}s - {segment['end']:.1f}s)")
                             
                             if callback_function:
-                                callback_function({
+                                should_continue = callback_function({
                                     'type': 'segment_complete',
                                     'segment': segment,
                                     'progress': (current_time / duration) * 100
                                 })
+                                if should_continue is False:
+                                    print("Detection stopped by callback")
+                                    cap.release()
+                                    return segments
                         
                         current_segment = {
                             'start': current_time,
@@ -208,20 +221,28 @@ def detect_room_transitions_realtime(video_path, callback_function=None, detecti
                         print(f"Starting new segment: {room_label} at {current_time:.1f}s")
                         
                         if callback_function:
-                            callback_function({
+                            should_continue = callback_function({
                                 'type': 'room_entry',
                                 'room': room_label,
                                 'time': current_time,
                                 'progress': (current_time / duration) * 100
                             })
+                            if should_continue is False:
+                                print("Detection stopped by callback")
+                                cap.release()
+                                return segments
                     
                     if callback_function:
-                        callback_function({
+                        should_continue = callback_function({
                             'type': 'progress',
                             'time': current_time,
                             'room': room_label,
                             'progress': (current_time / duration) * 100
                         })
+                        if should_continue is False:
+                            print("Detection stopped by callback")
+                            cap.release()
+                            return segments
                 else:
                     print(f"Time: {current_time:.1f}s, Room: unclassified (skipping)")
                 

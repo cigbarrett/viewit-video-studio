@@ -1,18 +1,10 @@
-import cv2
-import os
-import subprocess
-import json
-from pathlib import Path
-from datetime import datetime
-import tempfile
-import base64
-from openai import OpenAI
 
+from pathlib import Path
 from video_utils import get_video_info, get_quality_settings, capture_frame
 from scene_detection import detect_scene_label, classify_image_scene
 from video_processor import extract_clip_simple, extract_clip_hq, combine_clips, combine_clips_hq
 from tour_creator import create_tour_simple, create_speedup_tour_simple, create_tour
-from post_processor import add_qr_overlay, add_music_overlay, add_agent_watermark, add_combined_overlays
+from post_processor import add_music_overlay, add_combined_overlays
 from video_filters import apply_video_filters
 
 class GuidedVideoEditor:
@@ -70,14 +62,8 @@ class GuidedVideoEditor:
     def combine_clips_hq(self, clips, output, quality_settings):
         return combine_clips_hq(clips, output, quality_settings)
 
-    def add_qr_overlay(self, input_video, qr_image_path, output_path=None, position='bottom_right'):
-        return add_qr_overlay(input_video, qr_image_path, output_path, position)
-
     def add_music_overlay(self, input_video, music_path, volume=0.3, output_path=None):
         return add_music_overlay(input_video, music_path, volume, output_path)
-    
-    def add_agent_watermark(self, input_video, agent_name, agency_name, agent_phone=None, output_path=None):
-        return add_agent_watermark(input_video, agent_name, agency_name, agent_phone, output_path)
 
     def add_combined_overlays(self, input_video, agent_name, agency_name, agent_phone=None, qr_image_path=None, qr_position='top_right', output_path=None):
         return add_combined_overlays(input_video, agent_name, agency_name, agent_phone, qr_image_path, qr_position, output_path)
