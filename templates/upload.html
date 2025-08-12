@@ -96,7 +96,12 @@
                 }
 
                 sessionStorage.setItem('uploadedVideoData', JSON.stringify(data));
-                window.location.href = '/edit';
+                // Redirect to edit page with video ID for shareable URL
+                if (data.edit_url) {
+                    window.location.href = data.edit_url;
+                } else {
+                    window.location.href = '/edit';
+                }
             })
             .catch(error => {
                 console.error('Upload error:', error);

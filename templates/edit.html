@@ -121,41 +121,59 @@
             <div class="video-editor">
                 <!-- Video Player -->
                 <div class="video-player-container" id="playerContainer">
-                    <video id="videoPlayer" class="video-player full-fit" controls>
+                    <video id="videoPlayer" class="video-player full-fit">
                         Your browser does not support the video tag.
                     </video>
                 </div>
 
-                <!-- Video Controls -->
+                                <!-- Video Controls -->
                 <div class="video-controls" id="videoControls">
-                    <div class="playback-controls">
-                        <div class="time-display" id="timeDisplay">00:00 / 00:00</div>
-                        <button class="control-btn scrub" onclick="skipBackward()">
-                            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-                                <path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/>
-                            </svg>
-                        </button>
-                        <button class="control-btn play" onclick="togglePlay()" id="playButton">
-                            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-                                <path d="M8 5v14l11-7z"/>
-                            </svg>
-                        </button>
-                        <button class="control-btn scrub" onclick="skipForward()">
-                            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-                                <path d="M18 6h-2v12h2zm-3.5 6l-8.5 6V6z"/>
-                            </svg>
-                        </button>
-                        <div class="volume-section">
-                            <button class="control-btn volume" onclick="toggleMute()" id="muteButton">
-                                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-                                    <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/>
-                                </svg>
-                            </button>
-                            <input type="range" id="volumeSlider" min="0" max="1" step="0.1" value="1" class="volume-slider">
-                        </div>
+                    <!-- Scrub Bar -->
+                    <div class="scrub-bar-container" id="scrubBar">
+                        <div class="scrub-bar-progress" id="scrubBarProgress"></div>
+                        <div class="scrub-bar-handle" id="scrubBarHandle"></div>
                     </div>
                     
-
+                    <div class="playback-controls">
+                        <div class="controls-left">
+                            <button class="control-btn" onclick="skipBackward()" title="Skip Backward (5s)">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                                    <path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/>
+                                </svg>
+                            </button>
+                            <button class="control-btn play-btn" onclick="togglePlay().catch(error => console.error('Error in play button:', error))" id="playButton" title="Play/Pause (Space)">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                                    <path d="M8 5v14l11-7z"/>
+                                </svg>
+                            </button>
+                            <button class="control-btn" onclick="skipForward()" title="Skip Forward (5s)">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                                    <path d="M18 6h-2v12h2zm-3.5 6l-8.5 6V6z"/>
+                                </svg>
+                            </button>
+                        </div>
+                        
+                        <div class="time-display" id="timeDisplay">00:00 / 00:00</div>
+                        
+                        <div class="controls-right">
+                            <div class="volume-control-container">
+                                <button class="control-btn" onclick="toggleMute()" id="muteButton" title="Mute/Unmute">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                                        <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/>
+                                    </svg>
+                                </button>
+                                <div class="volume-slider-container">
+                                    <input type="range" id="volumeSlider" min="0" max="1" step="0.1" value="0.8" class="volume-slider" title="Volume">
+                                </div>
+                            </div>
+                            <button class="control-btn" onclick="toggleFullscreen()" id="fullscreenButton" title="Toggle Fullscreen">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                                    <path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                
                 </div>
 
                 <!-- Timeline -->

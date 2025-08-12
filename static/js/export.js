@@ -4,11 +4,33 @@
 
         // Initialize the application
         document.addEventListener('DOMContentLoaded', function() {
-            // Load export data from sessionStorage
+            console.log('Export page loaded');
+            console.log('Current URL:', window.location.pathname);
+            
+            // Try to get processing ID from URL
+            const pathParts = window.location.pathname.split('/');
+            const processingId = pathParts[pathParts.length - 1];
+            console.log('Path parts:', pathParts);
+            console.log('Processing ID from URL:', processingId);
+            
+            // First check if we have export data in session storage
             const storedData = sessionStorage.getItem('exportData');
             if (storedData) {
                 exportData = JSON.parse(storedData);
-                console.log('Loaded export data:', exportData);
+                console.log('Loaded export data from session storage:', exportData);
+                
+                // If we have a processing ID in the URL, add it to the export data
+                if (processingId && processingId !== 'export') {
+                    exportData.processing_id = processingId;
+                    console.log('Updated export data with processing ID from URL:', processingId);
+                }
+            } else if (processingId && processingId !== 'export') {
+                // If no session data but we have a processing ID in URL, create minimal export data
+                exportData = {
+                    processing_id: processingId,
+                    processing_status: 'unknown'
+                };
+                console.log('Created minimal export data from URL processing ID:', processingId);
             } else {
                 alert('No export data found. Please go back to the edit page.');
                 window.location.href = '/edit';
@@ -79,7 +101,11 @@
 
         function goBack() {
             // Keep the export data in session storage for when they return
-            window.location.href = '/edit';
+            if (exportData && exportData.processing_id) {
+                window.location.href = `/edit/${exportData.processing_id}`;
+            } else {
+                window.location.href = '/edit';
+            }
         }
 
         async function createTour() {

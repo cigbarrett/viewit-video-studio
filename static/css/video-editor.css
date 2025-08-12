@@ -36,20 +36,69 @@
 }
 
 .video-controls {
-    background: rgba(255, 255, 255, 0.05);
-    padding: 12px 16px;
-    border-radius: 8px;
+    background: rgba(0, 0, 0, 0.4);
+    padding: 10px 16px;
+    border-radius: 6px;
     flex-shrink: 0;
+    overflow: hidden;
+    width: 100%;
+    box-sizing: border-box;
+    backdrop-filter: blur(5px);
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.scrub-bar-container {
+    width: 100%;
+    height: 8px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 4px;
+    cursor: pointer;
+    position: relative;
+    overflow: hidden;
+}
+
+.scrub-bar-progress {
+    height: 100%;
+    background: linear-gradient(90deg, #2196f3, #00ff88);
+    width: 0;
+    border-radius: 4px;
+    position: absolute;
+    top: 0;
+    left: 0;
+    pointer-events: none;
+    transition: width 0.1s linear;
+}
+
+.scrub-bar-handle {
+    width: 12px;
+    height: 12px;
+    background: #fff;
+    border-radius: 50%;
+    position: absolute;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    left: 0;
+    box-shadow: 0 0 5px rgba(0, 0, 0, 0.5);
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+}
+
+.scrub-bar-container:hover .scrub-bar-handle {
+    opacity: 1;
 }
 
 .playback-controls {
     display: flex;
     align-items: center;
-    justify-content: center;
-    gap: 16px;
+    justify-content: space-between;
     width: 100%;
-    max-width: 300px; /* Reduced max-width since we removed elements */
-    margin: 0 auto;
+    padding: 0 8px;
+    box-sizing: border-box;
+    gap: 8px;
+    max-width: 100%;
 }
 
 .timeline-container {
@@ -105,8 +154,42 @@
     }
     
     .playback-controls {
-        gap: 10px;
-        flex-wrap: wrap;
+        gap: 8px;
+        padding: 0 8px;
+    }
+    
+    .controls-left,
+    .controls-right {
+        gap: 2px;
+    }
+    
+    .control-btn {
+        width: 20px;
+        height: 20px;
+        padding: 4px;
+    }
+    
+    .control-btn.play-btn {
+        width: 24px;
+        height: 24px;
+    }
+    
+    .time-display {
+        font-size: 10px;
+        padding: 2px 6px;
+        max-width: 80px;
+    }
+    
+    .volume-control-container:hover .volume-slider-container {
+        width: 40px;
+    }
+    
+    .volume-slider {
+        width: 40px;
+    }
+    
+    .controls-right {
+        max-width: 80px;
     }
     
     .timeline-container {
@@ -581,56 +664,55 @@
     width: 100%;
 }
 
+/* New Compact Control Layout */
+.controls-left,
+.controls-right {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex-shrink: 0;
+}
+
+.controls-left {
+    flex: 0 0 auto;
+}
+
+.controls-right {
+    flex: 0 0 auto;
+    max-width: 110px;
+    overflow: hidden;
+}
+
 /* Control Button Styles */
 .control-btn {
-    background: rgba(255, 255, 255, 0.1);
-    border: 1px solid rgba(255, 255, 255, 0.2);
+    background: transparent;
+    border: none;
     color: #ffffff;
-    padding: 8px;
-    border-radius: 6px;
+    padding: 6px;
     cursor: pointer;
-    transition: all 0.3s ease;
+    transition: all 0.2s ease;
     display: flex;
     align-items: center;
     justify-content: center;
-    min-width: 32px;
-    height: 32px;
+    width: 24px;
+    height: 24px;
+    flex-shrink: 0;
+    opacity: 0.8;
 }
 
 .control-btn:hover {
-    background: rgba(255, 255, 255, 0.15);
-    transform: scale(1.05);
+    opacity: 1;
+    transform: scale(1.1);
 }
 
-.control-btn.scrub {
-    font-size: 16px;
-    width: 40px;
-    height: 40px;
+.control-btn.play-btn {
+    color: #2196f3;
+    width: 28px;
+    height: 28px;
+    opacity: 1;
 }
 
-.control-btn.play {
-    font-size: 24px;
-    width: 56px;
-    height: 56px;
-    background: rgba(10, 54, 150, 0.1);
-    border: 2px solid rgba(10, 54, 150, 0.3);
-}
-
-.control-btn.play:hover {
-    background: rgba(10, 54, 150, 0.2);
-    border-color: #0A3696;
-    transform: scale(1.05);
-}
-
-.control-btn.volume {
-    font-size: 16px;
-    width: 40px;
-    height: 40px;
-}
-
-.volume-section {
-    display: none !important; /* Hide the volume controls */
-}
+/* Remove old unused styles */
 
 /* Timeline Styles */
 .timeline-container {
@@ -916,41 +998,69 @@
 
 /* Time Display */
 .time-display {
-    display: none !important; /* Hide the time display */
     color: #00ff88;
     font-weight: 600;
-    font-size: 14px;
+    font-size: 11px;
     font-family: 'Courier New', monospace;
+    background: transparent;
+    padding: 2px 6px;
+    text-align: center;
+    width: 90px;
+    flex-shrink: 0;
+    white-space: nowrap;
+    overflow: hidden;
+}
+
+/* Volume Control */
+.volume-control-container {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.volume-slider-container {
+    width: 0;
+    overflow: hidden;
+    transition: width 0.2s ease;
+    display: flex;
+    align-items: center;
+}
+
+.volume-control-container:hover .volume-slider-container {
+    width: 50px;
 }
 
 /* Volume Slider */
 .volume-slider {
-    width: 80px;
-    height: 4px;
-    background: #333;
+    width: 50px;
+    height: 3px;
+    background: rgba(255, 255, 255, 0.2);
     border-radius: 2px;
     outline: none;
     -webkit-appearance: none;
     appearance: none;
     cursor: pointer;
+    flex-shrink: 0;
 }
 
 .volume-slider::-webkit-slider-thumb {
     -webkit-appearance: none;
-    width: 12px;
-    height: 12px;
-    background: #0A3696;
+    width: 10px;
+    height: 10px;
+    background: #2196f3;
     border-radius: 50%;
     cursor: pointer;
+    box-shadow: 0 0 3px rgba(0, 0, 0, 0.3);
 }
 
 .volume-slider::-moz-range-thumb {
-    width: 12px;
-    height: 12px;
-    background: #0A3696;
+    width: 10px;
+    height: 10px;
+    background: #2196f3;
     border-radius: 50%;
     cursor: pointer;
     border: none;
+    box-shadow: 0 0 3px rgba(0, 0, 0, 0.3);
 } 
 
 /* Segment Selection Styles */
@@ -1464,7 +1574,7 @@
 .video-player.full-fit {
     width: 100%;
     height: 100%;
-    object-fit: cover;
+    object-fit: contain;
 }
 
 /* Responsive Design for Tabs */

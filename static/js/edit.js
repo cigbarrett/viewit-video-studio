@@ -26,17 +26,81 @@
                 exportButton.classList.remove('disabled');
             }
         }
+        
+        // Function to fetch video data from server using processing ID
+        function fetchVideoData(processingId) {
+            // Check if processingId exists on the server
+            fetch(`/get_video_data/${processingId}`)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Processing ID not found');
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    if (data.success) {
+                        // Store the video data
+                        window.uploadedVideoData = data.video_data;
+                        console.log('Loaded video data from server:', window.uploadedVideoData);
+                        videoDuration = window.uploadedVideoData.duration;
+                        
+                        // Save to session storage for persistence
+                        sessionStorage.setItem('uploadedVideoData', JSON.stringify(window.uploadedVideoData));
+                        
+                        // Initialize the video player
+                        initializeVideoPlayer();
+                    } else {
+                        throw new Error(data.error || 'Failed to load video data');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error loading video data:', error);
+                    alert('Processing ID not found. Redirecting to upload page.');
+                    window.location.href = '/';
+                });
+        }
+        
+        // Function to update URL with processing ID without reloading the page
+        function updateUrlWithProcessingId(processingId) {
+            if (processingId && window.location.pathname !== `/edit/${processingId}`) {
+                const newUrl = `/edit/${processingId}`;
+                window.history.pushState({ path: newUrl }, '', newUrl);
+                console.log('Updated URL with processing ID:', processingId);
+            }
+        }
 
         document.addEventListener('DOMContentLoaded', function() {
-            const videoData = sessionStorage.getItem('uploadedVideoData');
-            if (videoData) {
-                window.uploadedVideoData = JSON.parse(videoData);
-                console.log('Loaded video data:', window.uploadedVideoData);
-                videoDuration = window.uploadedVideoData.duration;
-                initializeVideoPlayer();
+            console.log('Edit page loaded');
+            console.log('Current URL:', window.location.pathname);
+            
+            // Try to get processing ID from URL
+            const pathParts = window.location.pathname.split('/');
+            const processingId = pathParts[pathParts.length - 1];
+            console.log('Path parts:', pathParts);
+            console.log('Processing ID from URL:', processingId);
+            
+            // First check if we have a specific processing ID in the URL
+            if (processingId && processingId !== 'edit') {
+                console.log('Loading video data from processing ID:', processingId);
+                // Fetch the video data using the processing ID
+                fetchVideoData(processingId);
             } else {
-                alert('No video data found. Please upload a video first.');
-                window.location.href = '/';
+                // Fall back to session storage data
+                const videoData = sessionStorage.getItem('uploadedVideoData');
+                if (videoData) {
+                    window.uploadedVideoData = JSON.parse(videoData);
+                    console.log('Loaded video data from session storage:', window.uploadedVideoData);
+                    videoDuration = window.uploadedVideoData.duration;
+                    initializeVideoPlayer();
+                    
+                    // Update URL with processing ID for shareable link
+                    if (window.uploadedVideoData.processing_id) {
+                        updateUrlWithProcessingId(window.uploadedVideoData.processing_id);
+                    }
+                } else {
+                    alert('No video data found. Please upload a video first.');
+                    window.location.href = '/';
+                }
             }
             
             setupEventListeners();
@@ -62,6 +126,9 @@
                     videoDuration = video.duration;
                     createTimelineMarkers();
                 }
+                
+                // Initialize scrub bar position
+                updatePlayhead();
             });
             
             video.addEventListener('error', function(e) {
@@ -113,6 +180,13 @@
         function setupEventListeners() {
             const timeline = document.getElementById('timeline');
             
+            // Set up scrub bar functionality
+            const scrubBar = document.getElementById('scrubBar');
+            if (scrubBar) {
+                scrubBar.addEventListener('click', handleScrubBarClick);
+                scrubBar.addEventListener('mousedown', handleScrubBarMouseDown);
+            }
+            
             timeline.addEventListener('click', handleTimelineClick);
             
             let isScrubbing = false;
@@ -147,7 +221,9 @@
                     timeline.classList.remove('scrubbing');
                     
                     if (wasPlaying && video.paused) {
-                        video.play();
+                        video.play().catch(error => {
+                            console.error('Error resuming playback after scrubbing:', error);
+                        });
                     }
                 }
             });
@@ -171,6 +247,64 @@
             });
         }
 
+        function handleScrubBarClick(e) {
+            if (!video) return;
+            
+            const rect = e.currentTarget.getBoundingClientRect();
+            const mouseX = e.clientX - rect.left;
+            const percent = Math.max(0, Math.min(1, mouseX / rect.width));
+            const scrubTime = percent * videoDuration;
+            
+            video.currentTime = scrubTime;
+            updatePlayhead();
+        }
+        
+        function handleScrubBarMouseDown(e) {
+            if (!video) return;
+            
+            const scrubBar = e.currentTarget;
+            const wasPlaying = !video.paused;
+            
+            if (wasPlaying) {
+                video.pause();
+            }
+            
+            // Handle initial position
+            handleScrubBarMove(e);
+            
+            // Set up mouse move and mouse up handlers
+            function handleMouseMove(moveEvent) {
+                handleScrubBarMove(moveEvent);
+            }
+            
+            function handleMouseUp() {
+                document.removeEventListener('mousemove', handleMouseMove);
+                document.removeEventListener('mouseup', handleMouseUp);
+                
+                if (wasPlaying) {
+                    video.play().catch(error => console.error('Error resuming playback:', error));
+                }
+            }
+            
+            document.addEventListener('mousemove', handleMouseMove);
+            document.addEventListener('mouseup', handleMouseUp);
+            
+            e.preventDefault();
+        }
+        
+        function handleScrubBarMove(e) {
+            if (!video) return;
+            
+            const scrubBar = document.getElementById('scrubBar');
+            const rect = scrubBar.getBoundingClientRect();
+            const mouseX = e.clientX - rect.left;
+            const percent = Math.max(0, Math.min(1, mouseX / rect.width));
+            const scrubTime = percent * videoDuration;
+            
+            video.currentTime = scrubTime;
+            updatePlayhead();
+        }
+        
         function handleScrub(e) {
             if (!video) return;
             
@@ -206,7 +340,9 @@
                     case ' ':
                         if (!isTyping) {
                             e.preventDefault();
-                            togglePlay();
+                            togglePlay().catch(error => {
+                                console.error('Error in keyboard play/pause:', error);
+                            });
                         }
                         break;
                         
@@ -246,7 +382,7 @@
                             const startTime = parseFloat(document.getElementById('startTime').value);
                             const endTime = parseFloat(document.getElementById('endTime').value);
                             if (!isNaN(startTime) && !isNaN(endTime)) {
-                                addSegment();
+                                addSegment(startTime, endTime);
                             }
                         }
                         break;
@@ -349,7 +485,7 @@
             }
         }
 
-        function previewSegment() {
+        async function previewSegment() {
             const startTime = parseFloat(document.getElementById('startTime').value);
             const endTime = parseFloat(document.getElementById('endTime').value);
             
@@ -360,34 +496,37 @@
             
             if (video) {
                 video.currentTime = startTime;
-                video.play();
-                
-                const checkTime = () => {
-                    if (video.currentTime >= endTime) {
-                        video.pause();
-                    } else {
-                        requestAnimationFrame(checkTime);
-                    }
-                };
-                requestAnimationFrame(checkTime);
+                try {
+                    await video.play();
+                    
+                    const checkTime = () => {
+                        if (video.currentTime >= endTime) {
+                            video.pause();
+                        } else {
+                            requestAnimationFrame(checkTime);
+                        }
+                    };
+                    requestAnimationFrame(checkTime);
+                } catch (error) {
+                    console.error('Error playing segment preview:', error);
+                }
             }
         }
 
-        function togglePlay() {
-            if (video && video.paused) {
-                video.play();
-                document.getElementById('playButton').innerHTML = `
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-                        <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>
-                    </svg>
-                `;
-            } else if (video) {
-                video.pause();
-                document.getElementById('playButton').innerHTML = `
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-                        <path d="M8 5v14l11-7z"/>
-                    </svg>
-                `;
+        async function togglePlay() {
+            if (!video) return;
+            
+            try {
+                if (video.paused) {
+                    await video.play();
+                    // Button state will be updated by the 'play' event listener
+                } else {
+                    video.pause();
+                    // Button state will be updated by the 'pause' event listener
+                }
+            } catch (error) {
+                console.error('Error toggling play state:', error);
+                // If play failed, the pause event listener will handle the button state
             }
         }
 
@@ -395,16 +534,95 @@
             if (video) {
                 video.muted = !video.muted;
                 document.getElementById('muteButton').innerHTML = video.muted ? `
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
                         <path d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51C20.63 14.91 21 13.5 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06c1.38-.31 2.63-.95 3.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4L9.91 6.09 12 8.18V4z"/>
                     </svg>
                 ` : `
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
                         <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/>
                     </svg>
                 `;
             }
         }
+
+        function toggleFullscreen() {
+            const videoContainer = document.getElementById('playerContainer');
+            const videoPlayer = document.getElementById('videoPlayer');
+            
+            if (!document.fullscreenElement) {
+                // Enter fullscreen
+                if (videoContainer.requestFullscreen) {
+                    videoContainer.requestFullscreen();
+                } else if (videoContainer.webkitRequestFullscreen) {
+                    videoContainer.webkitRequestFullscreen();
+                } else if (videoContainer.msRequestFullscreen) {
+                    videoContainer.msRequestFullscreen();
+                }
+                
+                // Ensure video maintains aspect ratio in fullscreen
+                if (videoPlayer) {
+                    videoPlayer.style.objectFit = 'contain';
+                }
+                
+                // Update fullscreen button icon
+                document.getElementById('fullscreenButton').innerHTML = `
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M5 16h3v3h2v-5H5v2zm3-8H5v2h5V5H8v3zm6 11h2v-3h3v-2h-5v5zm2-11V5h-2v5h5V8h-3z"/>
+                    </svg>
+                `;
+            } else {
+                // Exit fullscreen
+                if (document.exitFullscreen) {
+                    document.exitFullscreen();
+                } else if (document.webkitExitFullscreen) {
+                    document.webkitExitFullscreen();
+                } else if (document.msExitFullscreen) {
+                    document.msExitFullscreen();
+                }
+                
+                // Reset video style if needed
+                if (videoPlayer) {
+                    videoPlayer.style.objectFit = '';
+                }
+                
+                // Update fullscreen button icon
+                document.getElementById('fullscreenButton').innerHTML = `
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/>
+                    </svg>
+                `;
+            }
+        }
+
+        // Listen for fullscreen changes to update button icon
+        document.addEventListener('fullscreenchange', function() {
+            const fullscreenButton = document.getElementById('fullscreenButton');
+            const videoPlayer = document.getElementById('videoPlayer');
+            
+            if (document.fullscreenElement) {
+                // Ensure video maintains aspect ratio in fullscreen
+                if (videoPlayer) {
+                    videoPlayer.style.objectFit = 'contain';
+                }
+                
+                fullscreenButton.innerHTML = `
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M5 16h3v3h2v-5H5v2zm3-8H5v2h5V5H8v3zm6 11h2v-3h3v-2h-5v5zm2-11V5h-2v5h5V8h-3z"/>
+                    </svg>
+                `;
+            } else {
+                // Reset video style when exiting fullscreen (e.g., via Escape key)
+                if (videoPlayer) {
+                    videoPlayer.style.objectFit = '';
+                }
+                
+                fullscreenButton.innerHTML = `
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/>
+                    </svg>
+                `;
+            }
+        });
 
         function captureCurrentTime() {
             const currentTime = video ? video.currentTime : 0;
@@ -421,9 +639,13 @@
             }
         }
 
-        async function addSegment() {
-            const startTime = parseFloat(document.getElementById('startTime').value);
-            const endTime = parseFloat(document.getElementById('endTime').value);
+        async function addSegment(startTime, endTime) {
+            // If parameters are not provided, get them from the input fields
+            if (startTime === undefined || endTime === undefined) {
+                startTime = parseFloat(document.getElementById('startTime').value);
+                endTime = parseFloat(document.getElementById('endTime').value);
+            }
+            
             const roomType = document.getElementById('roomType').value;
             
             console.log('Adding segment:', { startTime, endTime, roomType, videoDuration });
@@ -442,6 +664,10 @@
                 alert(`Times must be within video duration (0 - ${videoDuration.toFixed(1)}s)`);
                 return;
             }
+            
+            // Clear input fields immediately after validation
+            document.getElementById('startTime').value = '';
+            document.getElementById('endTime').value = '';
             
             const segment = {
                 id: Date.now(),
@@ -463,9 +689,6 @@
             if (roomType === 'auto') {
                 await autoDetectRoomLabel(segment);
             }
-            
-            document.getElementById('startTime').value = '';
-            document.getElementById('endTime').value = '';
             
             console.log('Total segments:', segments.length);
         }
@@ -710,30 +933,6 @@
             });
         }
 
-        function previewSegment() {
-            const startTime = parseFloat(document.getElementById('startTime').value);
-            const endTime = parseFloat(document.getElementById('endTime').value);
-            
-            if (isNaN(startTime) || isNaN(endTime)) {
-                alert('Please set valid start and end times');
-                return;
-            }
-            
-            if (video) {
-                video.currentTime = startTime;
-                video.play();
-                
-                const checkTime = () => {
-                    if (video.currentTime >= endTime) {
-                        video.pause();
-                    } else {
-                        requestAnimationFrame(checkTime);
-                    }
-                };
-                requestAnimationFrame(checkTime);
-            }
-        }
-
         function clearAll() {
             if (confirm('Clear all segments?')) {
                 segments = [];
@@ -855,9 +1054,21 @@
             const percent = (video.currentTime / videoDuration) * 100;
             const playhead = document.getElementById('playhead');
             
+            // Update the main timeline playhead
             requestAnimationFrame(() => {
                 playhead.style.left = percent + '%';
             });
+            
+            // Update the scrub bar progress and handle
+            const scrubBarProgress = document.getElementById('scrubBarProgress');
+            const scrubBarHandle = document.getElementById('scrubBarHandle');
+            
+            if (scrubBarProgress && scrubBarHandle) {
+                requestAnimationFrame(() => {
+                    scrubBarProgress.style.width = percent + '%';
+                    scrubBarHandle.style.left = percent + '%';
+                });
+            }
         }
 
         let lastPlayheadUpdate = 0;
@@ -1257,6 +1468,7 @@
 
             const processingData = {
                 video_id: window.uploadedVideoData.video_id,
+                processing_id: window.uploadedVideoData.processing_id, // Include processing ID if available
                 segments: segments.map(seg => ({
                     start: seg.start,
                     end: seg.end,
@@ -1302,7 +1514,12 @@
 
                     sessionStorage.setItem('exportData', JSON.stringify(exportData));
                     
-                    window.location.href = '/export';
+                    // Maintain processing ID in URL when going to export page
+                    if (window.uploadedVideoData && window.uploadedVideoData.processing_id) {
+                        window.location.href = `/export/${window.uploadedVideoData.processing_id}`;
+                    } else {
+                        window.location.href = '/export';
+                    }
                 } else {
                     console.error('Background processing failed:', result.error);
                     alert('Failed to start video processing: ' + result.error);
@@ -1461,7 +1678,7 @@
                     duration: aiSegment.end - aiSegment.start,
                     room: aiSegment.room,
                     manual: false,
-                    display_name: getRoomDisplayName(aiSegment.room),
+                    display_name: aiSegment.display_name || getRoomDisplayName(aiSegment.room),
                     editable: true,
                     temporary: aiSegment.temporary || false
                 };
@@ -1571,18 +1788,7 @@
             
             let html = '';
             window.aiSegments.forEach((segment, index) => {
-                const roomLabels = {
-                    kitchen: 'Kitchen',
-                    bedroom: 'Bedroom',
-                    bathroom: 'Bathroom',
-                    living_room: 'Living Room',
-                    closet: 'Closet',
-                    office: 'Office',
-                    dining_room: 'Dining Room',
-                    balcony: 'Balcony'
-                };
-                
-                const displayName = roomLabels[segment.room] || segment.display_name || segment.room;
+                const displayName = getRoomDisplayName(segment.room) || segment.display_name || segment.room;
                 
                 html += `
                     <div class="ai-segment-item" style="margin-bottom: 12px; padding: 12px; background: rgba(255, 255, 255, 0.05); border-radius: 6px; border: 1px solid #333;">

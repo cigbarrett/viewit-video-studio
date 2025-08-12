@@ -6,7 +6,249 @@
     <title>Export Video | Viewit Video Studio</title>
     <link rel="icon" type="image/x-icon" href="/static/favicon.ico">
     <link rel="stylesheet" href="/static/css/main.css"> 
+    <style>
+        .progressive-container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
 
+        .progressive-section {
+            background: #1a1a1a;
+            border-radius: 12px;
+            margin-bottom: 20px;
+            border: 1px solid #333;
+            transition: all 0.3s ease;
+            overflow: hidden;
+        }
+
+        .progressive-section:hover {
+            border-color: #4B91F7;
+            box-shadow: 0 4px 20px rgba(75, 145, 247, 0.1);
+        }
+
+        .section-header {
+            padding: 24px 30px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: #222;
+            transition: background 0.3s ease;
+        }
+
+        .section-header:hover {
+            background: #2a2a2a;
+        }
+
+        .section-header.expanded {
+            background: #2a2a2a;
+            border-bottom: 1px solid #333;
+        }
+
+        .section-title {
+            display: flex;
+            align-items: center;
+            font-size: 18px;
+            font-weight: 600;
+            color: #e8e8e8;
+        }
+
+        .section-icon {
+            width: 24px;
+            height: 24px;
+            margin-right: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .section-icon svg {
+            width: 20px;
+            height: 20px;
+            fill: #4B91F7;
+        }
+
+        .expand-icon {
+            width: 20px;
+            height: 20px;
+            transition: transform 0.3s ease;
+            color: #999;
+        }
+
+        .expand-icon.expanded {
+            transform: rotate(180deg);
+            color: #4B91F7;
+        }
+
+        .section-content {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease, padding 0.3s ease;
+            padding: 0 30px;
+        }
+
+        .section-content.expanded {
+            max-height: 1000px;
+            padding: 30px;
+        }
+
+        .section-description {
+            color: #999;
+            margin-bottom: 24px;
+            line-height: 1.5;
+            font-size: 14px;
+        }
+
+        .dld-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .dld-logo {
+            width: 32px;
+            height: 32px;
+            margin-right: 12px;
+        }
+
+        .dld-header h3 {
+            color: #e8e8e8;
+            font-size: 16px;
+            font-weight: 500;
+        }
+
+        .input-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        .input-row.single {
+            grid-template-columns: 1fr;
+        }
+
+        .verification-status {
+            margin-top: 20px;
+            padding: 16px;
+            border-radius: 6px;
+            display: none;
+        }
+
+        .verification-status.success {
+            background: rgba(40, 167, 69, 0.1);
+            border: 1px solid #28a745;
+            color: #28a745;
+        }
+
+        .verification-status.error {
+            background: rgba(220, 53, 69, 0.1);
+            border: 1px solid #dc3545;
+            color: #dc3545;
+        }
+
+        .verification-status.loading {
+            background: rgba(75, 145, 247, 0.1);
+            border: 1px solid #4B91F7;
+            color: #4B91F7;
+        }
+
+        .upload-area {
+            border: 2px dashed #4B91F7;
+            border-radius: 8px;
+            padding: 40px 20px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            background: rgba(75, 145, 247, 0.05);
+        }
+
+        .upload-area:hover {
+            border-color: #3a7bd5;
+            background: rgba(75, 145, 247, 0.1);
+        }
+
+        .upload-icon {
+            font-size: 48px;
+            color: #4B91F7;
+            margin-bottom: 16px;
+        }
+
+        .upload-text {
+            color: #999;
+        }
+
+        .upload-title {
+            display: block;
+            font-weight: 500;
+            margin-bottom: 4px;
+            color: #e8e8e8;
+        }
+
+        .upload-subtitle {
+            font-size: 14px;
+        }
+
+        .action-buttons {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 40px;
+            padding-top: 30px;
+            border-top: 1px solid #333;
+        }
+
+        .create-tour-btn {
+            background: #28a745;
+            color: white;
+            padding: 14px 32px;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 16px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .create-tour-btn:hover {
+            background: #218838;
+            transform: translateY(-1px);
+        }
+
+        .create-tour-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        @media (max-width: 768px) {
+            .progressive-container {
+                margin: 0 10px;
+            }
+
+            .section-header {
+                padding: 20px;
+            }
+
+            .section-content.expanded {
+                padding: 20px;
+            }
+
+            .input-row {
+                grid-template-columns: 1fr;
+                gap: 16px;
+            }
+
+            .action-buttons {
+                flex-direction: column;
+                gap: 16px;
+            }
+
+            .create-tour-btn {
+                width: 100%;
+            }
+        }
+    </style>
 </head>
 <body>
     <div class="container">
@@ -18,53 +260,85 @@
         <div class="main-container">
             <div class="page-header">
                 <h1>Export Tour</h1>
-                <p>Add agent details and use DLD to verify your video</p>
+                <p>Configure your tour settings and add agent details</p>
             </div>
 
-            <div class="export-grid">
-                <!-- DLD Verification Column -->
-                <div class="export-column">
-                    <div class="section">
-                        <div class="dld-header">
-                            <img src="/static/dld.png" alt="DLD Logo" class="dld-logo">
-                            <h3>DLD Verification</h3>
+            <div class="progressive-container">
+                <!-- DLD Verification Section -->
+                <div class="progressive-section" data-section="dld">
+                    <div class="section-header" onclick="toggleSection('dld')">
+                        <div class="section-title">
+                            <div class="section-icon">
+                                <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <path d="M9 12L11 14L15 10M21 12C21 16.9706 16.9706 21 12 21C7.02944 21 3 16.9706 3 12C3 7.02944 7.02944 3 12 3C16.9706 3 21 7.02944 21 12Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                </svg>
+                            </div>
+                            DLD Verification
                         </div>
-                        <div class="dld-subtitle">
+                        <div class="expand-icon" id="dld-expand">▼</div>
+                    </div>
+                    <div class="section-content" id="dld-content">
+                        <div class="section-description">
                             Verify your listing with Dubai Land Department for official compliance and QR code generation.
                         </div>
-                        <div class="dld-inputs">
-                            <div class="dld-input-group">
+                        
+                        <div class="dld-header">
+                            <img src="/static/dld.png" alt="DLD Logo" class="dld-logo">
+                            <h3>Dubai Land Department</h3>
+                        </div>
+
+                        <div class="input-row">
+                            <div class="input-group">
                                 <label for="tradeLicenseInput">Trade License #</label>
                                 <input type="text" id="tradeLicenseInput" placeholder="e.g. 898346">
                             </div>
-                            <div class="dld-input-group">
+                            <div class="input-group">
                                 <label for="listingNumberInput">Trakheesi / Permit #</label>
                                 <input type="text" id="listingNumberInput" placeholder="e.g. 65396526244">
                             </div>
                         </div>
-                        <button class="verify-btn" id="verifyListingBtn">Verify Listing</button>
-                        <div id="verifyStatus" class="verification-status" style="display: none;"></div>
+
+                        <button class="btn btn-primary" id="verifyListingBtn">Verify Listing</button>
+                        <div id="verifyStatus" class="verification-status"></div>
                     </div>
                 </div>
 
-                <!-- Agent & Branding Column -->
-                <div class="export-column">
-                    <div class="section">
-                        <h3>Agent & Branding</h3>
-                        <div class="input-group">
-                            <label for="agentName">Agent Name</label>
-                            <input type="text" id="agentName" placeholder="Enter agent name">
+                <!-- Agent & Branding Section -->
+                <div class="progressive-section" data-section="agent">
+                    <div class="section-header" onclick="toggleSection('agent')">
+                        <div class="section-title">
+                            <div class="section-icon">
+                                <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <path d="M16 7C16 9.20914 14.2091 11 12 11C9.79086 11 8 9.20914 8 7C8 4.79086 9.79086 3 12 3C14.2091 3 16 4.79086 16 7Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                    <path d="M12 14C8.13401 14 5 17.134 5 21H19C19 17.134 15.866 14 12 14Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                </svg>
+                            </div>
+                            Agent & Branding
                         </div>
-                        <div class="input-group">
-                            <label for="agentPhone">Agent Phone</label>
-                            <input type="text" id="agentPhone" placeholder="+97150123467" pattern="^\+971[0-9]{8,9}$" title="Please enter a valid UAE phone number starting with +971">
+                        <div class="expand-icon" id="agent-expand">▼</div>
+                    </div>
+                    <div class="section-content" id="agent-content">
+                        <div class="section-description">
+                            Add your contact information and agency branding to the tour.
                         </div>
-                        <div class="input-group">
-                            <label for="agencyLogo">Agency Logo</label>
-                            <div class="custom-file-upload" id="agencyLogoUpload">
+
+                        <div class="input-row">
+                            <div class="input-group">
+                                <label for="agentName">Agent Name</label>
+                                <input type="text" id="agentName" placeholder="Enter agent name">
+                            </div>
+                            <div class="input-group">
+                                <label for="agentPhone">Agent Phone</label>
+                                <input type="text" id="agentPhone" placeholder="+97150123467" pattern="^\+971[0-9]{8,9}$" title="Please enter a valid UAE phone number starting with +971">
+                            </div>
+                        </div>
+                        
+                        <div class="input-row single">
+                            <div class="input-group">
+                                <label for="agencyLogo">Agency Logo</label>
                                 <div class="upload-area" id="uploadArea">
                                     <div class="upload-icon">
-                                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                                             <path d="M21 15V19C21 19.5304 20.7893 20.0391 20.4142 20.4142C20.0391 20.7893 19.5304 21 19 21H5C4.46957 21 3.96086 20.7893 3.58579 20.4142C3.21071 20.0391 3 19.5304 3 19V15" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
                                             <path d="M17 8L12 3L7 8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
                                             <path d="M12 3V15" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
@@ -85,33 +359,54 @@
                     </div>
                 </div>
 
-                <!-- Property Details Column -->
-                <div class="export-column">
-                    <div class="section">
-                        <h3>Property Details</h3>
-                        <div class="input-group">
-                            <label for="beds">Beds</label>
-                            <input type="number" id="beds" min="0" placeholder="e.g. 2">
+                <!-- Property Details Section -->
+                <div class="progressive-section" data-section="property">
+                    <div class="section-header" onclick="toggleSection('property')">
+                        <div class="section-title">
+                            <div class="section-icon">
+                                <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <path d="M3 9L12 2L21 9V20C21 20.5304 20.7893 21.0391 20.4142 21.4142C20.0391 21.7893 19.5304 22 19 22H5C4.46957 22 3.96086 21.7893 3.58579 21.4142C3.21071 21.0391 3 20.5304 3 20V9Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                    <path d="M9 22V12H15V22" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                </svg>
+                            </div>
+                            Property Details
                         </div>
-                        <div class="input-group">
-                            <label for="baths">Baths</label>
-                            <input type="number" id="baths" min="0" placeholder="e.g. 3">
+                        <div class="expand-icon" id="property-expand">▼</div>
+                    </div>
+                    <div class="section-content" id="property-content">
+                        <div class="section-description">
+                            Add property specifications to display on the tour.
                         </div>
-                        <div class="input-group">
-                            <label for="sqft">Area (sq.ft.)</label>
-                            <input type="number" id="sqft" min="0" placeholder="e.g. 1271">
+
+                        <div class="input-row">
+                            <div class="input-group">
+                                <label for="beds">Beds</label>
+                                <input type="number" id="beds" min="0" placeholder="e.g. 2">
+                            </div>
+                            <div class="input-group">
+                                <label for="baths">Baths</label>
+                                <input type="number" id="baths" min="0" placeholder="e.g. 3">
+                            </div>
+                        </div>
+                        
+                        <div class="input-row single">
+                            <div class="input-group">
+                                <label for="sqft">Area (sq.ft.)</label>
+                                <input type="number" id="sqft" min="0" placeholder="e.g. 1271">
+                            </div>
                         </div>
                     </div>
                 </div>
-            </div>
 
-            <div class="flex-row text-center mt-20">
-                <button class="btn btn-secondary" onclick="goBack()">
-                    ← Back to Edit
-                </button>
-                <button class="btn btn-success" onclick="createTour()">
-                    Create Tour
-                </button>
+                <!-- Action Buttons -->
+                <div class="action-buttons">
+                    <button class="btn btn-secondary" onclick="goBack()">
+                        ← Back to Edit
+                    </button>
+                    <button class="create-tour-btn" onclick="createTour()">
+                        Create Tour
+                    </button>
+                </div>
             </div>
         </div>
     </div>
@@ -120,11 +415,11 @@
     <div id="loadingModal" class="loading-modal" style="display: none;">
         <div class="loading-modal-content">
             <div class="loading-spinner"></div>
-                <h3 id="loadingTitle">Creating Tour...</h3>
-                <p id="loadingStatus">Processing your video segments</p>
-                <div class="loading-progress">
-                    <div class="progress-bar">
-                        <div class="progress-fill" id="progressFill"></div>
+            <h3 id="loadingTitle">Creating Tour...</h3>
+            <p id="loadingStatus">Processing your video segments</p>
+            <div class="loading-progress">
+                <div class="progress-bar">
+                    <div class="progress-fill" id="progressFill"></div>
                 </div>
             </div>
             <div class="progress-text" id="progressText">0%</div>
@@ -132,5 +427,47 @@
     </div>
 
     <script src="/static/js/export.js"></script>
+    <script>
+        // Progressive disclosure functionality
+        function toggleSection(sectionId) {
+            const section = document.querySelector(`[data-section="${sectionId}"]`);
+            const header = section.querySelector('.section-header');
+            const content = section.querySelector('.section-content');
+            const expandIcon = section.querySelector('.expand-icon');
+            
+            const isExpanded = content.classList.contains('expanded');
+            
+            if (isExpanded) {
+                // Collapse
+                content.classList.remove('expanded');
+                header.classList.remove('expanded');
+                expandIcon.classList.remove('expanded');
+            } else {
+                // Expand
+                content.classList.add('expanded');
+                header.classList.add('expanded');
+                expandIcon.classList.add('expanded');
+            }
+        }
+
+        // Auto-expand first section on load
+        document.addEventListener('DOMContentLoaded', function() {
+            // Expand the first section by default
+            toggleSection('dld');
+        });
+
+        // Optional: Auto-expand sections when user starts interacting
+        document.querySelectorAll('input, textarea').forEach(input => {
+            input.addEventListener('focus', function() {
+                const section = this.closest('.progressive-section');
+                const sectionId = section.dataset.section;
+                const content = section.querySelector('.section-content');
+                
+                if (!content.classList.contains('expanded')) {
+                    toggleSection(sectionId);
+                }
+            });
+        });
+    </script>
 </body>
 </html> 

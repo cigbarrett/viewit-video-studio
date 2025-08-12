@@ -45,12 +45,12 @@ def add_combined_overlays(input_video, agent_name, agency_name, agent_phone=None
             
             text_overlays = [
                 f"drawtext=text='{agent_display}':"
-                f"fontfile=/Windows/Fonts/segoeuib.ttf:fontsize=64:"
+                f"fontfile=Inter:fontsize=64:"
                 f"fontcolor=white:shadowcolor=black@0.7:shadowx=2:shadowy=2:"
                 f"x=50:y=H*0.75",
 
                 f"drawtext=text='{agency_display}':"
-                f"fontfile=/Windows/Fonts/segoeuib.ttf:fontsize=44:"
+                f"fontfile=Inter:fontsize=44:"
                 f"fontcolor=white:shadowcolor=black@0.5:shadowx=2:shadowy=2:"
                 f"x=50:y=H*0.75+70"
             ]
@@ -58,7 +58,7 @@ def add_combined_overlays(input_video, agent_name, agency_name, agent_phone=None
             
             if agent_phone:
                 text_overlays.append(
-                    f"drawtext=text='{agent_phone}':fontfile=/Windows/Fonts/segoeuib.ttf:"
+                    f"drawtext=text='{agent_phone}':fontfile=Inter:"
                     f"fontsize=42:fontcolor=white:shadowcolor=black:shadowx=3:shadowy=2:"
                     f"x=50:y=300"
                 )
@@ -91,17 +91,17 @@ def add_combined_overlays(input_video, agent_name, agency_name, agent_phone=None
             
         else:
             text_overlays = [
-                f"drawtext=text='{agent_display}':fontfile=/Windows/Fonts/segoeuib.ttf:"
+                f"drawtext=text='{agent_display}':fontfile=Inter:"
                 f"fontsize=48:fontcolor=white:shadowcolor=black:shadowx=1:shadowy=0:"
                 f"x=50:y=150",
-                f"drawtext=text='{agency_display}':fontfile=/Windows/Fonts/segoeuib.ttf:"
+                f"drawtext=text='{agency_display}':fontfile=Inter:"
                 f"fontsize=48:fontcolor=white:shadowcolor=black:shadowx=1:shadowy=0:"
                 f"x=50:y=230"
             ]
             
             if agent_phone:
                 text_overlays.append(
-                    f"drawtext=text='{agent_phone}':fontfile=/Windows/Fonts/segoeuib.ttf:"
+                    f"drawtext=text='{agent_phone}':fontfile=Inter:"
                     f"fontsize=42:fontcolor=white:shadowcolor=black:shadowx=1:shadowy=0:"
                     f"x=50:y=300"
                 )
@@ -140,13 +140,13 @@ def add_combined_overlays(input_video, agent_name, agency_name, agent_phone=None
             print(f"Error was: {result.stderr[-300:]}")
             
             simple_text_overlays = [
-                f"drawtext=text='{agent_display}':x=30:y=300:fontsize=64:fontcolor=white:shadowcolor=black:shadowx=4:shadowy=2",
-                f"drawtext=text='{agency_display}':x=30:y=260:fontsize=40:fontcolor=white:shadowcolor=black:shadowx=3:shadowy=2"
+                f"drawtext=text='{agent_display}':fontfile=Inter:x=30:y=300:fontsize=64:fontcolor=white:shadowcolor=black:shadowx=4:shadowy=2",
+                f"drawtext=text='{agency_display}':fontfile=Inter:x=30:y=260:fontsize=40:fontcolor=white:shadowcolor=black:shadowx=3:shadowy=2"
             ]
             
             if agent_phone:
                 simple_text_overlays.append(
-                    f"drawtext=text='{agent_phone}':x=30:y=240:fontsize=36:fontcolor=white:shadowcolor=black:shadowx=3:shadowy=2"
+                    f"drawtext=text='{agent_phone}':fontfile=Inter:x=30:y=240:fontsize=36:fontcolor=white:shadowcolor=black:shadowx=3:shadowy=2"
                 )
             
             simple_text_overlay = ",".join(simple_text_overlays)
@@ -370,10 +370,9 @@ def add_agent_property_overlays(input_video, agent_name, agent_phone=None, logo_
         idx += 1
 
     if qr_image_path and os.path.exists(qr_image_path):
-        # Check if QR file is valid by trying to get its size
         try:
             qr_size = os.path.getsize(qr_image_path)
-            if qr_size > 100:  # Basic validation - file should be at least 100 bytes
+            if qr_size > 100:  
                 inputs += ['-i', qr_image_path]
                 filter_parts.append(f'[{idx}:v]scale=150:150[qr]')
                 filter_parts.append(f'[{chain_tag}][qr]overlay=W-w-50:50[o{idx}]')
@@ -404,23 +403,23 @@ def add_agent_property_overlays(input_video, agent_name, agent_phone=None, logo_
     if agent_name:
         safe_agent = escape_text(agent_name)
         text_overlays.append(
-            f"drawtext=text='{safe_agent}':fontfile=/Windows/Fonts/times.ttf:fontsize=48:fontcolor=black:x=50:y=150")
+            f"drawtext=text='{safe_agent}':fontfile=Inter:fontsize=48:fontcolor=black:x=50:y=150")
     if agent_phone:
         safe_phone = escape_text(agent_phone)
         text_overlays.append(
-            f"drawtext=text='{safe_phone}':fontfile=/Windows/Fonts/times.ttf:fontsize=40:fontcolor=black:x=50:y=200")
+            f"drawtext=text='{safe_phone}':fontfile=Inter:fontsize=40:fontcolor=black:x=50:y=200")
     if beds:
         safe_beds = escape_text(beds)
         text_overlays.append(
-            f"drawtext=text='{safe_beds}':fontfile=/Windows/Fonts/timesbd.ttf:fontsize=56:fontcolor=black:x=W/4-tw/2:y=H-200")
+            f"drawtext=text='{safe_beds}':fontfile=Inter:fontsize=56:fontcolor=black:x=W/4-tw/2:y=H-200")
     if baths:
         safe_baths = escape_text(baths)
         text_overlays.append(
-            f"drawtext=text='{safe_baths}':fontfile=/Windows/Fonts/timesbd.ttf:fontsize=56:fontcolor=black:x=W/2-tw/2:y=H-200")
+            f"drawtext=text='{safe_baths}':fontfile=Inter:fontsize=56:fontcolor=black:x=W/2-tw/2:y=H-200")
     if sqft:
         safe_sqft = escape_text(f"{sqft} sq.ft.")
         text_overlays.append(
-            f"drawtext=text='{safe_sqft}':fontfile=/Windows/Fonts/timesbd.ttf:fontsize=56:fontcolor=black:x=3*W/4-tw/2:y=H-200")
+            f"drawtext=text='{safe_sqft}':fontfile=Inter:fontsize=56:fontcolor=black:x=3*W/4-tw/2:y=H-200")
 
     no_icons_or_qr = len(filter_parts) == 0
     no_text = len(text_overlays) == 0

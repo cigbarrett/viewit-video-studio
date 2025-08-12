@@ -5,6 +5,29 @@ from pathlib import Path
 from video_utils import get_quality_settings
 from video_processor import extract_clip_simple, extract_clip_hq, combine_clips, combine_clips_hq
 
+def number_duplicate_segments(segments):
+
+    if not segments:
+        return {}
+    
+    room_groups = {}
+    for i, segment in enumerate(segments):
+        room_type = segment.get('label', 'unlabeled')
+        if room_type not in room_groups:
+            room_groups[room_type] = []
+        room_groups[room_type].append(i)
+    
+    display_names = {}
+    for room_type, indices in room_groups.items():
+        if len(indices) > 1:
+            sorted_indices = sorted(indices, key=lambda i: segments[i]['start_time'])
+            for j, segment_index in enumerate(sorted_indices, 1):
+                display_names[segment_index] = f"{room_type.replace('_', ' ').upper()} {j}"
+        else:
+            display_names[indices[0]] = room_type.replace('_', ' ').upper()
+    
+    return display_names
+
 def create_tour_simple(user_segments, video_path, video_info, output_path="guided_tour.mp4"):
     if not user_segments:
         print("No segments selected!")
@@ -12,15 +35,19 @@ def create_tour_simple(user_segments, video_path, video_info, output_path="guide
 
     print(f"Creating SIMPLE segments-only tour from {len(user_segments)} segments...")
     
+    display_names = number_duplicate_segments(user_segments)
+    
     sorted_segments = sorted(user_segments, key=lambda x: x['start_time'])
     
     temp_clips = []
     for i, segment in enumerate(sorted_segments):
         clip_path = f"temp/simple_clip_{i}.mp4"
         
+        display_name = display_names.get(i, segment.get('label'))
+        
         success = extract_clip_simple(
             video_path, video_info, segment['start_time'], segment['end_time'], 
-            clip_path, room_type=segment.get('label')
+            clip_path, room_type=display_name
         )
         
         if success:
@@ -50,12 +77,14 @@ def create_speedup_tour_simple(user_segments, video_path, video_info, output_pat
         print("No segments selected!")
         return False
 
+    display_names = number_duplicate_segments(user_segments)
+    
     with tempfile.TemporaryDirectory() as temp_dir:
         timeline = []
         current_time = 0.0
         sorted_segments = sorted(user_segments, key=lambda x: x['start_time'])
 
-        for segment in sorted_segments:
+        for i, segment in enumerate(sorted_segments):
             if current_time < segment['start_time']:
                 timeline.append({
                     'type': 'gap',
@@ -68,7 +97,8 @@ def create_speedup_tour_simple(user_segments, video_path, video_info, output_pat
                 'start': segment['start_time'],
                 'end': segment['end_time'],
                 'speed': 1.0,
-                'label': segment.get('label')
+                'label': segment.get('label'),
+                'display_name': display_names.get(i, segment.get('label', 'unlabeled').replace('_', ' ').upper())
             })
             current_time = segment['end_time']
 
@@ -96,8 +126,8 @@ def create_speedup_tour_simple(user_segments, video_path, video_info, output_pat
                 print(f"Speedup gap: {part['start']:.1f}s to {part['end']:.1f}s at {part['speed']}x (9:16)")
             else:
                 filters = ["scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920"]
-                if part.get('label'):
-                    display_text = part['label'].replace('_', ' ').upper()
+                if part.get('display_name'):
+                    display_text = part['display_name']
                     text_overlay = (
                         f"drawtext=text='{display_text}':fontfile=/Windows/Fonts/segoeuib.ttf:"
                         f"fontsize=65:fontcolor=white:shadowcolor=black:shadowx=3:shadowy=1:"
@@ -105,7 +135,7 @@ def create_speedup_tour_simple(user_segments, video_path, video_info, output_pat
                     )
                     filters.append(text_overlay)
                 filter_str = ",".join(filters)
-                print(f"Normal segment: {part['start']:.1f}s to {part['end']:.1f}s (9:16) with label {part.get('label')}")
+                print(f"Normal segment: {part['start']:.1f}s to {part['end']:.1f}s (9:16) with label {part.get('display_name', part.get('label'))}")
 
             cmd = base_cmd + [filter_str, '-an', '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '23', '-y', str(temp_path)]
             
@@ -151,6 +181,8 @@ def create_tour(user_segments, video_path, video_info, output_path="guided_tour.
     quality_settings = get_quality_settings(quality)
     print(f"Creating {quality} quality tour from {len(user_segments)} segments...")
     
+    display_names = number_duplicate_segments(user_segments)
+    
     enhanced = []
     for segment in user_segments:
         enhanced.append({
@@ -169,10 +201,12 @@ def create_tour(user_segments, video_path, video_info, output_path="guided_tour.
     for i, segment in enumerate(enhanced):
         clip_path = f"temp/temp_hq_clip_{i}.mp4"
         
+        display_name = display_names.get(i, segment['label'])
+        
         success = extract_clip_hq(
             video_path, video_info, segment['start_time'], segment['end_time'], clip_path,
             speed_factor=segment['speed_factor'], quality_settings=quality_settings, 
-            silent_mode=True, room_type=segment['label']
+            silent_mode=True, room_type=display_name
         )
         
         if success:
