@@ -125,7 +125,10 @@ def create_speedup_tour_simple(user_segments, video_path, video_info, output_pat
                 filter_str = f"setpts=PTS/{part['speed']},scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920"
                 print(f"Speedup gap: {part['start']:.1f}s to {part['end']:.1f}s at {part['speed']}x (9:16)")
             else:
-                filters = ["scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920"]
+                filters = [
+                    "setpts=PTS*1",  
+                    "scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920"
+                ]
                 if part.get('display_name'):
                     display_text = part['display_name']
                     text_overlay = (
@@ -137,7 +140,18 @@ def create_speedup_tour_simple(user_segments, video_path, video_info, output_pat
                 filter_str = ",".join(filters)
                 print(f"Normal segment: {part['start']:.1f}s to {part['end']:.1f}s (9:16) with label {part.get('display_name', part.get('label'))}")
 
-            cmd = base_cmd + [filter_str, '-an', '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '23', '-y', str(temp_path)]
+            cmd = base_cmd + [
+                filter_str, 
+                '-an', 
+                '-c:v', 'libx264', 
+                '-preset', 'veryfast', 
+                '-crf', '23',  
+                '-r', '30',    
+                '-g', '30',    
+                '-keyint_min', '30',  
+                '-sc_threshold', '0',  
+                '-y', str(temp_path)
+            ]
             
             timeout_duration = max(60, int(duration * (2 if part['speed'] > 1.0 else 3)))
             try:
@@ -161,10 +175,16 @@ def create_speedup_tour_simple(user_segments, video_path, video_info, output_pat
         combine_cmd = [
             'ffmpeg', '-f', 'concat', '-safe', '0',
             '-i', str(concat_list),
-            '-c', 'copy', '-y', output_path
+            '-c:v', 'libx264',
+            '-preset', 'veryfast',
+            '-crf', '23',
+            '-r', '30',  
+            '-g', '30',  
+            '-movflags', '+faststart',
+            '-y', output_path
         ]
         print(f"Combining {len(part_paths)} parts...")
-        result = subprocess.run(combine_cmd, capture_output=True, text=True, timeout=30)
+        result = subprocess.run(combine_cmd, capture_output=True, text=True, timeout=60)
 
         if result.returncode == 0:
             print(f"SIMPLE speedup tour created: {output_path}")

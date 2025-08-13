@@ -69,7 +69,6 @@ class GuidedVideoEditor:
         return add_combined_overlays(input_video, agent_name, agency_name, agent_phone, qr_image_path, qr_position, output_path)
 
     def apply_video_filters(self, input_video, output_video, filter_settings):
-        """Apply video filters to the compiled video"""
         return apply_video_filters(input_video, output_video, filter_settings)
 
     def get_video_info(self):
@@ -78,8 +77,8 @@ class GuidedVideoEditor:
     def capture_frame(self, timestamp, output_path):
         return capture_frame(self.video_path, timestamp, output_path)
 
-    def detect_scene_label(self, start_time, end_time):
-        return detect_scene_label(self.video_path, start_time, end_time)
+    def detect_scene_label(self, start_time, end_time, unfurnished_mode=False):
+        return detect_scene_label(self.video_path, start_time, end_time, unfurnished_mode)
 
     def classify_image_scene(self, image_path):
         return classify_image_scene(image_path)

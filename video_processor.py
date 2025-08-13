@@ -6,6 +6,7 @@ def extract_clip_simple(video_path, video_info, start, end, output, room_type=No
     try:
         width = video_info.get('width', 1920)
         height = video_info.get('height', 1080)
+        fps = video_info.get('fps', 30)
         
         filters = []
 
@@ -34,12 +35,16 @@ def extract_clip_simple(video_path, video_info, start, end, output, room_type=No
             '-an',  
             '-preset', 'veryfast',
             '-crf', '23',
+            '-r', str(fps),  # Maintain original frame rate
+            '-g', str(fps),  # GOP size = frame rate for consistent keyframes
+            '-keyint_min', str(fps),  # Consistent keyframe interval
+            '-sc_threshold', '0',  # Disable scene change detection for consistency
             '-maxrate', '5M',
             '-bufsize', '5M',   
             '-avoid_negative_ts', 'make_zero',
             '-threads', '2',
             '-tune', 'fastdecode',  
-            '-x264-params', 'ref=1:subme=1:me=hex:trellis=0'  
+            '-x264-params', 'ref=2:subme=2:me=hex:trellis=0'  # Slightly better quality than ref=1
         ] + filter_arg + ['-y', output]
         
         print(f"Memory-optimized clip: {start:.1f}s-{end:.1f}s → {output}")
@@ -131,6 +136,7 @@ def extract_speedup_clip_fast(video_path, video_info, start, end, output, speed_
         duration = end - start
         width = video_info.get('width', 1920)
         height = video_info.get('height', 1080)
+        fps = video_info.get('fps', 30)
         
         filters = [f"setpts=PTS/{speed_factor}"]
         
@@ -157,12 +163,16 @@ def extract_speedup_clip_fast(video_path, video_info, start, end, output, speed_
             '-an',  
             '-c:v', 'libx264',
             '-preset', 'veryfast',
-            '-crf', '30',
+            '-crf', '23',  # Consistent with other functions
+            '-r', str(fps),  # Maintain original frame rate
+            '-g', str(fps),  # GOP size = frame rate for consistent keyframes
+            '-keyint_min', str(fps),  # Consistent keyframe interval
+            '-sc_threshold', '0',  # Disable scene change detection for consistency
             '-maxrate', '6M',  
             '-bufsize', '6M',  
             '-threads', '2',  
             '-tune', 'fastdecode',  
-            '-x264-params', 'ref=1:subme=1:me=hex:trellis=0',  
+            '-x264-params', 'ref=2:subme=2:me=hex:trellis=0',  # Slightly better quality
             '-movflags', '+faststart',
             '-y', output
         ]
@@ -205,12 +215,17 @@ def combine_clips(clips, output, silent_mode=True):
             for clip in clips:
                 f.write(f"file '{os.path.abspath(clip)}'\n")
         
+        # Use re-encoding instead of copy to ensure consistency
         cmd = [
             'ffmpeg', '-f', 'concat', '-safe', '0', 
             '-i', concat_file,
             '-c:v', 'libx264',
-            '-preset', 'ultrafast',
-            '-crf', '28',
+            '-preset', 'veryfast',
+            '-crf', '23',
+            '-r', '30',  # Force consistent frame rate
+            '-g', '30',  # Force consistent GOP size
+            '-keyint_min', '30',  # Consistent keyframe interval
+            '-sc_threshold', '0',  # Disable scene change detection for consistency
             '-movflags', '+faststart',
             '-y', output
         ]
@@ -222,7 +237,7 @@ def combine_clips(clips, output, silent_mode=True):
             cmd.extend(['-c:a', 'aac']) 
             print(f"Combining {len(clips)} clips → {output}")
         
-        result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=60)  # Increased timeout
         
         if os.path.exists(concat_file):
             os.unlink(concat_file)

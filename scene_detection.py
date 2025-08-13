@@ -32,7 +32,7 @@ def get_room_display_name(label):
     }
     return label_mapping.get(label, label.replace('_', ' ').title()) if label else 'Unlabeled'
 
-def detect_scene_label(video_path, start_time, end_time):
+def detect_scene_label(video_path, start_time, end_time, unfurnished_mode=False):
     client = get_openai_client()
     if client is None:
         print("OPENAI_API_KEY not found – skipping automatic scene labelling")
@@ -45,7 +45,7 @@ def detect_scene_label(video_path, start_time, end_time):
     if not capture_frame(video_path, mid_time, frame_path):
         return None
 
-    label = classify_image_scene(frame_path)
+    label = classify_image_scene(frame_path, unfurnished_mode=unfurnished_mode)
 
     try:
         os.remove(frame_path)
@@ -54,7 +54,59 @@ def detect_scene_label(video_path, start_time, end_time):
 
     return label
 
-def classify_image_scene(image_path):
+def estimate_room_characteristics(image_path):
+
+    client = get_openai_client()
+    if client is None:
+        return None
+        
+    try:
+        with open(image_path, 'rb') as f:
+            img_b64 = base64.b64encode(f.read()).decode('utf-8')
+
+        analysis_prompt = (
+            "Analyze this room image and provide characteristics that help identify if it's a bedroom or living room. "
+            "Consider:\n"
+            "1. Room size (small/medium/large)\n"
+            "2. Room proportions (square/rectangular)\n"
+            "3. Number and type of doors\n"
+            "4. Window characteristics\n"
+            "5. Presence of built-in features (closets, alcoves)\n"
+            "6. Room location hints (corner room, end of hallway, etc.)\n"
+            "7. Whether this appears to be an unfurnished property\n\n"
+            "Respond with: 'bedroom' if characteristics suggest bedroom, 'living_room' if characteristics suggest living room, or 'uncertain'."
+        )
+
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {"role": "system", "content": "You are a real estate expert analyzing room characteristics."},
+                {
+                    "role": "user",
+                    "content": [
+                        {"type": "text", "text": analysis_prompt},
+                        {
+                            "type": "image_url",
+                            "image_url": {
+                                "url": f"data:image/jpeg;base64,{img_b64}"
+                            }
+                        }
+                    ]
+                }
+            ],
+            max_tokens=10,
+            temperature=0,
+            timeout=30
+        )
+
+        result = response.choices[0].message.content.strip().lower()
+        return result if result in ['bedroom', 'living_room', 'uncertain'] else 'uncertain'
+
+    except Exception as e:
+        print(f"Room characteristics analysis failed: {e}")
+        return None
+
+def classify_image_scene(image_path, confidence_threshold=0.7, unfurnished_mode=False):
     client = get_openai_client()
     if client is None:
         print("OPENAI_API_KEY not found – skipping scene classification")
@@ -69,13 +121,57 @@ def classify_image_scene(image_path):
             "office", "dining_room", "balcony"
         ]
 
-        system_prompt = (
-            "You are a computer vision assistant that classifies real-estate "
-            "scenes. Respond with exactly one of the following lowercase labels "
-            "and nothing else: " + ", ".join(categories) + "."
-        )
 
-        user_prompt = "Which scene type best describes this image?"
+        if unfurnished_mode:
+            system_prompt = (
+                "You are a computer vision assistant that classifies real-estate scenes. "
+                "CRITICAL: This is an UNFURNISHED PROPERTY. Be extremely cautious and conservative in your classification. "
+                "Focus entirely on architectural features, room layout, and intended purpose rather than furniture.\n\n"
+                "UNFURNISHED PROPERTY CLASSIFICATION GUIDELINES:\n"
+                "- BEDROOM: Look for bedroom-specific architectural features like closet spaces, bedroom proportions, "
+                "bedroom windows, bedroom door locations, or bedroom layout. Even without furniture, if the room has "
+                "bedroom characteristics (size, layout, closet), classify as bedroom.\n"
+                "- LIVING ROOM: Look for living room architectural characteristics like larger open spaces, "
+                "living room proportions, main entry areas, or living room layout. DO NOT classify as living room "
+                "just because a bedroom is empty - look for actual living room features.\n"
+                "- BATHROOM: Look for bathroom fixtures, plumbing, bathroom tiles, or bathroom layout.\n"
+                "- KITCHEN: Look for kitchen cabinets, appliances, kitchen layout, or kitchen fixtures.\n"
+                "- CLOSET: Small storage spaces, walk-in closets, or utility closets.\n"
+                "- OFFICE: Study areas, home office layouts, or workspace characteristics.\n"
+                "- DINING ROOM: Dining area layouts, dining room proportions, or dining room features.\n"
+                "- BALCONY: Outdoor spaces, balconies, terraces, or exterior areas.\n\n"
+                "When uncertain, prefer the more conservative classification based on room size and layout. "
+                "Respond with exactly one of the following lowercase labels and nothing else: " + ", ".join(categories) + "."
+            )
+        else:
+            system_prompt = (
+                "You are a computer vision assistant that classifies real-estate scenes. "
+                "IMPORTANT: Be very cautious when classifying unfurnished or partially furnished properties. "
+                "Look for architectural features and room characteristics rather than just furniture.\n\n"
+                "Key classification guidelines:\n"
+                "- BEDROOM: Look for bedroom-specific features like closet spaces, bedroom proportions, "
+                "bedroom windows, or bedroom door locations. Even without a bed, if the room has bedroom "
+                "characteristics (size, layout, closet), classify as bedroom.\n"
+                "- LIVING ROOM: Look for living room characteristics like larger open spaces, "
+                "living room proportions, main entry areas, or living room architectural features. "
+                "Don't classify as living room just because a bedroom is empty.\n"
+                "- BATHROOM: Look for bathroom fixtures, plumbing, bathroom tiles, or bathroom layout.\n"
+                "- KITCHEN: Look for kitchen cabinets, appliances, kitchen layout, or kitchen fixtures.\n"
+                "- CLOSET: Small storage spaces, walk-in closets, or utility closets.\n"
+                "- OFFICE: Study areas, home office layouts, or workspace characteristics.\n"
+                "- DINING ROOM: Dining area layouts, dining room proportions, or dining room features.\n"
+                "- BALCONY: Outdoor spaces, balconies, terraces, or exterior areas.\n\n"
+                "When in doubt about an unfurnished room, consider the room's intended purpose based on "
+                "its size, location, and architectural features rather than current furniture.\n\n"
+                "Respond with exactly one of the following lowercase labels and nothing else: " + ", ".join(categories) + "."
+            )
+
+        user_prompt = (
+            "Analyze this real estate image carefully. Consider the room's architectural features, "
+            "size, layout, and intended purpose. If this appears to be an unfurnished or partially "
+            "furnished property, focus on the room's characteristics rather than missing furniture. "
+            "Which scene type best describes this image?"
+        )
 
         response = client.chat.completions.create(
             model="gpt-4o-mini",
@@ -94,7 +190,7 @@ def classify_image_scene(image_path):
                     ]
                 }
             ],
-            max_tokens=5,
+            max_tokens=10,
             temperature=0,
             timeout=30
         )
@@ -105,17 +201,91 @@ def classify_image_scene(image_path):
             print(f"AI couldn't confidently classify scene (got '{label}'), skipping label")
             return None
 
+        if label in ['bedroom', 'living_room']:
+            if unfurnished_mode:
+                verification_prompt = (
+                    "This is a follow-up analysis for an UNFURNISHED PROPERTY room classified as '" + label + "'. "
+                    "Please verify this classification by considering:\n"
+                    "1. Room size and proportions (bedrooms are typically smaller than living rooms)\n"
+                    "2. Location in the property (bedrooms are usually in private areas)\n"
+                    "3. Architectural features (closets, windows, door placement)\n"
+                    "4. Room layout and intended purpose\n\n"
+                    "For unfurnished properties, be extra conservative. If uncertain, prefer bedroom for smaller rooms. "
+                    "Respond with 'bedroom', 'living_room', or 'uncertain'."
+                )
+            else:
+                verification_prompt = (
+                    "This is a follow-up analysis for a room classified as '" + label + "'. "
+                    "Please verify this classification by considering:\n"
+                    "1. Room size and proportions (bedrooms are typically smaller than living rooms)\n"
+                    "2. Location in the property (bedrooms are usually in private areas)\n"
+                    "3. Architectural features (closets, windows, door placement)\n"
+                    "4. Whether this appears to be an unfurnished property\n\n"
+                    "If this is an unfurnished property and you're uncertain, consider the room's intended purpose. "
+                    "Respond with 'bedroom', 'living_room', or 'uncertain'."
+                )
+            
+            try:
+                verification_response = client.chat.completions.create(
+                    model="gpt-4o-mini",
+                    messages=[
+                        {"role": "system", "content": "You are a real estate expert verifying room classifications."},
+                        {
+                            "role": "user",
+                            "content": [
+                                {"type": "text", "text": verification_prompt},
+                                {
+                                    "type": "image_url",
+                                    "image_url": {
+                                        "url": f"data:image/jpeg;base64,{img_b64}"
+                                    }
+                                }
+                            ]
+                        }
+                    ],
+                    max_tokens=10,
+                    temperature=0,
+                    timeout=30
+                )
+                
+                verification_label = verification_response.choices[0].message.content.strip().lower()
+                
+                if verification_label == 'uncertain':
+                    print(f"AI uncertain about {label} classification, using room characteristics analysis")
+                    characteristics = estimate_room_characteristics(image_path)
+                    if characteristics and characteristics in ['bedroom', 'living_room']:
+                        if characteristics != label:
+                            print(f"Room characteristics analysis changed classification from {label} to {characteristics}")
+                            return characteristics
+                        else:
+                            print(f"Room characteristics analysis confirmed {label} classification")
+                            return label
+                    else:
+                        print(f"Room characteristics analysis inconclusive, keeping original {label} classification")
+                        return label
+                elif verification_label in ['bedroom', 'living_room']:
+                    if verification_label != label:
+                        print(f"Verification changed classification from {label} to {verification_label}")
+                        return verification_label
+                    else:
+                        print(f"Verification confirmed {label} classification")
+                        return label
+                        
+            except Exception as e:
+                print(f"Verification failed, using original classification: {e}")
+                return label
+
         print(f"Detected scene label: {label}")
         return label
 
     except Exception as exc:
         print(f"OpenAI scene classification failed: {exc}")
         time.sleep(1)
-        return None 
+        return None
 
-def detect_room_transitions_realtime(video_path, callback_function=None, detection_interval=3.0):
+def detect_room_transitions_realtime(video_path, callback_function=None, detection_interval=3.0, unfurnished_mode=False):
 
-    print(f"Starting simple room detection for: {video_path}")
+    print(f"Starting simple room detection for: {video_path} (unfurnished_mode: {unfurnished_mode})")
     
     video_info = get_video_info(video_path)
     if not video_info:
@@ -159,7 +329,7 @@ def detect_room_transitions_realtime(video_path, callback_function=None, detecti
             try:
                 time.sleep(0.5)  
                 
-                room_label = classify_image_scene(temp_frame_path)
+                room_label = classify_image_scene(temp_frame_path, unfurnished_mode=unfurnished_mode)
                 
                 if os.path.exists(temp_frame_path):
                     os.remove(temp_frame_path)

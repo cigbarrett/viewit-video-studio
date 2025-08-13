@@ -74,7 +74,6 @@ def _cleanup_temp_files(force=False, age_threshold=None):
         
         current_time = time.time()
         
-        # Define patterns for temp files to clean
         temp_file_patterns = [
             {'prefix': 'music_', 'suffix': '.mp3', 'default_threshold': 3600},
             {'prefix': 'simple_clip_', 'suffix': '.mp4', 'default_threshold': 7200},
@@ -94,9 +93,8 @@ def _cleanup_temp_files(force=False, age_threshold=None):
                 continue
             
             should_clean = False
-            cleanup_threshold = 7200  # Default 2 hours
+            cleanup_threshold = 7200  
             
-            # Check if file matches any pattern
             for pattern in temp_file_patterns:
                 if filename.startswith(pattern['prefix']) and filename.endswith(pattern['suffix']):
                     should_clean = True
@@ -106,11 +104,9 @@ def _cleanup_temp_files(force=False, age_threshold=None):
             if not should_clean:
                 continue
                 
-            # Override threshold if specified
             if age_threshold is not None:
                 cleanup_threshold = age_threshold
                 
-            # Check file age if not forcing cleanup
             file_age = current_time - os.path.getmtime(file_path)
             if force or file_age > cleanup_threshold:
                 try:
@@ -809,10 +805,11 @@ def ai_segment_detect():
     data = request.json
     video_id = data.get('video_id')
     detection_interval = data.get('detection_interval', 2.0)   
+    unfurnished_mode = data.get('unfurnished_mode', False)   
     
     if video_id and video_id in uploaded_videos:
         video_path = uploaded_videos[video_id]
-        print(f"AI segment detection for video: {video_path}")
+        print(f"AI segment detection for video: {video_path} (unfurnished_mode: {unfurnished_mode})")
     elif len(uploaded_videos) > 0:
         video_path = list(uploaded_videos.values())[-1]
         print(f"Using most recent video for AI segment detection: {video_path}")
@@ -824,7 +821,7 @@ def ai_segment_detect():
     
     try:
         
-        print(f"Starting AI segment detection with interval: {detection_interval}s")
+        print(f"Starting AI segment detection with interval: {detection_interval}s (unfurnished_mode: {unfurnished_mode})")
         
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         detection_id = f"detect_{timestamp}"
@@ -843,7 +840,8 @@ def ai_segment_detect():
             'status': 'in_progress',
             'segments': [],
             'created_at': timestamp,
-            'stop_flag': False
+            'stop_flag': False,
+            'unfurnished_mode': unfurnished_mode  
         }
         
         def detection_callback(update):
@@ -877,7 +875,7 @@ def ai_segment_detect():
         
         def run_detection():
             try:
-                segments = detect_room_transitions_realtime(video_path, detection_callback, detection_interval)
+                segments = detect_room_transitions_realtime(video_path, detection_callback, detection_interval, unfurnished_mode)
                 
                 if detection_id in app.detection_sessions:
                     app.detection_sessions[detection_id]['status'] = 'completed'
@@ -897,6 +895,7 @@ def ai_segment_detect():
         return jsonify({
             'success': True,
             'detection_id': detection_id,
+            'unfurnished_mode': unfurnished_mode,
             'message': 'AI segment detection started'
         })
         
@@ -939,13 +938,14 @@ def auto_detect_room_label():
     video_id = data.get('video_id')
     start_time = data.get('start_time')
     end_time = data.get('end_time')
+    unfurnished_mode = data.get('unfurnished_mode', False)  
     
     if not all([video_id, start_time is not None, end_time is not None]):
         return jsonify({'error': 'Missing required parameters: video_id, start_time, end_time'}), 400
     
     if video_id and video_id in uploaded_videos:
         video_path = uploaded_videos[video_id]
-        print(f"Auto-detecting room label for segment: {start_time}s - {end_time}s")
+        print(f"Auto-detecting room label for segment: {start_time}s - {end_time}s (unfurnished_mode: {unfurnished_mode})")
     elif len(uploaded_videos) > 0:
         video_path = list(uploaded_videos.values())[-1]
         print(f"Using most recent video for auto-detection: {video_path}")
@@ -957,8 +957,8 @@ def auto_detect_room_label():
     
     try:
         
-        print(f"Auto-detecting room label for segment {start_time}s - {end_time}s")
-        room_label = detect_scene_label(video_path, start_time, end_time)
+        print(f"Auto-detecting room label for segment {start_time}s - {end_time}s (unfurnished_mode: {unfurnished_mode})")
+        room_label = detect_scene_label(video_path, start_time, end_time, unfurnished_mode=unfurnished_mode)
         
         if room_label:
             display_name = get_room_display_name(room_label)
@@ -967,6 +967,7 @@ def auto_detect_room_label():
                 'success': True,
                 'room_label': room_label,
                 'display_name': display_name,
+                'unfurnished_mode': unfurnished_mode,
                 'message': f'Auto-detected room: {display_name}'
             })
         else:
