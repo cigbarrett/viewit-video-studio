@@ -323,7 +323,9 @@ def detect_room_transitions_realtime(video_path, callback_function=None, detecti
             if int(current_time) % 30 == 0:
                 print(f"AI Detection Progress: {current_time:.1f}s / {duration:.1f}s ({current_time/duration*100:.1f}%)")
             
-            temp_frame_path = f"temp_frame_{frame_count}.jpg"
+            # Use temp directory for frame files
+            os.makedirs('temp', exist_ok=True)
+            temp_frame_path = os.path.join('temp', f"temp_frame_{frame_count}_{int(time.time()*1000)}.jpg")
             cv2.imwrite(temp_frame_path, frame)
             
             try:

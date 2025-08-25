@@ -28,7 +28,7 @@ def number_duplicate_segments(segments):
     
     return display_names
 
-def create_tour_simple(user_segments, video_path, video_info, output_path="guided_tour.mp4"):
+def create_tour_simple(user_segments, video_path, video_info, output_path="guided_tour.mp4", project_temp_dir=None):
     if not user_segments:
         print("No segments selected!")
         return False
@@ -39,9 +39,13 @@ def create_tour_simple(user_segments, video_path, video_info, output_path="guide
     
     sorted_segments = sorted(user_segments, key=lambda x: x['start_time'])
     
+    
+    temp_dir = project_temp_dir or 'temp'
+    os.makedirs(temp_dir, exist_ok=True)
+    
     temp_clips = []
     for i, segment in enumerate(sorted_segments):
-        clip_path = f"temp/simple_clip_{i}.mp4"
+        clip_path = os.path.join(temp_dir, f"simple_clip_{i}.mp4")
         
         display_name = display_names.get(i, segment.get('label'))
         
@@ -72,7 +76,7 @@ def create_tour_simple(user_segments, video_path, video_info, output_path="guide
     
     return success
 
-def create_speedup_tour_simple(user_segments, video_path, video_info, output_path="guided_tour_ffmpeg.mp4", speed_factor=3.0):
+def create_speedup_tour_simple(user_segments, video_path, video_info, output_path="guided_tour_ffmpeg.mp4", speed_factor=3.0, project_temp_dir=None):
     if not user_segments:
         print("No segments selected!")
         return False
@@ -193,7 +197,7 @@ def create_speedup_tour_simple(user_segments, video_path, video_info, output_pat
             print(f"Simple combine failed: {result.stderr[-300:]}")
             return False
 
-def create_tour(user_segments, video_path, video_info, output_path="guided_tour.mp4", api_key=None, quality='professional'):
+def create_tour(user_segments, video_path, video_info, output_path="guided_tour.mp4", api_key=None, quality='professional', project_temp_dir=None):
     if not user_segments:
         print("No segments selected!")
         return False
@@ -217,9 +221,13 @@ def create_tour(user_segments, video_path, video_info, output_path="guided_tour.
     
     enhanced.sort(key=lambda x: x['start_time'])
     
+    
+    temp_dir = project_temp_dir or 'temp'
+    os.makedirs(temp_dir, exist_ok=True)
+    
     temp_clips = []
     for i, segment in enumerate(enhanced):
-        clip_path = f"temp/temp_hq_clip_{i}.mp4"
+        clip_path = os.path.join(temp_dir, f"temp_hq_clip_{i}.mp4")
         
         display_name = display_names.get(i, segment['label'])
         

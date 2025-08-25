@@ -26,6 +26,22 @@ CORS(app)
 
 import json
 
+
+def load_projects():
+    try:
+        with open('projects.json', 'r') as f:
+            return json.load(f)
+    except:
+        return {}
+
+def save_projects():
+    try:
+        with open('projects.json', 'w') as f:
+            json.dump(app.projects, f)
+    except Exception as e:
+        print(f"Error saving projects: {e}")
+
+
 def load_uploaded_videos():
     try:
         with open('uploaded_videos.json', 'r') as f:
@@ -34,11 +50,16 @@ def load_uploaded_videos():
         return {}
 
 def save_uploaded_videos():
-    with open('uploaded_videos.json', 'w') as f:
-        json.dump(uploaded_videos, f)
+    
+    save_projects()
+
+
+app.projects = load_projects()
+if not hasattr(app, 'projects'):
+    app.projects = {}
+
 
 uploaded_videos = load_uploaded_videos()
-
 PROCESSING_RESULTS_FILE = 'processing_results.json'
 
 def load_processing_results():
@@ -52,13 +73,28 @@ def load_processing_results():
     return {}
 
 def save_processing_results():
-    try:
-        with open(PROCESSING_RESULTS_FILE, 'w') as f:
-            json.dump(app.processing_results, f)
-    except Exception as e:
-        print(f"Error saving processing results: {e}")
+    
+    save_projects()
 
-app.processing_results = load_processing_results()
+
+legacy_processing_results = load_processing_results()
+for proc_id, proc_data in legacy_processing_results.items():
+    if proc_id not in app.projects:
+        project_id = proc_data.get('video_id', proc_id)
+        video_path = proc_data.get('video_path', uploaded_videos.get(project_id, ''))
+        app.projects[proc_id] = {
+            'project_id': proc_id,
+            'video_id': project_id,
+            'video_path': video_path,
+            'processing_results': {proc_id: proc_data},
+            'detection_sessions': {},
+            'created_at': proc_data.get('created_at', datetime.now().strftime("%Y%m%d_%H%M%S")),
+            'status': 'active'
+        }
+
+
+app.processing_results = {}
+app.detection_sessions = {}
 
 def _cleanup_temp_files(force=False, age_threshold=None):
 
@@ -157,7 +193,11 @@ def upload_video():
     
     video = request.files['video']
     
-    upload_dir = 'uploads'
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    project_id = f"proj_{timestamp}_{uuid.uuid4().hex[:8]}"
+    
+    
+    upload_dir = os.path.join('uploads', project_id)
     os.makedirs(upload_dir, exist_ok=True)
     
     original_video_path = os.path.join(upload_dir, video.filename)
@@ -199,32 +239,34 @@ def upload_video():
     if not editor.video_info:
         return jsonify({'error': 'Invalid video'}), 400
     
+    app.projects[project_id] = {
+        'project_id': project_id,
+        'video_id': video_id,
+        'video_path': video_path,
+        'processing_results': {},
+        'detection_sessions': {},
+        'created_at': timestamp,
+        'status': 'active',
+        'video_info': editor.video_info
+    }
+    
+    
     uploaded_videos[video_id] = video_path
-    save_uploaded_videos() 
+    save_projects()
     
-    print(f"Video uploaded: {video.filename} → {video_path}")
-    print(f"Stored videos: {list(uploaded_videos.keys())}")
+    print(f"Video uploaded to project {project_id}: {video.filename} → {video_path}")
+    print(f"Active projects: {len(app.projects)}")
     
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    processing_id = f"proc_{timestamp}"
+    processing_id = f"proc_{project_id}_{timestamp}"
     
-    if not hasattr(app, 'processing_results'):
-        app.processing_results = {}
-    else:
-        for proc_id, proc_data in list(app.processing_results.items()):
-            if proc_data.get('video_id') == video_id and proc_data.get('status') == 'uploaded':
-                processing_id = proc_id
-                timestamp = proc_data.get('created_at', timestamp)
-                print(f"Reusing existing processing ID {processing_id} for video {video_id}")
-                break
-    
-    app.processing_results[processing_id] = {
+    app.projects[project_id]['processing_results'][processing_id] = {
         'video_id': video_id,
         'video_path': video_path,
         'created_at': timestamp,
-        'status': 'uploaded'  
+        'status': 'uploaded',
+        'project_id': project_id
     }
-    save_processing_results()
+    save_projects()
     
     response_data = {
         'duration': editor.video_info['duration'],
@@ -233,6 +275,7 @@ def upload_video():
         'video_id': video_id, 
         'video_path': video_path,
         'processing_id': processing_id,
+        'project_id': project_id,
         'edit_url': f'/edit/{processing_id}'  
     }
     
@@ -396,15 +439,21 @@ def start_video_processing():
     music_volume = data.get('music_volume', 1.0)
     filter_settings = data.get('filter_settings', {'preset': 'none'})
     existing_processing_id = data.get('processing_id') 
+    project_id = data.get('project_id')
     
     if not segments:
         return jsonify({'error': 'No segments provided'}), 400
     
-    print(f"Starting background video processing: video_id={video_id}, mode={export_mode}")
+    print(f"Starting background video processing: project_id={project_id}, video_id={video_id}, mode={export_mode}")
     
-    if video_id and video_id in uploaded_videos:
+    
+    video_path = None
+    if project_id and project_id in app.projects:
+        video_path = app.projects[project_id]['video_path']
+        print(f"Using project video: {video_path}")
+    elif video_id and video_id in uploaded_videos:
         video_path = uploaded_videos[video_id]
-        print(f"Using uploaded video: {video_path}")
+        print(f"Using legacy uploaded video: {video_path}")
     elif len(uploaded_videos) > 0:
         video_path = list(uploaded_videos.values())[-1]
         print(f"Using most recent uploaded video: {video_path}")
@@ -414,26 +463,21 @@ def start_video_processing():
     if not os.path.exists(video_path):
         return jsonify({'error': f'Video file not found: {video_path}'}), 400
     
-    processing_id = None
-    if existing_processing_id and hasattr(app, 'processing_results') and existing_processing_id in app.processing_results:
-        processing_id = existing_processing_id
-        timestamp = app.processing_results[processing_id].get('created_at', datetime.now().strftime("%Y%m%d_%H%M%S"))
-        print(f"Using existing processing ID: {processing_id}")
-    else:
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        processing_id = f"proc_{timestamp}"
-        print(f"Created new processing ID: {processing_id}")
     
-    if not hasattr(app, 'processing_results'):
-        app.processing_results = {}
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    processing_id = existing_processing_id or f"proc_{project_id or 'legacy'}_{timestamp}_{uuid.uuid4().hex[:6]}"
     
-    temp_dir = 'temp'
+    
+    temp_dir = os.path.join('temp', project_id or 'legacy')
     os.makedirs(temp_dir, exist_ok=True)
     temp_filename = os.path.join(temp_dir, f'processing_{timestamp}.mp4')
+    print(f"Created project-specific temp directory: {temp_dir}")
     
-    app.processing_results[processing_id] = {
+    
+    processing_result = {
         'temp_file': temp_filename,
         'video_id': video_id,
+        'project_id': project_id,
         'export_mode': export_mode,
         'speed_factor': speed_factor,
         'quality': quality,
@@ -441,13 +485,22 @@ def start_video_processing():
         'created_at': timestamp,
         'status': 'in_progress'
     }
-    save_processing_results()
+    
+    if project_id and project_id in app.projects:
+        app.projects[project_id]['processing_results'][processing_id] = processing_result
+    else:
+        
+        if not hasattr(app, 'processing_results'):
+            app.processing_results = {}
+        app.processing_results[processing_id] = processing_result
+    
+    save_projects()
     
     def process_video():
         try:
             print(f"Background processing thread started for {processing_id}")
             
-            editor = GuidedVideoEditor(video_path)
+            editor = GuidedVideoEditor(video_path, temp_dir)
             
             for seg in segments:
                 editor.add_segment(
@@ -467,9 +520,14 @@ def start_video_processing():
                 success = editor.create_tour(temp_filename, quality=quality)
             
             if not success:
-                app.processing_results[processing_id]['status'] = 'failed'
-                app.processing_results[processing_id]['error'] = 'Failed to process video segments'
-                save_processing_results()
+                
+                if project_id and project_id in app.projects:
+                    app.projects[project_id]['processing_results'][processing_id]['status'] = 'failed'
+                    app.projects[project_id]['processing_results'][processing_id]['error'] = 'Failed to process video segments'
+                else:
+                    app.processing_results[processing_id]['status'] = 'failed'
+                    app.processing_results[processing_id]['error'] = 'Failed to process video segments'
+                save_projects()
                 return
             
             should_apply_filters = (
@@ -497,20 +555,35 @@ def start_video_processing():
                 music_success = editor.add_music_overlay(temp_filename, music_path, music_volume)
                 if music_success:
                     print("Music overlay added successfully")
-                    app.processing_results[processing_id]['music_path'] = music_path
+                    
+                    if project_id and project_id in app.projects:
+                        app.projects[project_id]['processing_results'][processing_id]['music_path'] = music_path
+                    else:
+                        app.processing_results[processing_id]['music_path'] = music_path
                 else:
                     print("Failed to add music overlay - continuing without music")
             
-            app.processing_results[processing_id]['status'] = 'completed'
-            app.processing_results[processing_id]['output_file'] = temp_filename
+            
+            if project_id and project_id in app.projects:
+                app.projects[project_id]['processing_results'][processing_id]['status'] = 'completed'
+                app.projects[project_id]['processing_results'][processing_id]['output_file'] = temp_filename
+            else:
+                app.processing_results[processing_id]['status'] = 'completed'
+                app.processing_results[processing_id]['output_file'] = temp_filename
+                
             print(f"Background processing completed for {processing_id}")
-            save_processing_results()
+            save_projects()
             
         except Exception as e:
             print(f"Background processing error for {processing_id}: {e}")
-            app.processing_results[processing_id]['status'] = 'failed'
-            app.processing_results[processing_id]['error'] = str(e)
-            save_processing_results()
+            
+            if project_id and project_id in app.projects:
+                app.projects[project_id]['processing_results'][processing_id]['status'] = 'failed'
+                app.projects[project_id]['processing_results'][processing_id]['error'] = str(e)
+            else:
+                app.processing_results[processing_id]['status'] = 'failed'
+                app.processing_results[processing_id]['error'] = str(e)
+            save_projects()
     
     thread = threading.Thread(target=process_video)
     thread.daemon = True
@@ -519,6 +592,7 @@ def start_video_processing():
     return jsonify({
         'success': True,
         'processing_id': processing_id,
+        'project_id': project_id,
         'message': 'Video processing started in background',
         'export_mode': export_mode,
         'segments_count': len(segments)
@@ -526,10 +600,22 @@ def start_video_processing():
 
 @app.route('/check_processing_status/<processing_id>', methods=['GET'])
 def check_processing_status(processing_id):
-    if not hasattr(app, 'processing_results') or processing_id not in app.processing_results:
+    
+    processing_result = None
+    
+    
+    for project_id, project_data in app.projects.items():
+        if processing_id in project_data.get('processing_results', {}):
+            processing_result = project_data['processing_results'][processing_id]
+            break
+    
+    
+    if not processing_result and hasattr(app, 'processing_results') and processing_id in app.processing_results:
+        processing_result = app.processing_results[processing_id]
+    
+    if not processing_result:
         return jsonify({'status': 'not_found', 'message': 'Processing ID not found'}), 404
     
-    processing_result = app.processing_results[processing_id]
     status = processing_result.get('status', 'in_progress')
     
     if status == 'completed':
@@ -538,7 +624,8 @@ def check_processing_status(processing_id):
             'message': 'Video processing completed',
             'export_mode': processing_result['export_mode'],
             'segments_count': processing_result['segments_count'],
-            'created_at': processing_result['created_at']
+            'created_at': processing_result['created_at'],
+            'project_id': processing_result.get('project_id')
         })
     elif status == 'failed':
         return jsonify({
@@ -546,14 +633,16 @@ def check_processing_status(processing_id):
             'message': 'Video processing failed',
             'error': processing_result.get('error', 'Unknown error'),
             'export_mode': processing_result['export_mode'],
-            'segments_count': processing_result['segments_count']
+            'segments_count': processing_result['segments_count'],
+            'project_id': processing_result.get('project_id')
         })
     else:
         return jsonify({
             'status': 'in_progress',
             'message': 'Video still processing',
             'export_mode': processing_result['export_mode'],
-            'segments_count': processing_result['segments_count']
+            'segments_count': processing_result['segments_count'],
+            'project_id': processing_result.get('project_id')
         })
 
 @app.route('/create_tour', methods=['POST'])
@@ -572,10 +661,24 @@ def create_tour():
     if not processing_id:
         return jsonify({'error': 'Processing ID required'}), 400
     
-    if not hasattr(app, 'processing_results') or processing_id not in app.processing_results:
+    
+    processing_result = None
+    project_id = None
+    
+    
+    for pid, project_data in app.projects.items():
+        if processing_id in project_data.get('processing_results', {}):
+            processing_result = project_data['processing_results'][processing_id]
+            project_id = pid
+            break
+    
+    
+    if not processing_result and hasattr(app, 'processing_results') and processing_id in app.processing_results:
+        processing_result = app.processing_results[processing_id]
+    
+    if not processing_result:
         return jsonify({'error': 'Processing ID not found or expired'}), 404
     
-    processing_result = app.processing_results[processing_id]
     temp_file = processing_result['temp_file']
     
     if not os.path.exists(temp_file):
@@ -650,8 +753,12 @@ def create_tour():
         except Exception as e:
             print(f"Warning: Error during music cleanup: {e}")
         
-        app.processing_results[processing_id]['output_file'] = output_filename
-        save_processing_results()
+        
+        if project_id and project_id in app.projects:
+            app.projects[project_id]['processing_results'][processing_id]['output_file'] = output_filename
+        else:
+            app.processing_results[processing_id]['output_file'] = output_filename
+        save_projects()
         
         mode_description = f"{processing_result['export_mode']}"
         if processing_result['export_mode'] == 'speedup':
@@ -679,14 +786,25 @@ def create_tour():
 @app.route('/get_tour_result/<processing_id>')
 def get_tour_result(processing_id):
     print(f"Getting tour result for processing ID: {processing_id}")
-    print(f"Processing results keys: {list(app.processing_results.keys()) if hasattr(app, 'processing_results') else 'No processing_results'}")
     
-    if not hasattr(app, 'processing_results') or processing_id not in app.processing_results:
-        print(f"Processing ID {processing_id} not found in processing_results")
+    
+    processing_result = None
+    
+    
+    for project_id, project_data in app.projects.items():
+        if processing_id in project_data.get('processing_results', {}):
+            processing_result = project_data['processing_results'][processing_id]
+            print(f"Found processing result in project {project_id}: {processing_result}")
+            break
+    
+    
+    if not processing_result and hasattr(app, 'processing_results') and processing_id in app.processing_results:
+        processing_result = app.processing_results[processing_id]
+        print(f"Found processing result in legacy storage: {processing_result}")
+    
+    if not processing_result:
+        print(f"Processing ID {processing_id} not found")
         return jsonify({'error': 'Tour result not found'}), 404
-    
-    processing_result = app.processing_results[processing_id]
-    print(f"Found processing result: {processing_result}")
     
     output_file = processing_result.get('output_file') or processing_result.get('temp_file')
     
@@ -699,7 +817,8 @@ def get_tour_result(processing_id):
             'export_mode': processing_result['export_mode'],
             'speed_factor': processing_result.get('speed_factor'),
             'quality': processing_result.get('quality'),
-            'segments_count': processing_result.get('segments_count')
+            'segments_count': processing_result.get('segments_count'),
+            'project_id': processing_result.get('project_id')
         })
     else:
         print(f"No valid output file found in processing result")
@@ -735,22 +854,43 @@ def edit_page(processing_id=None):
 
 @app.route('/get_video_data/<processing_id>', methods=['GET'])
 def get_video_data(processing_id):
-    if not hasattr(app, 'processing_results') or processing_id not in app.processing_results:
+    
+    processing_result = None
+    project_id = None
+    
+    
+    for pid, project_data in app.projects.items():
+        if processing_id in project_data.get('processing_results', {}):
+            processing_result = project_data['processing_results'][processing_id]
+            project_id = pid
+            break
+    
+    
+    if not processing_result and hasattr(app, 'processing_results') and processing_id in app.processing_results:
+        processing_result = app.processing_results[processing_id]
+    
+    if not processing_result:
         return jsonify({
             'success': False,
             'error': 'Processing ID not found'
         }), 404
     
-    processing_result = app.processing_results[processing_id]
-    video_id = processing_result.get('video_id')
     
-    if not video_id or video_id not in uploaded_videos:
-        return jsonify({
-            'success': False,
-            'error': 'Video not found'
-        }), 404
+    video_path = None
+    if project_id and project_id in app.projects:
+        video_path = app.projects[project_id]['video_path']
+        video_info = app.projects[project_id].get('video_info')
+    else:
+        video_id = processing_result.get('video_id')
+        if video_id and video_id in uploaded_videos:
+            video_path = uploaded_videos[video_id]
+        else:
+            return jsonify({
+                'success': False,
+                'error': 'Video not found'
+            }), 404
+        video_info = None
     
-    video_path = uploaded_videos[video_id]
     if not os.path.exists(video_path):
         return jsonify({
             'success': False,
@@ -758,21 +898,34 @@ def get_video_data(processing_id):
         }), 404
     
     try:
-        editor = GuidedVideoEditor(video_path)
-        if not editor.video_info:
-            return jsonify({
-                'success': False,
-                'error': 'Invalid video file'
-            }), 400
         
-        video_data = {
-            'duration': editor.video_info['duration'],
-            'width': editor.video_info['width'],
-            'height': editor.video_info['height'],
-            'video_id': video_id,
-            'video_path': video_path,
-            'processing_id': processing_id
-        }
+        if video_info:
+            video_data = {
+                'duration': video_info['duration'],
+                'width': video_info['width'],
+                'height': video_info['height'],
+                'video_id': processing_result.get('video_id'),
+                'video_path': video_path,
+                'processing_id': processing_id,
+                'project_id': project_id
+            }
+        else:
+            editor = GuidedVideoEditor(video_path)
+            if not editor.video_info:
+                return jsonify({
+                    'success': False,
+                    'error': 'Invalid video file'
+                }), 400
+            
+            video_data = {
+                'duration': editor.video_info['duration'],
+                'width': editor.video_info['width'],
+                'height': editor.video_info['height'],
+                'video_id': processing_result.get('video_id'),
+                'video_path': video_path,
+                'processing_id': processing_id,
+                'project_id': project_id
+            }
         
         return jsonify({
             'success': True,
@@ -801,15 +954,20 @@ def serve_static(filename):
 
 @app.route('/ai_segment_detect', methods=['POST'])
 def ai_segment_detect():
-
     data = request.json
     video_id = data.get('video_id')
+    project_id = data.get('project_id')
     detection_interval = data.get('detection_interval', 2.0)   
     unfurnished_mode = data.get('unfurnished_mode', False)   
     
-    if video_id and video_id in uploaded_videos:
+    
+    video_path = None
+    if project_id and project_id in app.projects:
+        video_path = app.projects[project_id]['video_path']
+        print(f"AI segment detection for project {project_id}: {video_path} (unfurnished_mode: {unfurnished_mode})")
+    elif video_id and video_id in uploaded_videos:
         video_path = uploaded_videos[video_id]
-        print(f"AI segment detection for video: {video_path} (unfurnished_mode: {unfurnished_mode})")
+        print(f"AI segment detection for legacy video: {video_path} (unfurnished_mode: {unfurnished_mode})")
     elif len(uploaded_videos) > 0:
         video_path = list(uploaded_videos.values())[-1]
         print(f"Using most recent video for AI segment detection: {video_path}")
@@ -820,23 +978,33 @@ def ai_segment_detect():
         return jsonify({'error': f'Video file not found: {video_path}'}), 400
     
     try:
-        
         print(f"Starting AI segment detection with interval: {detection_interval}s (unfurnished_mode: {unfurnished_mode})")
         
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        detection_id = f"detect_{timestamp}"
+        detection_id = f"detect_{project_id or 'legacy'}_{timestamp}_{uuid.uuid4().hex[:6]}"
         
-        if not hasattr(app, 'detection_sessions'):
-            app.detection_sessions = {}
         
-        for existing_id, existing_session in list(app.detection_sessions.items()):
-            if existing_session.get('status') == 'in_progress' and existing_session.get('video_path') == video_path:
-                print(f"Cancelling existing detection session: {existing_id}")
-                existing_session['status'] = 'cancelled'
-                existing_session['stop_flag'] = True
+        if project_id and project_id in app.projects:
+            detection_sessions = app.projects[project_id]['detection_sessions']
+            for existing_id, existing_session in list(detection_sessions.items()):
+                if existing_session.get('status') == 'in_progress':
+                    print(f"Cancelling existing detection session for project {project_id}: {existing_id}")
+                    existing_session['status'] = 'cancelled'
+                    existing_session['stop_flag'] = True
+        else:
+            
+            if not hasattr(app, 'detection_sessions'):
+                app.detection_sessions = {}
+            for existing_id, existing_session in list(app.detection_sessions.items()):
+                if existing_session.get('status') == 'in_progress' and existing_session.get('video_path') == video_path:
+                    print(f"Cancelling existing legacy detection session: {existing_id}")
+                    existing_session['status'] = 'cancelled'
+                    existing_session['stop_flag'] = True
         
-        app.detection_sessions[detection_id] = {
+        
+        detection_session = {
             'video_path': video_path,
+            'project_id': project_id,
             'status': 'in_progress',
             'segments': [],
             'created_at': timestamp,
@@ -844,10 +1012,20 @@ def ai_segment_detect():
             'unfurnished_mode': unfurnished_mode  
         }
         
+        if project_id and project_id in app.projects:
+            app.projects[project_id]['detection_sessions'][detection_id] = detection_session
+        else:
+            app.detection_sessions[detection_id] = detection_session
+        
         def detection_callback(update):
-            if detection_id in app.detection_sessions:
-                session = app.detection_sessions[detection_id]
-                
+            
+            session = None
+            if project_id and project_id in app.projects:
+                session = app.projects[project_id]['detection_sessions'].get(detection_id)
+            else:
+                session = app.detection_sessions.get(detection_id)
+            
+            if session:
                 if session.get('stop_flag', False):
                     print(f"Detection {detection_id} stopped by flag")
                     return False  
@@ -877,24 +1055,40 @@ def ai_segment_detect():
             try:
                 segments = detect_room_transitions_realtime(video_path, detection_callback, detection_interval, unfurnished_mode)
                 
-                if detection_id in app.detection_sessions:
+                
+                if project_id and project_id in app.projects and detection_id in app.projects[project_id]['detection_sessions']:
+                    app.projects[project_id]['detection_sessions'][detection_id]['status'] = 'completed'
+                    app.projects[project_id]['detection_sessions'][detection_id]['segments'] = segments
+                    print(f"AI detection completed for project {project_id}: {detection_id}")
+                elif detection_id in app.detection_sessions:
                     app.detection_sessions[detection_id]['status'] = 'completed'
                     app.detection_sessions[detection_id]['segments'] = segments
-                    print(f"AI detection completed for {detection_id}")
+                    print(f"AI detection completed for legacy session: {detection_id}")
+                
+                save_projects()
                 
             except Exception as e:
                 print(f"AI detection error for {detection_id}: {e}")
-                if detection_id in app.detection_sessions:
+                
+                if project_id and project_id in app.projects and detection_id in app.projects[project_id]['detection_sessions']:
+                    app.projects[project_id]['detection_sessions'][detection_id]['status'] = 'failed'
+                    app.projects[project_id]['detection_sessions'][detection_id]['error'] = str(e)
+                elif detection_id in app.detection_sessions:
                     app.detection_sessions[detection_id]['status'] = 'failed'
                     app.detection_sessions[detection_id]['error'] = str(e)
+                
+                save_projects()
         
         thread = threading.Thread(target=run_detection)
         thread.daemon = True
         thread.start()
         
+        save_projects()
+        
         return jsonify({
             'success': True,
             'detection_id': detection_id,
+            'project_id': project_id,
             'unfurnished_mode': unfurnished_mode,
             'message': 'AI segment detection started'
         })
@@ -905,10 +1099,22 @@ def ai_segment_detect():
 
 @app.route('/check_detection_status/<detection_id>', methods=['GET'])
 def check_detection_status(detection_id):
-    if not hasattr(app, 'detection_sessions') or detection_id not in app.detection_sessions:
+    
+    session = None
+    
+    
+    for project_id, project_data in app.projects.items():
+        if detection_id in project_data.get('detection_sessions', {}):
+            session = project_data['detection_sessions'][detection_id]
+            break
+    
+    
+    if not session and hasattr(app, 'detection_sessions') and detection_id in app.detection_sessions:
+        session = app.detection_sessions[detection_id]
+    
+    if not session:
         return jsonify({'status': 'not_found', 'message': 'Detection ID not found'}), 404
     
-    session = app.detection_sessions[detection_id]
     status = session.get('status', 'in_progress')
     segments = session.get('segments', [])
     
@@ -916,36 +1122,44 @@ def check_detection_status(detection_id):
         return jsonify({
             'status': 'completed',
             'segments': segments,
-            'segments_count': len(segments)
+            'segments_count': len(segments),
+            'project_id': session.get('project_id')
         })
     elif status == 'failed':
         return jsonify({
             'status': 'failed',
-            'error': session.get('error', 'Unknown error')
+            'error': session.get('error', 'Unknown error'),
+            'project_id': session.get('project_id')
         })
     else:
         return jsonify({
             'status': 'in_progress',
             'progress': session.get('progress', 0),
             'segments': segments,
-            'segments_count': len(segments)
+            'segments_count': len(segments),
+            'project_id': session.get('project_id')
         })
 
 @app.route('/auto_detect_room_label', methods=['POST'])
 def auto_detect_room_label():
-
     data = request.json
     video_id = data.get('video_id')
+    project_id = data.get('project_id')
     start_time = data.get('start_time')
     end_time = data.get('end_time')
     unfurnished_mode = data.get('unfurnished_mode', False)  
     
-    if not all([video_id, start_time is not None, end_time is not None]):
-        return jsonify({'error': 'Missing required parameters: video_id, start_time, end_time'}), 400
+    if not all([start_time is not None, end_time is not None]):
+        return jsonify({'error': 'Missing required parameters: start_time, end_time'}), 400
     
-    if video_id and video_id in uploaded_videos:
+    
+    video_path = None
+    if project_id and project_id in app.projects:
+        video_path = app.projects[project_id]['video_path']
+        print(f"Auto-detecting room label for project {project_id}, segment: {start_time}s - {end_time}s (unfurnished_mode: {unfurnished_mode})")
+    elif video_id and video_id in uploaded_videos:
         video_path = uploaded_videos[video_id]
-        print(f"Auto-detecting room label for segment: {start_time}s - {end_time}s (unfurnished_mode: {unfurnished_mode})")
+        print(f"Auto-detecting room label for legacy video, segment: {start_time}s - {end_time}s (unfurnished_mode: {unfurnished_mode})")
     elif len(uploaded_videos) > 0:
         video_path = list(uploaded_videos.values())[-1]
         print(f"Using most recent video for auto-detection: {video_path}")
@@ -968,6 +1182,7 @@ def auto_detect_room_label():
                 'room_label': room_label,
                 'display_name': display_name,
                 'unfurnished_mode': unfurnished_mode,
+                'project_id': project_id,
                 'message': f'Auto-detected room: {display_name}'
             })
         else:
@@ -983,24 +1198,48 @@ def auto_detect_room_label():
 @app.route('/stop_ai_detection', methods=['POST'])
 def stop_ai_detection():
     try:
-        if hasattr(app, 'detection_sessions'):
-            stopped_count = 0
-            for detection_id, session in app.detection_sessions.items():
+        data = request.json or {}
+        project_id = data.get('project_id')
+        
+        stopped_count = 0
+        
+        if project_id and project_id in app.projects:
+            
+            detection_sessions = app.projects[project_id]['detection_sessions']
+            for detection_id, session in detection_sessions.items():
                 if session.get('status') == 'in_progress':
-                    print(f"Stopping AI detection session: {detection_id}")
+                    print(f"Stopping AI detection session for project {project_id}: {detection_id}")
                     session['status'] = 'stopped'
                     session['stop_flag'] = True
                     stopped_count += 1
-            
-            return jsonify({
-                'success': True,
-                'message': f'Stopped {stopped_count} active detection sessions'
-            })
         else:
-            return jsonify({
-                'success': True,
-                'message': 'No active detection sessions found'
-            })
+            
+            
+            for pid, project_data in app.projects.items():
+                detection_sessions = project_data.get('detection_sessions', {})
+                for detection_id, session in detection_sessions.items():
+                    if session.get('status') == 'in_progress':
+                        print(f"Stopping AI detection session for project {pid}: {detection_id}")
+                        session['status'] = 'stopped'
+                        session['stop_flag'] = True
+                        stopped_count += 1
+            
+            
+            if hasattr(app, 'detection_sessions'):
+                for detection_id, session in app.detection_sessions.items():
+                    if session.get('status') == 'in_progress':
+                        print(f"Stopping legacy AI detection session: {detection_id}")
+                        session['status'] = 'stopped'
+                        session['stop_flag'] = True
+                        stopped_count += 1
+        
+        save_projects()
+        
+        return jsonify({
+            'success': True,
+            'message': f'Stopped {stopped_count} active detection sessions'
+        })
+        
     except Exception as e:
         print(f"Error stopping AI detection: {e}")
         return jsonify({'error': f'Failed to stop detection: {str(e)}'}), 500
@@ -1032,9 +1271,9 @@ def cleanup_temp_files_endpoint():
         print(f"Error during manual cleanup: {e}")
         return jsonify({'error': f'Cleanup failed: {str(e)}'}), 500
 
-# @app.route('/force_cleanup_temp_files', methods=['POST'])
-# def force_cleanup_temp_files_endpoint():
-#     try:
+
+
+
 #         result = _cleanup_temp_files(force=True)
         
 #         if not result['cleaned_count'] and not result['errors']:

@@ -9,10 +9,11 @@ from video_filters import apply_video_filters
 
 class GuidedVideoEditor:
     
-    def __init__(self, video_path):
+    def __init__(self, video_path, project_temp_dir=None):
         self.video_path = Path(video_path)
         self.video_info = get_video_info(self.video_path)
         self.user_segments = []
+        self.project_temp_dir = project_temp_dir
     
     def add_segment(self, start_time, end_time, label=None, speed_factor=1.0):
         if start_time < 0 or end_time > self.video_info['duration']:
@@ -39,13 +40,13 @@ class GuidedVideoEditor:
         return True
 
     def create_tour_simple(self, output_path="guided_tour.mp4"):
-        return create_tour_simple(self.user_segments, self.video_path, self.video_info, output_path)
+        return create_tour_simple(self.user_segments, self.video_path, self.video_info, output_path, self.project_temp_dir)
 
     def create_speedup_tour_simple(self, output_path="guided_tour_ffmpeg.mp4", speed_factor=3.0):
-        return create_speedup_tour_simple(self.user_segments, self.video_path, self.video_info, output_path, speed_factor)
+        return create_speedup_tour_simple(self.user_segments, self.video_path, self.video_info, output_path, speed_factor, self.project_temp_dir)
 
     def create_tour(self, output_path="guided_tour.mp4", api_key=None, quality='professional'):
-        return create_tour(self.user_segments, self.video_path, self.video_info, output_path, api_key, quality)
+        return create_tour(self.user_segments, self.video_path, self.video_info, output_path, api_key, quality, self.project_temp_dir)
 
     def get_quality_settings(self, quality='professional'):
         return get_quality_settings(quality)
@@ -57,10 +58,10 @@ class GuidedVideoEditor:
         return extract_clip_hq(self.video_path, self.video_info, start, end, output, speed_factor, quality_settings, silent_mode, room_type)
     
     def combine_clips(self, clips, output, silent_mode=True):
-        return combine_clips(clips, output, silent_mode)
+        return combine_clips(clips, output, silent_mode, self.project_temp_dir)
 
     def combine_clips_hq(self, clips, output, quality_settings):
-        return combine_clips_hq(clips, output, quality_settings)
+        return combine_clips_hq(clips, output, quality_settings, self.project_temp_dir)
 
     def add_music_overlay(self, input_video, music_path, volume=0.3, output_path=None):
         return add_music_overlay(input_video, music_path, volume, output_path)

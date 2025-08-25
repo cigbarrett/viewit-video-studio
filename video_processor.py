@@ -18,7 +18,7 @@ def extract_clip_simple(video_path, video_info, start, end, output, room_type=No
             display_text = room_type.replace('_', ' ').upper()
             fontsize = max(width // 25, 90)
             text_overlay = (
-                f"drawtext=text='{display_text}':fontfile=/Windows/Fonts/segoeuib.ttf:"
+                f"drawtext=text='{display_text}':fontfile=/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf:"
                 f"fontsize={fontsize * 1.5}:fontcolor=black:"
                 f"x=(w-text_w)/2:y=h-text_h-275"
             )
@@ -35,16 +35,16 @@ def extract_clip_simple(video_path, video_info, start, end, output, room_type=No
             '-an',  
             '-preset', 'veryfast',
             '-crf', '23',
-            '-r', str(fps),  # Maintain original frame rate
-            '-g', str(fps),  # GOP size = frame rate for consistent keyframes
-            '-keyint_min', str(fps),  # Consistent keyframe interval
-            '-sc_threshold', '0',  # Disable scene change detection for consistency
+            '-r', str(fps),  
+            '-g', str(fps),  
+            '-keyint_min', str(fps),  
+            '-sc_threshold', '0',  
             '-maxrate', '5M',
             '-bufsize', '5M',   
             '-avoid_negative_ts', 'make_zero',
             '-threads', '2',
             '-tune', 'fastdecode',  
-            '-x264-params', 'ref=2:subme=2:me=hex:trellis=0'  # Slightly better quality than ref=1
+            '-x264-params', 'ref=2:subme=2:me=hex:trellis=0'  
         ] + filter_arg + ['-y', output]
         
         print(f"Memory-optimized clip: {start:.1f}s-{end:.1f}s → {output}")
@@ -100,7 +100,7 @@ def extract_clip_hq(video_path, video_info, start, end, output, speed_factor=1.0
             display_text = room_type.replace('_', ' ').upper()
             fontsize = max(width // 25, 48)
             text_filter = (
-                f"drawtext=text='{display_text}':fontfile=/Windows/Fonts/segoeuib.ttf:"
+                f"drawtext=text='{display_text}':fontfile=/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf:"
                 f"fontsize={fontsize * 1.5}:fontcolor=black:"
                 f"x=(w-text_w)/2:y=h-text_h-275"
             )
@@ -149,7 +149,7 @@ def extract_speedup_clip_fast(video_path, video_info, start, end, output, speed_
             fontsize = max(36, width // 40)  
             text_overlay = (
                 f"drawtext=text='{display_text}':fontcolor=black:"
-                f"fontsize={fontsize * 1.5}:fontfile=/Windows/Fonts/segoeuib.ttf:"
+                f"fontsize={fontsize * 1.5}:fontfile=/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf:"
                 f"x=(w-text_w)/2:y=h-text_h-275"
             )
             filters.append(text_overlay)
@@ -163,16 +163,16 @@ def extract_speedup_clip_fast(video_path, video_info, start, end, output, speed_
             '-an',  
             '-c:v', 'libx264',
             '-preset', 'veryfast',
-            '-crf', '23',  # Consistent with other functions
-            '-r', str(fps),  # Maintain original frame rate
-            '-g', str(fps),  # GOP size = frame rate for consistent keyframes
-            '-keyint_min', str(fps),  # Consistent keyframe interval
-            '-sc_threshold', '0',  # Disable scene change detection for consistency
+            '-crf', '23',  
+            '-r', str(fps),  
+            '-g', str(fps),  
+            '-keyint_min', str(fps),  
+            '-sc_threshold', '0',  
             '-maxrate', '6M',  
             '-bufsize', '6M',  
             '-threads', '2',  
             '-tune', 'fastdecode',  
-            '-x264-params', 'ref=2:subme=2:me=hex:trellis=0',  # Slightly better quality
+            '-x264-params', 'ref=2:subme=2:me=hex:trellis=0',  
             '-movflags', '+faststart',
             '-y', output
         ]
@@ -203,29 +203,33 @@ def extract_speedup_clip_fast(video_path, video_info, start, end, output, speed_
 
 
 
-def combine_clips(clips, output, silent_mode=True):
+def combine_clips(clips, output, silent_mode=True, project_temp_dir=None):
     try:
         for clip in clips:
             if not os.path.exists(clip):
                 print(f"Missing clip: {clip}")
                 return False
         
-        concat_file = 'temp/temp_concat.txt'
+        
+        temp_dir = project_temp_dir or 'temp'
+        os.makedirs(temp_dir, exist_ok=True)
+        
+        concat_file = os.path.join(temp_dir, 'temp_concat.txt')
         with open(concat_file, 'w') as f:
             for clip in clips:
                 f.write(f"file '{os.path.abspath(clip)}'\n")
         
-        # Use re-encoding instead of copy to ensure consistency
+        
         cmd = [
             'ffmpeg', '-f', 'concat', '-safe', '0', 
             '-i', concat_file,
             '-c:v', 'libx264',
             '-preset', 'veryfast',
             '-crf', '23',
-            '-r', '30',  # Force consistent frame rate
-            '-g', '30',  # Force consistent GOP size
-            '-keyint_min', '30',  # Consistent keyframe interval
-            '-sc_threshold', '0',  # Disable scene change detection for consistency
+            '-r', '30',  
+            '-g', '30',  
+            '-keyint_min', '30',  
+            '-sc_threshold', '0',  
             '-movflags', '+faststart',
             '-y', output
         ]
@@ -237,7 +241,7 @@ def combine_clips(clips, output, silent_mode=True):
             cmd.extend(['-c:a', 'aac']) 
             print(f"Combining {len(clips)} clips → {output}")
         
-        result = subprocess.run(cmd, capture_output=True, text=True, timeout=60)  # Increased timeout
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=60)  
         
         if os.path.exists(concat_file):
             os.unlink(concat_file)
@@ -257,7 +261,7 @@ def combine_clips(clips, output, silent_mode=True):
     
     return False
 
-def combine_clips_hq(clips, output, quality_settings):
+def combine_clips_hq(clips, output, quality_settings, project_temp_dir=None):
     try:
         if not clips:
             print("No clips to combine")
@@ -274,7 +278,11 @@ def combine_clips_hq(clips, output, quality_settings):
             print("No valid clips to combine")
             return False
         
-        concat_file = 'temp/temp_concat_hq.txt'
+        
+        temp_dir = project_temp_dir or 'temp'
+        os.makedirs(temp_dir, exist_ok=True)
+        
+        concat_file = os.path.join(temp_dir, 'temp_concat_hq.txt')
         with open(concat_file, 'w', encoding='utf-8') as f:
             for clip in valid_clips:
                 f.write(f"file '{os.path.abspath(clip).replace(os.sep, '/')}'\n")

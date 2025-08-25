@@ -954,6 +954,7 @@
                     },
                     body: JSON.stringify({
                         video_id: window.uploadedVideoData?.video_id,
+                        project_id: window.uploadedVideoData?.project_id,
                         start_time: segment.start,
                         end_time: segment.end
                     })
@@ -1468,6 +1469,7 @@
 
             const processingData = {
                 video_id: window.uploadedVideoData.video_id,
+                project_id: window.uploadedVideoData.project_id,
                 processing_id: window.uploadedVideoData.processing_id, // Include processing ID if available
                 segments: segments.map(seg => ({
                     start: seg.start,
@@ -1551,6 +1553,7 @@
                     },
                     body: JSON.stringify({
                         video_id: window.uploadedVideoData?.video_id,
+                        project_id: window.uploadedVideoData?.project_id,
                         detection_interval: detectionInterval
                     })
                 });
