@@ -2520,3 +2520,84 @@
             console.log('Filters initialized with backend-compatible default values');
         }
 
+// Mobile tab dropdown functionality (moved to global scope)
+function toggleTabDropdown() {
+    console.log('toggleTabDropdown called');
+    const dropdown = document.getElementById('tabDropdown');
+    const arrow = document.querySelector('.dropdown-arrow');
+    
+    console.log('Dropdown element:', dropdown);
+    console.log('Arrow element:', arrow);
+    
+    if (dropdown && arrow) {
+        if (dropdown.classList.contains('open')) {
+            console.log('Closing dropdown');
+            dropdown.classList.remove('open');
+            arrow.classList.remove('open');
+        } else {
+            console.log('Opening dropdown');
+            dropdown.classList.add('open');
+            arrow.classList.add('open');
+        }
+    } else {
+        console.log('Dropdown or arrow element not found');
+    }
+}
+
+function selectMobileTab(tabId, tabName) {
+    // Update the current tab name
+    const currentTabName = document.querySelector('.current-tab-name');
+    if (currentTabName) {
+        currentTabName.textContent = tabName;
+    }
+    
+    // Close the dropdown
+    const dropdown = document.getElementById('tabDropdown');
+    const arrow = document.querySelector('.dropdown-arrow');
+    if (dropdown) dropdown.classList.remove('open');
+    if (arrow) arrow.classList.remove('open');
+    
+    // Update active state in dropdown
+    document.querySelectorAll('.tab-option').forEach(option => {
+        option.classList.remove('active');
+    });
+    const selectedOption = document.querySelector(`.tab-option[data-tab="${tabId}"]`);
+    if (selectedOption) {
+        selectedOption.classList.add('active');
+    }
+    
+    // Switch the actual tab content (reuse existing switchToTab function)
+    if (typeof switchToTab === 'function') {
+        switchToTab(tabId);
+    } else {
+        // Fallback tab switching
+        document.querySelectorAll('.tab-content').forEach(content => {
+            content.classList.remove('active');
+        });
+        document.querySelectorAll('.tab-btn').forEach(btn => {
+            btn.classList.remove('active');
+        });
+        
+        const targetContent = document.getElementById(`tab-${tabId}`);
+        const targetBtn = document.querySelector(`[data-tab="${tabId}"]`);
+        
+        if (targetContent) targetContent.classList.add('active');
+        if (targetBtn) targetBtn.classList.add('active');
+    }
+}
+
+        // Close dropdown when clicking outside
+        document.addEventListener('click', function(e) {
+            const tabSelector = document.querySelector('.mobile-tab-selector');
+            if (tabSelector && !tabSelector.contains(e.target)) {
+                const dropdown = document.getElementById('tabDropdown');
+                const arrow = document.querySelector('.dropdown-arrow');
+                if (dropdown) {
+                    dropdown.classList.remove('open');
+                }
+                if (arrow) {
+                    arrow.classList.remove('open');
+                }
+            }
+        });
+

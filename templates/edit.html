@@ -190,13 +190,29 @@
             </div>
 
             <!-- Sidebar with Tabs -->
-            <div class="sidebar">
-                <div class="editor-tabs" style="margin-bottom:16px;">
-                    <button class="tab-btn active" data-tab="segments">Segments</button>
-                    <button class="tab-btn" data-tab="filters">Filters</button>
-                    <button class="tab-btn" data-tab="music">Music</button>
-                    <button class="tab-btn" data-tab="export">Export</button>
-                </div>
+            <div class="sidebar" id="sidebar">
+                <div class="sidebar-content">
+                    <!-- Desktop Tab Buttons -->
+                    <div class="editor-tabs desktop-tabs" style="margin-bottom:16px;">
+                        <button class="tab-btn active" data-tab="segments">Segments</button>
+                        <button class="tab-btn" data-tab="filters">Filters</button>
+                        <button class="tab-btn" data-tab="music">Music</button>
+                        <button class="tab-btn" data-tab="export">Export</button>
+                    </div>
+                    
+                    <!-- Mobile Tab Dropdown -->
+                    <div class="mobile-tab-selector" style="margin-bottom:16px;">
+                        <div class="current-tab-header" onclick="toggleTabDropdown()">
+                            <span class="current-tab-name">Segments</span>
+                            <div class="dropdown-arrow">▼</div>
+                        </div>
+                        <div class="tab-dropdown" id="tabDropdown">
+                            <div class="tab-option active" data-tab="segments" onclick="selectMobileTab('segments', 'Segments')">Segments</div>
+                            <div class="tab-option" data-tab="filters" onclick="selectMobileTab('filters', 'Filters')">Filters</div>
+                            <div class="tab-option" data-tab="music" onclick="selectMobileTab('music', 'Music')">Music</div>
+                            <div class="tab-option" data-tab="export" onclick="selectMobileTab('export', 'Export')">Export</div>
+                        </div>
+                    </div>
 
                 <div class="tab-content active" id="tab-segments">
                     <div class="segment-selection" id="segmentSelection">
@@ -499,6 +515,7 @@
                         <!-- <button class="btn btn-primary" id="exportButton" onclick="goToExport()">Export Video</button> -->
                     </div>
                 </div>
+                </div> <!-- Close sidebar-content -->
             </div>
         </div>
     </div>
