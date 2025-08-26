@@ -49,7 +49,7 @@ body {
 
 .logo-text {
     font-family: 'Segoe UI', Arial, sans-serif;
-    font-size: 30px;
+    font-size: 18px;
     font-weight: 400;
     letter-spacing: 1.2px;
     text-transform: uppercase;
@@ -962,6 +962,17 @@ body {
     .loading-modal-content {
         padding: 30px 20px;
         margin: 20px;
+    }
+    
+    /* Fix oversized logo text on mobile */
+    .logo-text {
+        font-size: 18px !important;
+        letter-spacing: 0.8px !important;
+    }
+    
+    .logo-subtitle {
+        font-size: 10px !important;
+        letter-spacing: 0.8px !important;
     }
 } 
 
