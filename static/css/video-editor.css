@@ -232,60 +232,72 @@
 @media (max-width: 768px) {
     .main-container.grid {
         grid-template-columns: 1fr !important;
-        grid-template-rows: 55vh 45vh !important;
-        height: calc(100vh - 70px) !important;
-        gap: 0 !important;
-        overflow: hidden !important;
-        padding: 0 !important;
+        grid-template-rows: 45vh 55vh !important;
+        height: calc(100vh - 50px) !important;
+        gap: 4px !important;
+        overflow: visible !important;
+        padding: 4px !important;
         display: grid !important;
         margin: 0 !important;
     }
     
     /* Ensure tab content has breathing room */
     .tab-content {
-        padding-bottom: 30px !important;
+        padding-bottom: 12px !important;
+        overflow-y: auto !important;
+        max-height: calc(55vh - 70px) !important;
+        -webkit-overflow-scrolling: touch !important;
     }
     
     /* Fix timeline header spacing on mobile */
     .timeline-container {
-        margin-top: 8px !important;
+        margin-top: 0px !important;
         margin-bottom: 0 !important;
         position: relative !important;
         z-index: 1 !important;
-        padding-bottom: 8px !important;
+        padding-bottom: 20px !important;
     }
     
     .timeline-container h4 {
         margin-top: 0 !important;
-        margin-bottom: 6px !important;
-        font-size: 13px !important;
+        margin-bottom: 2px !important;
+        font-size: 11px !important;
         padding: 0 !important;
-        line-height: 1.2 !important;
+        line-height: 1 !important;
+        opacity: 0.8 !important;
     }
     
         body {
-        overflow: hidden !important;
+        overflow-y: auto !important;
+        overflow-x: hidden !important;
         margin: 0 !important;
         padding: 0 !important;
+        -webkit-overflow-scrolling: touch !important;
     }
     
     /* Compact header layout for mobile */
     .logo-container.header {
-        padding: 8px 12px !important;
+        padding: 6px 8px !important;
         display: flex !important;
         flex-direction: row !important;
         align-items: center !important;
         justify-content: space-between !important;
-        min-height: 50px !important;
-        background: rgba(0, 0, 0, 0.9) !important;
+        min-height: 44px !important;
+        background: transparent !important;
+        position: sticky !important;
+        top: 0 !important;
+        z-index: 100 !important;
+        border-bottom: none !important;
     }
     
     .logo-section {
         display: flex !important;
         flex-direction: column !important;
-        align-items: center !important;
+        align-items: flex-start !important;
         gap: 2px !important;
         flex: 1 !important;
+        margin-left: 8px !important;
+        margin-right: 12px !important;
     }
     
     .logo-section img {
@@ -327,11 +339,12 @@
     
     /* Make container full height on mobile */
     .container {
-        height: 100vh !important;
+        min-height: 100vh !important;
         margin: 0 !important;
         padding: 0 !important;
         display: flex !important;
         flex-direction: column !important;
+        overflow: visible !important;
     }
     
     /* Ensure main container takes remaining space */
@@ -341,21 +354,25 @@
     
     .video-editor {
         order: 1 !important;
-        height: 55vh !important;
+        height: 45vh !important;
         min-height: 250px !important;
         display: flex !important;
         flex-direction: column !important;
-        padding: 8px 8px 4px 8px !important;
+        padding: 6px !important;
         background: #1a1a1a !important;
+        border-radius: 8px 8px 0 0 !important;
+        overflow: hidden !important;
     }
     
     .video-player-container {
         flex: 1 !important;
-        min-height: 250px !important;
-        margin-bottom: 8px !important;
+        min-height: 200px !important;
+        margin-bottom: 6px !important;
         display: flex !important;
         align-items: center !important;
         justify-content: center !important;
+        border-radius: 8px !important;
+        overflow: hidden !important;
     }
     
     .video-player {
@@ -367,33 +384,36 @@
     
     .video-controls {
         flex-shrink: 0 !important;
-        padding: 8px 0 !important;
-        background: rgba(0, 0, 0, 0.8) !important;
-        border-radius: 8px !important;
-        margin: 0 -8px !important;
+        padding: 6px 8px !important;
+        background: rgba(0, 0, 0, 0.85) !important;
+        border-radius: 6px !important;
+        margin: 0 !important;
+        border: 1px solid rgba(255, 255, 255, 0.1) !important;
     }
     
     .sidebar {
         order: 2 !important;
-        height: 45vh !important;
-        max-height: 45vh !important;
-        overflow: hidden !important;
+        height: 55vh !important;
+        max-height: 55vh !important;
+        overflow: visible !important;
         background: #2a2a2a !important;
-        border-radius: 16px 16px 0 0 !important;
-        padding: 20px 16px 24px 16px !important;
-        border-top: 3px solid #4B91F7 !important;
-        box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.3) !important;
+        border-radius: 12px 12px 0 0 !important;
+        padding: 12px 12px 8px 12px !important;
+        border-top: 2px solid #4B91F7 !important;
+        box-shadow: 0 -2px 12px rgba(0, 0, 0, 0.2) !important;
         display: flex !important;
         flex-direction: column !important;
-        margin-top: 4px !important;
+        margin-top: 0px !important;
+        position: relative !important;
     }
     
     .sidebar-content {
         padding: 0 !important;
-        padding-bottom: 20px !important;
+        padding-bottom: 16px !important;
         flex: 1 !important;
         overflow-y: auto !important;
         min-height: 0 !important;
+        -webkit-overflow-scrolling: touch !important;
     }
     
     /* Hide desktop tabs on mobile */
@@ -405,7 +425,7 @@
     .mobile-tab-selector {
         display: block !important;
         position: relative !important;
-        margin-bottom: 16px !important;
+        margin-bottom: 12px !important;
         margin-top: 0px !important;
         flex-shrink: 0 !important;
         z-index: 10 !important;
@@ -418,8 +438,11 @@
         top: 100% !important;
         left: 0 !important;
         right: 0 !important;
-        z-index: 1000 !important;
+        z-index: 1001 !important;
         margin-top: 4px !important;
+        max-height: 200px !important;
+        overflow-y: auto !important;
+        -webkit-overflow-scrolling: touch !important;
     }
     
     .mobile-tab-selector .tab-dropdown.open {
@@ -547,31 +570,53 @@
     }
     
     .timeline-container {
-        padding: 12px;
+        padding: 8px !important;
+        margin-bottom: 4px !important;
+        background: rgba(255, 255, 255, 0.08) !important;
+        border-radius: 6px !important;
+    }
+    
+    /* Ensure video controls are compact on mobile */
+    .playback-controls {
+        padding: 0 4px !important;
+        gap: 6px !important;
+    }
+    
+    /* Make timeline more compact on mobile */
+    .timeline {
+        height: 32px !important;
+    }
+    
+    /* Compact scrub bar for mobile */
+    .scrub-bar-container {
+        height: 6px !important;
+        margin-bottom: 6px !important;
     }
 } 
 
 /* Small Mobile Devices */
 @media (max-width: 480px) {
     .main-container.grid {
-        grid-template-rows: 70vh 30vh;
-        height: 100vh;
+        grid-template-rows: 55vh 45vh !important;
+        height: calc(100vh - 50px) !important;
+        gap: 2px !important;
     }
     
     .video-editor {
-        padding: 12px;
-        height: 70vh;
-        min-height: 350px;
+        padding: 4px !important;
+        height: 55vh !important;
+        min-height: 240px !important;
     }
     
     .sidebar {
-        height: 30vh;
-        padding: 16px;
-        border-radius: 20px 20px 0 0;
+        height: 45vh !important;
+        padding: 8px !important;
+        border-radius: 16px 16px 0 0 !important;
     }
     
     .video-player-container {
-        min-height: 250px;
+        min-height: 180px !important;
+        margin-bottom: 4px !important;
     }
     
     .tab-btn {
@@ -635,6 +680,35 @@
     .sidebar {
         overflow-y: auto;
         -webkit-overflow-scrolling: touch;
+    }
+    
+    /* Compact mobile tab content */
+    .tab-content {
+        padding-bottom: 12px !important;
+    }
+    
+    /* Make segments panel more compact */
+    .segments-panel {
+        padding: 12px !important;
+        margin-bottom: 12px !important;
+    }
+    
+    /* Compact filter sections */
+    .video-filters-section {
+        padding: 12px !important;
+        margin-bottom: 12px !important;
+    }
+    
+    /* Compact music sections */
+    .timeline-music-section {
+        padding: 12px !important;
+        margin-bottom: 12px !important;
+    }
+    
+    /* Compact export mode panel */
+    .export-mode-panel {
+        padding: 12px !important;
+        margin-bottom: 12px !important;
     }
 }
 
