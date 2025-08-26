@@ -456,20 +456,35 @@
                 <div class="export-mode-panel">
                     <h4>Export Mode</h4>
                     <div class="export-mode-options">
-                        <label class="export-mode-label">
-                            <input type="radio" name="exportMode" value="segments" checked>
-                            <span class="export-mode-text">
-                                <strong>Segments Only</strong>
-                                <small>Remove transitions (faster)</small>
-                            </span>
-                        </label>
-                        <label class="export-mode-label">
-                            <input type="radio" name="exportMode" value="speedup">
-                            <span class="export-mode-text">
-                                <strong>Speed up transitions</strong>
-                                <small>Keep all footage, speed up walking</small>
-                            </span>
-                        </label>
+                        <div class="export-mode-card">
+                            <input type="radio" name="exportMode" value="segments" id="cinematicMode">
+                            <label for="cinematicMode" class="mode-card">
+                                <div class="mode-icon">
+                                    <svg width="32" height="32" viewBox="0 0 24 24" fill="currentColor">
+                                        <path d="M18 4l2 4h-3l-2-4h-2l2 4h-3l-2-4H8l2 4H7L5 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V4h-4z"/>
+                                    </svg>
+                                </div>
+                                <div class="mode-content">
+                                    <h5>Cinematic Mode</h5>
+                                    <p>Segments only, ideal for longer videos and large properties</p>
+                                </div>
+                            </label>
+                        </div>
+                        <div class="export-mode-card">
+                            <input type="radio" name="exportMode" value="speedup" id="walkthroughMode" checked>
+                            <label for="walkthroughMode" class="mode-card">
+                                <div class="mode-icon">
+                                    <svg width="32" height="32" viewBox="0 0 24 24" fill="currentColor">
+                                        <path d="M13 8V2L7 7l6 5v-4c3.31 0 6 2.69 6 6 0 1.01-.25 1.97-.7 2.8l1.46 1.46C20.53 16.85 21 15.49 21 14c0-4.42-3.58-8-8-8z"/>
+                                        <path d="M11 16v6l6-5-6-5v4c-3.31 0-6-2.69-6-6 0-1.01.25-1.97.7-2.8L4.24 5.74C3.47 7.15 3 8.51 3 10c0 4.42 3.58 8 8 8z"/>
+                                    </svg>
+                                </div>
+                                <div class="mode-content">
+                                    <h5>Walkthrough</h5>
+                                    <p>Entire video, walking sped up. Ideal for smaller units</p>
+                                </div>
+                            </label>
+                        </div>
                     </div>
                     <div class="speed-settings" id="speedSettings" style="display: none;">
                         <div class="speed-control">

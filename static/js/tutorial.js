@@ -75,7 +75,7 @@ class TutorialSystem {
             {
                 target: '[data-tab="export"]',
                 title: 'Export Settings Tab',
-                description: 'Configure your final video output. Choose between "Segments Only" (remove transitions) or "Speed up transitions" (keep all footage but speed up walking).',
+                description: 'Configure your final video output. Choose between "Cinematic Mode" (segments only, ideal for longer videos and large properties) or "Walkthrough" (entire video, walking sped up, ideal for smaller units).',
                 position: 'bottom',
                 highlightPadding: 8,
                 action: () => {

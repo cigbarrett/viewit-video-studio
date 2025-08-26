@@ -2434,6 +2434,12 @@
                 radio.addEventListener('change', handleExportModeChange);
             });
             
+            // Initialize speed settings visibility based on default selection
+            const defaultMode = document.querySelector('input[name="exportMode"]:checked');
+            if (defaultMode) {
+                handleExportModeChange({ target: defaultMode });
+            }
+            
             // Setup speed slider
             const speedSlider = document.getElementById('speedSlider');
             if (speedSlider) {
