@@ -465,6 +465,45 @@
             console.log(`Out Point set to ${currentTime.toFixed(1)}s`);
         }
 
+        // Segment capture toggle (works for both mobile and desktop)
+        let isCapturing = false;
+        function toggleSegmentCapture() {
+            const mobileButton = document.getElementById('mobilePlayPauseBtn');
+            const desktopButton = document.getElementById('desktopPlayPauseBtn');
+            
+            // Update both buttons (one will be hidden based on screen size)
+            [mobileButton, desktopButton].forEach(button => {
+                if (button) {
+                    const playIcon = button.querySelector('.play-icon');
+                    const pauseIcon = button.querySelector('.pause-icon');
+                    
+                    if (!isCapturing) {
+                        // First click: Set start point and switch to pause icon
+                        playIcon.style.display = 'none';
+                        pauseIcon.style.display = 'block';
+                        button.classList.add('recording');
+                        button.title = 'Stop Segment Capture';
+                    } else {
+                        // Second click: Set end point and switch back to play icon
+                        playIcon.style.display = 'block';
+                        pauseIcon.style.display = 'none';
+                        button.classList.remove('recording');
+                        button.title = 'Start Segment Capture';
+                    }
+                }
+            });
+            
+            if (!isCapturing) {
+                setInPoint();
+                isCapturing = true;
+                console.log('Started segment capture');
+            } else {
+                setOutPoint();
+                isCapturing = false;
+                console.log('Stopped segment capture');
+            }
+        }
+
         function clearCurrentSelection() {
             document.getElementById('startTime').value = '';
             document.getElementById('endTime').value = '';
@@ -2580,4 +2619,52 @@ function selectMobileTab(tabId, tabName) {
                 }
             }
         });
+
+// Timeline toggle functionality for mobile
+function toggleTimeline() {
+    const timelineContent = document.getElementById('timelineContent');
+    const timelineContainer = document.getElementById('timelineContainer');
+    const toggleIcon = document.querySelector('.timeline-toggle-icon');
+    
+    console.log('toggleTimeline called');
+    console.log('timelineContent:', timelineContent);
+    console.log('timelineContainer:', timelineContainer);
+    console.log('toggleIcon:', toggleIcon);
+    
+    if (timelineContent && toggleIcon && timelineContainer) {
+        if (timelineContent.classList.contains('collapsed')) {
+            // Expand timeline
+            console.log('Expanding timeline');
+            timelineContent.classList.remove('collapsed');
+            timelineContainer.classList.remove('collapsed');
+            toggleIcon.classList.remove('collapsed');
+            console.log('Icon classes after expand:', toggleIcon.className);
+        } else {
+            // Collapse timeline
+            console.log('Collapsing timeline');
+            timelineContent.classList.add('collapsed');
+            timelineContainer.classList.add('collapsed');
+            toggleIcon.classList.add('collapsed');
+            console.log('Icon classes after collapse:', toggleIcon.className);
+        }
+    } else {
+        console.log('One or more elements not found');
+    }
+}
+
+// Initialize timeline state on mobile
+document.addEventListener('DOMContentLoaded', function() {
+    // Check if we're on mobile and collapse timeline by default
+    if (window.innerWidth <= 768) {
+        const timelineContent = document.getElementById('timelineContent');
+        const timelineContainer = document.getElementById('timelineContainer');
+        const toggleIcon = document.querySelector('.timeline-toggle-icon');
+        
+        if (timelineContent && toggleIcon && timelineContainer) {
+            timelineContent.classList.add('collapsed');
+            timelineContainer.classList.add('collapsed');
+            toggleIcon.classList.add('collapsed');
+        }
+    }
+});
 

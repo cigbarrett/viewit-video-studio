@@ -178,13 +178,19 @@
 
                 <!-- Timeline -->
                 <div class="timeline-container" id="timelineContainer">
-                    <h4>Timeline</h4>
-                    <br>
-                    <div class="timeline" id="timeline">
-                        <div class="timeline-track" id="timelineTrack"></div>
-                        <div class="playhead" id="playhead"></div>
+                    <div class="timeline-header">
+                        <h4>Timeline</h4>
+                        <button class="timeline-toggle-btn" id="timelineToggleBtn" onclick="toggleTimeline()">
+                            <span class="timeline-toggle-icon">▼</span>
+                        </button>
                     </div>
-                    <div class="timeline-markers" id="timelineMarkers"></div>
+                    <div class="timeline-content" id="timelineContent">
+                        <div class="timeline" id="timeline">
+                            <div class="timeline-track" id="timelineTrack"></div>
+                            <div class="playhead" id="playhead"></div>
+                        </div>
+                        <div class="timeline-markers" id="timelineMarkers"></div>
+                    </div>
                 </div>
 
             </div>
@@ -219,7 +225,7 @@
                         <div class="ai-control-group">
                             <button class="btn btn-primary btn-full ai-detect-btn" id="aiDetectBtn" onclick="startAISegmentDetection()" 
                                     title="Automatically detect room segments in your video using AI. This will analyze your video and identify different rooms/areas, creating segments for each transition.">
-                                Auto-Segment with AI
+                                Segment with AI
                                 <span class="tooltip-icon">?</span>
                             </button>
                         </div>
@@ -267,31 +273,49 @@
                                     <option value="balcony">Balcony</option>
                                 </select>
                             </div>
-                            <div class="mobile-segment-controls">
-                                <button class="btn btn-success mobile-segment-btn start-btn" onclick="setInPoint()" title="Set Start Point (I)">
-                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                            <div class="desktop-segment-controls">
+                                <button class="btn desktop-segment-btn play-pause-btn" id="desktopPlayPauseBtn" onclick="toggleSegmentCapture()" title="Start/Stop Segment Capture">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" class="play-icon">
                                         <path d="M8 5v14l11-7z"/>
                                     </svg>
-                                    Start
-                                </button>
-                                <button class="btn btn-warning mobile-segment-btn end-btn" onclick="setOutPoint()" title="Set End Point (O)">
-                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" class="pause-icon" style="display: none;">
                                         <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>
                                     </svg>
-                                    End
                                 </button>
+                                <div class="segment-actions-right">
+                                    <button class="btn btn-primary desktop-segment-btn add-btn" onclick="addSegment()" title="Add Segment">
+                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                                            <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
+                                        </svg>
+                                    </button>
+                                    <button class="btn-text desktop-segment-btn delete-btn" onclick="clearAll()" title="Clear">
+                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                                            <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+                                        </svg>
+                                    </button>
+                                </div>
                             </div>
-                            <div class="segment-actions">
-                                <button class="btn btn-primary btn-full" onclick="addSegment()" title="Add Segment">
-                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
-                                        <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
+                            <div class="mobile-segment-controls">
+                                <button class="btn mobile-segment-btn play-pause-btn" id="mobilePlayPauseBtn" onclick="toggleSegmentCapture()" title="Start/Stop Segment Capture">
+                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" class="play-icon">
+                                        <path d="M8 5v14l11-7z"/>
+                                    </svg>
+                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" class="pause-icon" style="display: none;">
+                                        <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>
                                     </svg>
                                 </button>
-                                <button class="btn-text" onclick="clearAll()" title="Clear">
-                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
-                                        <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
-                                    </svg>
-                                </button>
+                                <div class="segment-actions-right">
+                                    <button class="btn btn-primary mobile-segment-btn add-btn" onclick="addSegment()" title="Add Segment">
+                                        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                                            <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
+                                        </svg>
+                                    </button>
+                                    <button class="btn-text mobile-segment-btn delete-btn" onclick="clearAll()" title="Clear">
+                                        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                                            <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+                                        </svg>
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -483,7 +507,6 @@
                 <div class="tab-content" id="tab-export">
                 <!-- Export Mode Selection -->
                 <div class="export-mode-panel">
-                    <h4>Export Mode</h4>
                     <div class="export-mode-options">
                         <div class="export-mode-card">
                             <input type="radio" name="exportMode" value="segments" id="cinematicMode">

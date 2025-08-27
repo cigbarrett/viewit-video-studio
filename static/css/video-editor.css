@@ -3,9 +3,10 @@
     display: grid;
     grid-template-columns: 30% 70%;
     gap: 16px;
-    height: calc(100vh - 100px);
+    height: calc(100vh - 120px);
     margin: 0;
     padding: 16px;
+    margin-bottom: 20px;
 }
 
 /* Video Editor Left Panel */
@@ -118,7 +119,6 @@
     border-radius: 12px;
     padding: 0;
     overflow-y: auto;
-    height: 100%;
 }
 
 .sidebar-content {
@@ -275,10 +275,11 @@
     .timeline-container h4 {
         margin-top: 0 !important;
         margin-bottom: 2px !important;
-        font-size: 11px !important;
+        font-size: 14px !important;
+        font-weight: 600 !important;
         padding: 0 !important;
         line-height: 1 !important;
-        opacity: 0.8 !important;
+        opacity: 1 !important;
     }
     
         body {
@@ -291,7 +292,7 @@
     
     /* Compact header layout for mobile */
     .logo-container.header {
-        padding: 6px 8px !important;
+        padding: 6px 2px 6px 8px !important;
         display: flex !important;
         flex-direction: row !important;
         align-items: center !important;
@@ -331,16 +332,17 @@
     /* Compact buttons on the right */
     .logo-container.header > div:last-child {
         display: flex !important;
-        gap: 8px !important;
+        gap: 6px !important;
         align-items: center !important;
         flex-shrink: 0 !important;
+        margin-right: 0 !important;
     }
     
     .tutorial-help-btn-inline {
-        width: 32px !important;
-        height: 32px !important;
+        width: 22px !important;
+        height: 22px !important;
         padding: 0 !important;
-        font-size: 14px !important;
+        font-size: 10px !important;
         border-radius: 50% !important;
     }
     
@@ -349,6 +351,7 @@
         font-size: 12px !important;
         height: 32px !important;
         border-radius: 6px !important;
+        margin-right: 0 !important;
     }
     
     /* Make container full height on mobile */
@@ -602,15 +605,21 @@
     }
     
     .volume-control-container:hover .volume-slider-container {
-        width: 40px;
+        width: 30px;
     }
     
     .volume-slider {
-        width: 40px;
+        width: 30px;
     }
     
     .controls-right {
-        max-width: 80px;
+        max-width: 70px;
+        overflow: hidden;
+    }
+    
+    .volume-control-container {
+        flex-shrink: 1;
+        min-width: 0;
     }
     
     .timeline-container {
@@ -746,7 +755,7 @@
     /* Make segments panel more compact */
     .segments-panel {
         padding: 12px 0 !important;
-        margin-bottom: 12px !important;
+        margin-bottom: 4px !important;
         background: transparent !important;
         border: none !important;
         border-radius: 0 !important;
@@ -810,7 +819,7 @@
     border: none;
     border-radius: 0;
     padding: 20px 0;
-    margin-bottom: 20px;
+    margin-bottom: 5px;
     margin-top: 20px;
     border-top: 1px solid #2a2a2a;
     padding-top: 20px;
@@ -989,7 +998,7 @@
     border-radius: 12px;
     padding: 40px;
     text-align: center;
-    max-width: 400px;
+    max-width: 350px;
     width: 90%;
     box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
 }
@@ -1496,7 +1505,7 @@
 
 .controls-right {
     flex: 0 0 auto;
-    max-width: 110px;
+    max-width: 80px;
     overflow: hidden;
 }
 
@@ -1564,13 +1573,51 @@
     border-radius: 8px;
     padding: 16px 16px 24px 16px; /* Increased bottom padding to contain markers */
     flex-shrink: 0;
+    margin-bottom: 20px;
 }
 
-.timeline-container h4 {
-    margin: 0 0 15px 0;
+.timeline-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 15px;
+}
+
+.timeline-header h4 {
+    margin: 0;
     color: #fff;
-    font-size: 16px;
+    font-size: 1.2rem;
     font-weight: 600;
+}
+
+.timeline-toggle-btn {
+    background: transparent;
+    border: none;
+    color: #4B91F7;
+    cursor: pointer;
+    padding: 4px 8px;
+    border-radius: 4px;
+    transition: all 0.2s ease;
+    display: none; /* Hidden on desktop */
+}
+
+.timeline-toggle-btn:hover {
+    background: rgba(75, 145, 247, 0.1);
+}
+
+.timeline-toggle-icon {
+    font-size: 12px;
+    transition: transform 0.2s ease;
+    display: inline-block;
+}
+
+.timeline-toggle-icon.collapsed {
+    transform: rotate(180deg) !important;
+}
+
+.timeline-content {
+    transition: all 0.3s ease;
+    overflow: hidden;
 }
 
 .timeline {
@@ -1865,25 +1912,36 @@
 .volume-control-container {
     position: relative;
     display: flex;
+    flex-direction: column;
     align-items: center;
+    justify-content: flex-end;
+    overflow: visible;
+    flex-shrink: 1;
+    min-width: 0;
 }
 
 .volume-slider-container {
-    width: 0;
+    height: 0;
     overflow: hidden;
-    transition: width 0.2s ease;
+    transition: height 0.2s ease;
     display: flex;
     align-items: center;
+    justify-content: center;
+    order: -1;
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%);
 }
 
 .volume-control-container:hover .volume-slider-container {
-    width: 50px;
+    height: 60px;
 }
 
 /* Volume Slider */
 .volume-slider {
-    width: 50px;
-    height: 3px;
+    width: 3px;
+    height: 50px;
     background: rgba(255, 255, 255, 0.2);
     border-radius: 2px;
     outline: none;
@@ -1891,6 +1949,8 @@
     appearance: none;
     cursor: pointer;
     flex-shrink: 0;
+    writing-mode: bt-lr; /* IE */
+    -webkit-appearance: slider-vertical; /* Webkit */
 }
 
 .volume-slider::-webkit-slider-thumb {
@@ -2050,11 +2110,25 @@
     justify-content: flex-end;
 }
 
+/* Desktop segment control buttons */
+.desktop-segment-controls {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+}
+
 /* Mobile segment control buttons */
 .mobile-segment-controls {
     display: none; /* Hidden by default on desktop */
-    gap: 8px;
+    justify-content: space-between;
+    align-items: center;
     margin-bottom: 16px;
+}
+
+.segment-actions-right {
+    display: flex;
+    gap: 8px;
 }
 
 .mobile-segment-btn {
@@ -2088,23 +2162,123 @@
     height: 16px;
 }
 
-/* Start button - Clean blue */
-.mobile-segment-btn.start-btn {
+/* Play/Pause button - Toggle between start and stop */
+.mobile-segment-btn.play-pause-btn {
     background: #2563eb !important;
     color: #ffffff !important;
+    padding: 12px !important;
+    border-radius: 50% !important;
+    width: 48px !important;
+    height: 48px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    flex: none !important;
 }
 
-.mobile-segment-btn.start-btn:hover {
+.mobile-segment-btn.play-pause-btn:hover {
     background: #1d4ed8 !important;
 }
 
-/* End button - Clean red */
-.mobile-segment-btn.end-btn {
+.mobile-segment-btn.play-pause-btn.recording {
     background: #dc2626 !important;
-    color: #ffffff !important;
 }
 
-.mobile-segment-btn.end-btn:hover {
+.mobile-segment-btn.play-pause-btn.recording:hover {
+    background: #b91c1c !important;
+}
+
+/* Add button styling */
+.mobile-segment-btn.add-btn {
+    background: #16a34a !important;
+    color: #ffffff !important;
+    padding: 10px !important;
+    width: 40px !important;
+    height: 40px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    flex: none !important;
+}
+
+.mobile-segment-btn.add-btn:hover {
+    background: #15803d !important;
+}
+
+/* Delete button styling */
+.mobile-segment-btn.delete-btn {
+    background: #dc2626 !important;
+    color: #ffffff !important;
+    padding: 10px !important;
+    width: 40px !important;
+    height: 40px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    flex: none !important;
+}
+
+.mobile-segment-btn.delete-btn:hover {
+    background: #b91c1c !important;
+}
+
+/* Desktop segment button styles */
+.desktop-segment-btn.play-pause-btn {
+    background: #2563eb !important;
+    color: #ffffff !important;
+    padding: 8px !important;
+    border-radius: 50% !important;
+    width: 36px !important;
+    height: 36px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    flex: none !important;
+}
+
+.desktop-segment-btn.play-pause-btn:hover {
+    background: #1d4ed8 !important;
+}
+
+.desktop-segment-btn.play-pause-btn.recording {
+    background: #dc2626 !important;
+}
+
+.desktop-segment-btn.play-pause-btn.recording:hover {
+    background: #b91c1c !important;
+}
+
+.desktop-segment-btn.add-btn {
+    background: #16a34a !important;
+    color: #ffffff !important;
+    padding: 8px !important;
+    width: 32px !important;
+    height: 32px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    flex: none !important;
+    border-radius: 6px !important;
+}
+
+.desktop-segment-btn.add-btn:hover {
+    background: #15803d !important;
+}
+
+.desktop-segment-btn.delete-btn {
+    background: #dc2626 !important;
+    color: #ffffff !important;
+    padding: 8px !important;
+    width: 32px !important;
+    height: 32px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    flex: none !important;
+    border-radius: 6px !important;
+}
+
+.desktop-segment-btn.delete-btn:hover {
     background: #b91c1c !important;
 }
 
@@ -2538,7 +2712,11 @@
     
 
     
-    /* Show mobile segment controls on mobile */
+    /* Hide desktop controls and show mobile controls on mobile */
+    .desktop-segment-controls {
+        display: none !important;
+    }
+    
     .mobile-segment-controls {
         display: flex !important;
     }
@@ -2869,17 +3047,17 @@
     background: rgba(128, 128, 128, 0.8);
     border: 1px solid rgba(255, 255, 255, 0.2);
     color: #ffffff;
-    width: 28px;
-    height: 28px;
+    width: 24px;
+    height: 24px;
     border-radius: 50%;
-    font-size: 13px;
+    font-size: 11px;
     font-weight: bold;
     cursor: pointer;
     transition: all 0.3s ease;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-family: serif;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
     flex-shrink: 0;
 }
 
@@ -2923,9 +3101,9 @@
     }
     
     .tutorial-help-btn-inline {
-        width: 26px;
-        height: 26px;
-        font-size: 12px;
+        width: 22px;
+        height: 22px;
+        font-size: 10px;
     }
 }
 
@@ -3032,5 +3210,45 @@
         width: 36px !important;
         height: 36px !important;
         right: 4px;
+    }
+    
+    /* Timeline Collapsible on Mobile */
+    .timeline-toggle-btn {
+        display: block !important;
+        padding: 4px 4px !important;
+    }
+    
+    .timeline-container {
+        padding: 12px 16px 16px 16px !important;
+    }
+    
+    .timeline-header {
+        margin-bottom: 12px !important;
+    }
+    
+    .timeline-content.collapsed {
+        max-height: 0 !important;
+        padding-top: 0 !important;
+        padding-bottom: 0 !important;
+        margin-top: 0 !important;
+        margin-bottom: 0 !important;
+        opacity: 0 !important;
+        transform: scaleY(0) !important;
+        transform-origin: top !important;
+    }
+    
+    .timeline-content.collapsed .timeline,
+    .timeline-content.collapsed .timeline-markers {
+        display: none !important;
+    }
+    
+    /* Make timeline container skinnier when collapsed */
+    .timeline-container.collapsed {
+        padding: 8px 16px !important;
+        min-height: auto !important;
+    }
+    
+    .timeline-container.collapsed .timeline-header {
+        margin-bottom: 0 !important;
     }
 } 
