@@ -121,7 +121,7 @@
             <div class="video-editor">
                 <!-- Video Player -->
                 <div class="video-player-container" id="playerContainer">
-                    <video id="videoPlayer" class="video-player full-fit">
+                    <video id="videoPlayer" class="video-player full-fit" playsinline>
                         Your browser does not support the video tag.
                     </video>
                 </div>
@@ -178,7 +178,7 @@
 
                 <!-- Timeline -->
                 <div class="timeline-container" id="timelineContainer">
-                    <h4>Video Timeline</h4>
+                    <h4>Timeline</h4>
                     <br>
                     <div class="timeline" id="timeline">
                         <div class="timeline-track" id="timelineTrack"></div>
@@ -327,13 +327,13 @@
                     
                     <!-- Segments Panel -->
                     <div class="segments-panel">
-                        <h4>Selected Segments</h4>
-                        <div id="segmentsList">
+                        <!-- <h4>Selected Segments</h4> -->
+                        <div id="segmentsList" style="flex: 1; display: flex; flex-direction: column; align-items: stretch; justify-content: center;">
                             <p style="color: #90a4ae; text-align: center; padding: 20px;">
-                                No segments selected yet
+                                Your segments will appear here
                             </p>
                         </div>
-                        <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid #37474f;">
+                        <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid #37474f; flex-shrink: 0;">
                             <div id="totalDuration">Total: 0.0s</div>
                         </div>
                     </div>

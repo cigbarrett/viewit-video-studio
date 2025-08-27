@@ -54,7 +54,7 @@ class TutorialSystem {
             },
             {
                 target: '[data-tab="filters"]',
-                title: 'Video Filters Tab',
+                title: 'Video Filters',
                 description: 'Switch to this tab to enhance your video with filters. Adjust brightness, contrast, saturation, and apply preset looks like "Cinematic" or "Warm".',
                 position: 'bottom',
                 highlightPadding: 8,
@@ -64,7 +64,7 @@ class TutorialSystem {
             },
             {
                 target: '[data-tab="music"]',
-                title: 'Background Music Tab',
+                title: 'Background Music',
                 description: 'Add background music to your property tour. Browse suggested tracks or search for specific moods and genres to enhance the viewing experience.',
                 position: 'bottom',
                 highlightPadding: 8,
@@ -74,7 +74,7 @@ class TutorialSystem {
             },
             {
                 target: '[data-tab="export"]',
-                title: 'Export Settings Tab',
+                title: 'Export Settings',
                 description: 'Configure your final video output. Choose between "Cinematic Mode" (segments only, ideal for longer videos and large properties) or "Walkthrough" (entire video, walking sped up, ideal for smaller units).',
                 position: 'bottom',
                 highlightPadding: 8,
