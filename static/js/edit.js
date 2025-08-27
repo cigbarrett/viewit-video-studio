@@ -729,32 +729,21 @@
                 
                 let roomDisplayName, statusIcon, statusColor, titleClass;
                 
+                // Use segment number instead of icons
+                const segmentNumber = index + 1;
+                statusIcon = segmentNumber;
+                
                 if (segment.detecting) {
                     roomDisplayName = 'Detecting...';
-                    statusIcon = `
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
-                            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
-                        </svg>
-                    `;
                     statusColor = '#ff9800';
                     titleClass = 'detecting';
                 } else if (segment.room) {
                     roomDisplayName = roomLabels[segment.room] || segment.room.replace('_', ' ');
                     const isAutoDetected = segment.room && segment.room !== 'auto' && !segment.manual;
-                    statusIcon = isAutoDetected ? `
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
-                            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
-                        </svg>
-                    ` : `
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
-                            <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
-                        </svg>
-                    `;
                     statusColor = isAutoDetected ? '#4caf50' : '#2196f3';
                     titleClass = isAutoDetected ? 'detected' : 'manual';
                 } else {
                     roomDisplayName = 'Unlabeled';
-                    statusIcon = '';
                     statusColor = '#90a4ae';
                     titleClass = '';
                 }
@@ -1125,7 +1114,7 @@
                     },
                     body: JSON.stringify({
                         query: randomTerm,
-                        page_size: 8
+                        page_size: 9
                     })
                 });
                 
@@ -2406,16 +2395,7 @@
             }
         }
 
-        function searchCustomMusic() {
-            const query = document.getElementById('customMusicQuery');
-            if (query && query.value.trim()) {
-                // This function is already implemented in the existing code
-                // Just call the existing searchCustomMusic function
-                searchCustomMusic();
-            } else {
-                alert('Please enter a search term');
-            }
-        }
+
 
         // Export mode functions
         function handleExportModeChange(event) {
