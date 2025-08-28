@@ -380,74 +380,72 @@
                             </div>
                         </div>
                         
-                        <div class="filters-grid">
-                            <div class="filter-group">
-                                <div class="filter-control">
-                                    <label for="brightnessSlider">Brightness</label>
-                                    <div class="slider-container">
-                                        <input type="range" id="brightnessSlider" min="-1.0" max="1.0" step="0.1" value="0.0" 
-                                               class="filter-slider" oninput="updateFilterValue('brightness', this.value)">
-                                        <span class="slider-value" id="brightnessValue">0.0</span>
-                                    </div>
-                                </div>
-                                
-                                <div class="filter-control">
-                                    <label for="contrastSlider">Contrast</label>
-                                    <div class="slider-container">
-                                        <input type="range" id="contrastSlider" min="0.0" max="2.0" step="0.1" value="1.0" 
-                                               class="filter-slider" oninput="updateFilterValue('contrast', this.value)">
-                                        <span class="slider-value" id="contrastValue">1.0</span>
-                                    </div>
-                                </div>
-                                
-                                <div class="filter-control">
-                                    <label for="saturationSlider">Saturation</label>
-                                    <div class="slider-container">
-                                        <input type="range" id="saturationSlider" min="0.0" max="2.0" step="0.1" value="1.0" 
-                                               class="filter-slider" oninput="updateFilterValue('saturation', this.value)">
-                                        <span class="slider-value" id="saturationValue">1.0</span>
-                                    </div>
-                                </div>
-                            </div>
-                            
-                            <div class="filter-group">
-                                <div class="filter-control">
-                                    <label for="hueSlider">Hue</label>
-                                    <div class="slider-container">
-                                        <input type="range" id="hueSlider" min="-180" max="180" step="5" value="0" 
-                                               class="filter-slider" oninput="updateFilterValue('hue', this.value)">
-                                        <span class="slider-value" id="hueValue">0°</span>
-                                    </div>
-                                </div>
-                                
-                                <div class="filter-control">
-                                    <label for="blurSlider">Blur</label>
-                                    <div class="slider-container">
-                                        <input type="range" id="blurSlider" min="0" max="10" step="0.5" value="0" 
-                                               class="filter-slider" oninput="updateFilterValue('blur', this.value)">
-                                        <span class="slider-value" id="blurValue">0</span>
-                                    </div>
-                                </div>
-                                
-                                <div class="filter-control">
-                                    <label for="sharpenSlider">Sharpen</label>
-                                    <div class="slider-container">
-                                        <input type="range" id="sharpenSlider" min="0" max="5" step="0.1" value="0" 
-                                               class="filter-slider" oninput="updateFilterValue('sharpen', this.value)">
-                                        <span class="slider-value" id="sharpenValue">0</span>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        
                         <div class="filter-presets">
-                            <h5>Quick Presets</h5>
                             <div class="preset-buttons">
+                                <button class="preset-btn" onclick="applyFilterPreset('cinematic')">Cinematic</button>
+                                <button class="preset-btn" onclick="applyFilterPreset('premium')">Premium</button>
+                                <button class="preset-btn" onclick="applyFilterPreset('natural')">Natural</button>
                                 <button class="preset-btn" onclick="applyFilterPreset('warm')">Warm</button>
                                 <button class="preset-btn" onclick="applyFilterPreset('cool')">Cool</button>
                                 <button class="preset-btn" onclick="applyFilterPreset('vibrant')">Vibrant</button>
-                                <button class="preset-btn" onclick="applyFilterPreset('cinematic')">Cinematic</button>
-                                <button class="preset-btn" onclick="applyFilterPreset('vintage')">Vintage</button>
+                                <button class="preset-btn" onclick="applyFilterPreset('elegant')">Elegant</button>
+                                <button class="preset-btn" onclick="applyFilterPreset('modern')">Modern</button>
+                            </div>
+                        </div>
+                        
+                        <div class="filters-grid">
+                            <div class="filter-control">
+                                <label for="brightnessSlider">Brightness</label>
+                                <div class="slider-container">
+                                    <input type="range" id="brightnessSlider" min="-1.0" max="1.0" step="0.1" value="0.0" 
+                                           class="filter-slider" oninput="updateFilterValue('brightness', this.value)">
+                                    <span class="slider-value" id="brightnessValue">0.0</span>
+                                </div>
+                            </div>
+                            
+                            <div class="filter-control">
+                                <label for="contrastSlider">Contrast</label>
+                                <div class="slider-container">
+                                    <input type="range" id="contrastSlider" min="0.0" max="2.0" step="0.1" value="1.0" 
+                                           class="filter-slider" oninput="updateFilterValue('contrast', this.value)">
+                                    <span class="slider-value" id="contrastValue">1.0</span>
+                                </div>
+                            </div>
+                            
+                            <div class="filter-control">
+                                <label for="saturationSlider">Saturation</label>
+                                <div class="slider-container">
+                                    <input type="range" id="saturationSlider" min="0.0" max="2.0" step="0.1" value="1.0" 
+                                           class="filter-slider" oninput="updateFilterValue('saturation', this.value)">
+                                    <span class="slider-value" id="saturationValue">1.0</span>
+                                </div>
+                            </div>
+                            
+                            <div class="filter-control">
+                                <label for="hueSlider">Hue</label>
+                                <div class="slider-container">
+                                    <input type="range" id="hueSlider" min="-180" max="180" step="5" value="0" 
+                                           class="filter-slider" oninput="updateFilterValue('hue', this.value)">
+                                    <span class="slider-value" id="hueValue">0°</span>
+                                </div>
+                            </div>
+                            
+                            <div class="filter-control">
+                                <label for="blurSlider">Blur</label>
+                                <div class="slider-container">
+                                    <input type="range" id="blurSlider" min="0" max="10" step="0.5" value="0" 
+                                           class="filter-slider" oninput="updateFilterValue('blur', this.value)">
+                                    <span class="slider-value" id="blurValue">0</span>
+                                </div>
+                            </div>
+                            
+                            <div class="filter-control">
+                                <label for="sharpenSlider">Sharpen</label>
+                                <div class="slider-container">
+                                    <input type="range" id="sharpenSlider" min="0" max="5" step="0.1" value="0" 
+                                           class="filter-slider" oninput="updateFilterValue('sharpen', this.value)">
+                                    <span class="slider-value" id="sharpenValue">0</span>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -457,7 +455,9 @@
                 <!-- Music Selection Under Timeline -->
                 <div class="timeline-music-section">
                     <div class="music-header-inline">
-                        <h4>Background Music</h4>
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <h4>Background Music</h4>
+                        </div>
                         <div class="music-controls-group">
                             <div class="music-search-container-inline">
                                 <input type="text" id="customMusicQuery" placeholder="Search music..." class="music-search-input-inline">
@@ -507,6 +507,9 @@
                 <div class="tab-content" id="tab-export">
                 <!-- Export Mode Selection -->
                 <div class="export-mode-panel">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                        <h4>Export Configuration</h4>
+                    </div>
                     <div class="export-mode-options">
                         <div class="export-mode-card">
                             <input type="radio" name="exportMode" value="segments" id="cinematicMode">

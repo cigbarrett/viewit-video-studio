@@ -1080,9 +1080,7 @@
 
 /* Export Mode Panel */
 .export-mode-panel {
-    background: linear-gradient(145deg, #1e1e1e 0%, #2a2a2a 100%);
-    border: 1px solid #37474f;
-    border-radius: 12px;
+    background: transparent;
     padding: 20px;
     margin-bottom: 20px;
 }
@@ -1124,7 +1122,7 @@
     border-radius: 12px;
     transition: all 0.3s ease;
     border: 2px solid rgba(255, 255, 255, 0.1);
-    background: linear-gradient(145deg, #2a2a2a 0%, #1e1e1e 100%);
+    background: transparent;
     min-height: 120px;
     text-align: center;
     position: relative;
@@ -1155,7 +1153,7 @@
 
 .export-mode-card input[type="radio"]:checked + .mode-card {
     border-color: #4B91F7;
-    background: linear-gradient(145deg, #0A3696, #1e4db7);
+    background: transparent;
     box-shadow: 0 8px 25px rgba(75, 145, 247, 0.3);
     transform: translateY(-1px);
 }
@@ -1294,10 +1292,9 @@
 /* Music Card Styles */
 .music-card {
     width: 100%;
-    background: rgba(255, 255, 255, 0.05);
-    border-radius: 8px;
+    background: transparent;
     padding: 12px 16px;
-    border: 1px solid transparent;
+    border: 1px solid rgba(255, 255, 255, 0.1);
     cursor: pointer;
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     position: relative;
@@ -1317,7 +1314,7 @@
 }
 
 .music-card:hover {
-    background: rgba(255, 255, 255, 0.08);
+    background: transparent;
     border-color: #0A3696;
     transform: translateY(-1px);
 }
@@ -1327,7 +1324,7 @@
 }
 
 .music-card.selected {
-    background: linear-gradient(145deg, #0A3696 0%, #1e4db7 100%);
+    background: transparent;
     border-color: #4B91F7;
     transform: translateY(-1px);
     box-shadow: 0 4px 16px rgba(75, 145, 247, 0.3);
@@ -2332,10 +2329,10 @@
 
 /* Video Filters Section */
 .video-filters-section {
-    background: rgba(255, 255, 255, 0.05);
-    border-radius: 8px;
+    background: transparent;
     padding: 20px;
     margin-bottom: 20px;
+    min-height: 400px;
 }
 
 .filters-header {
@@ -2393,9 +2390,9 @@
 }
 
 .filters-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
     margin-bottom: 20px;
 }
 
@@ -2409,6 +2406,12 @@
     display: flex;
     flex-direction: column;
     gap: 8px;
+    padding: 12px 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+}
+
+.filter-control:last-child {
+    border-bottom: none;
 }
 
 .filter-control label {
@@ -2470,8 +2473,9 @@
 }
 
 .filter-presets {
-    border-top: 1px solid rgba(255, 255, 255, 0.1);
-    padding-top: 16px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    padding-bottom: 16px;
+    margin-bottom: 20px;
 }
 
 .filter-presets h5 {
@@ -2486,6 +2490,43 @@
     display: flex;
     flex-wrap: wrap;
     gap: 8px;
+    margin-top: 12px;
+    justify-content: flex-start;
+}
+
+/* Mobile-specific adjustments for preset buttons */
+@media (max-width: 768px) {
+    .preset-buttons {
+        justify-content: center;
+        gap: 6px;
+        margin-top: 10px;
+    }
+    
+    .preset-btn {
+        flex: 1 1 calc(50% - 3px);
+        min-width: 60px;
+        max-width: none;
+        padding: 10px 8px;
+        font-size: 10px;
+        text-align: center;
+    }
+    
+    .preset-btn:nth-child(odd):last-child {
+        flex: 1 1 100%;
+    }
+}
+
+@media (max-width: 480px) {
+    .preset-buttons {
+        gap: 4px;
+    }
+    
+    .preset-btn {
+        flex: 1 1 calc(50% - 2px);
+        padding: 8px 6px;
+        font-size: 9px;
+        min-width: 50px;
+    }
 }
 
 .preset-btn {
@@ -2498,9 +2539,9 @@
     font-weight: 600;
     cursor: pointer;
     transition: all 0.3s ease;
-    flex: 1;
-    min-width: 60px;
-    max-width: 80px;
+    flex: 0 0 auto;
+    min-width: 70px;
+    max-width: 90px;
 }
 
 .preset-btn:hover {
@@ -2517,8 +2558,7 @@
 
 /* Timeline Music Section */
 .timeline-music-section {
-    background: rgba(255, 255, 255, 0.05);
-    border-radius: 8px;
+    background: transparent;
     padding: 20px;
     margin-bottom: 20px;
 }
@@ -3042,6 +3082,29 @@
     z-index: 10001 !important;
 }
 
+/* Help buttons */
+.help-btn {
+    background: rgba(75, 145, 247, 0.1);
+    border: 1px solid rgba(75, 145, 247, 0.3);
+    color: #4B91F7;
+    border-radius: 50%;
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    font-size: 12px;
+    font-weight: bold;
+}
+
+.help-btn:hover {
+    background: rgba(75, 145, 247, 0.2);
+    border-color: #4B91F7;
+    transform: scale(1.1);
+}
+
 /* Tutorial help button - inline version */
 .tutorial-help-btn-inline {
     background: rgba(128, 128, 128, 0.8);
@@ -3078,32 +3141,76 @@
     .tutorial-tooltip {
         max-width: 280px;
         min-width: 240px;
-        padding: 20px;
+        padding: 15px;
         margin: 0 10px;
     }
     
     .tutorial-title {
-        font-size: 16px;
+        font-size: 14px;
+        margin-bottom: 8px;
     }
     
     .tutorial-description {
-        font-size: 13px;
+        font-size: 11px;
+        line-height: 1.4;
+        margin-bottom: 12px;
     }
     
     .tutorial-controls {
         flex-direction: column;
-        gap: 12px;
+        gap: 8px;
     }
     
     .tutorial-nav {
         width: 100%;
         justify-content: space-between;
+        gap: 8px;
+    }
+    
+    .tutorial-btn {
+        padding: 8px 12px;
+        font-size: 12px;
+    }
+    
+    .tutorial-skip {
+        font-size: 11px;
+        padding: 6px 12px;
     }
     
     .tutorial-help-btn-inline {
         width: 22px;
         height: 22px;
         font-size: 10px;
+    }
+    
+    .tutorial-step-counter {
+        font-size: 11px;
+    }
+    
+    .tutorial-close {
+        width: 24px;
+        height: 24px;
+        font-size: 16px;
+    }
+}
+
+@media (max-width: 480px) {
+    .tutorial-tooltip {
+        max-width: 250px;
+        padding: 12px;
+    }
+    
+    .tutorial-title {
+        font-size: 13px;
+    }
+    
+    .tutorial-description {
+        font-size: 10px;
+    }
+    
+    .tutorial-btn {
+        padding: 6px 10px;
+        font-size: 11px;
     }
 }
 

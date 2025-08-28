@@ -1346,8 +1346,22 @@
             if (!track) return;
             
             const playButton = event.target;
-            const wasPlaying = playButton.innerHTML.includes('M6 19h4V5H6v14zm8-14v14h4V5h-4z');
+            const isCurrentlyPlaying = playButton.innerHTML.includes('M6 19h4V5H6v14zm8-14v14h4V5h-4z');
             
+            // If this track is currently playing, pause it
+            if (isCurrentlyPlaying && musicAudio) {
+                musicAudio.pause();
+                playButton.innerHTML = `
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M8 5v14l11-7z"/>
+                    </svg>
+                `;
+                playButton.style.background = 'transparent';
+                playButton.style.color = '#4B91F7';
+                return;
+            }
+            
+            // Stop any currently playing track and reset all buttons
             if (musicAudio) {
                 musicAudio.pause();
                 musicAudio = null;
@@ -1363,10 +1377,6 @@
                 btn.style.color = '#4B91F7';
             });
             
-            if (wasPlaying) {
-                return;
-            }
-            
             const previewUrl = track.preview_mp3 || track.preview_ogg;
             if (!previewUrl) {
                 alert('No preview available for this track');
@@ -1376,6 +1386,7 @@
             musicAudio = new Audio(previewUrl);
             musicAudio.volume = 0.7;
             
+            // Set this button to pause state
             playButton.innerHTML = `
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
                     <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>
@@ -1387,6 +1398,7 @@
             musicAudio.play().then(() => {
                 console.log('Card preview started for:', track.name);
                 
+                // Auto-stop after 15 seconds
                 setTimeout(() => {
                     if (musicAudio && !musicAudio.paused) {
                         musicAudio.pause();
@@ -1402,6 +1414,7 @@
                     }
                 }, 15000);
                 
+                // Handle when track ends naturally
                 musicAudio.addEventListener('ended', () => {
                     playButton.innerHTML = `
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
@@ -1429,15 +1442,27 @@
         function previewMusic() {
             if (!selectedMusicTrack) return;
             
-            if (musicAudio) {
-                musicAudio.pause();
-                musicAudio = null;
-            }
-            
             const previewUrl = selectedMusicTrack.preview_mp3 || selectedMusicTrack.preview_ogg;
             if (!previewUrl) {
                 alert('No preview available for this track');
                 return;
+            }
+            
+            // Check if this track is currently playing
+            const isCurrentlyPlaying = musicAudio && !musicAudio.paused;
+            
+            // If currently playing, pause it
+            if (isCurrentlyPlaying) {
+                musicAudio.pause();
+                musicAudio = null;
+                console.log('Music preview paused');
+                return;
+            }
+            
+            // Stop any other playing track
+            if (musicAudio) {
+                musicAudio.pause();
+                musicAudio = null;
             }
             
             musicAudio = new Audio(previewUrl);
@@ -1446,12 +1471,21 @@
             musicAudio.play().then(() => {
                 console.log('Music preview started');
                 
+                // Auto-stop after 15 seconds
                 setTimeout(() => {
                     if (musicAudio && !musicAudio.paused) {
                         musicAudio.pause();
+                        musicAudio = null;
                         console.log('Music preview auto-stopped');
                     }
-                }, 10000);
+                }, 15000);
+                
+                // Handle when track ends naturally
+                musicAudio.addEventListener('ended', () => {
+                    musicAudio = null;
+                    console.log('Music preview ended naturally');
+                });
+                
             }).catch(error => {
                 console.error('Music preview failed:', error);
                 alert('Failed to preview music');
@@ -2064,47 +2098,71 @@
                 btn.classList.remove('active');
             });
 
-            // Apply preset values to sliders - updated for backend-compatible ranges
+            // Property video-optimized filter presets
             const presets = {
+                cinematic: {
+                    brightness: 0.05,   // Slightly brighter for property showcase
+                    contrast: 1.3,       // Enhanced contrast for depth
+                    saturation: 1.1,     // Slightly enhanced colors
+                    hue: 5,              // Subtle warm tint
+                    blur: 0,             // No blur - keep details sharp
+                    sharpen: 0.8         // Sharpening for crisp property details
+                },
+                premium: {
+                    brightness: 0.08,   // Bright and inviting
+                    contrast: 1.4,       // High contrast for luxury feel
+                    saturation: 1.2,     // Enhanced colors for appeal
+                    hue: 8,              // Warm golden tint
+                    blur: 0,             // No blur - maintain clarity
+                    sharpen: 1.0         // Sharp details for premium look
+                },
+                natural: {
+                    brightness: 0.03,   // Subtle brightness boost
+                    contrast: 1.2,       // Natural contrast
+                    saturation: 1.15,    // Slightly enhanced natural colors
+                    hue: 3,              // Very subtle warm tint
+                    blur: 0,             // No blur - preserve natural look
+                    sharpen: 0.5         // Light sharpening for clarity
+                },
                 warm: {
-                    brightness: 0.15,   // Slightly brighter for warm effect
-                    contrast: 1.1,       // Subtle contrast boost
-                    saturation: 1.3,     // Enhanced saturation for warmth
-                    hue: 10,             // Slight warm tint
+                    brightness: 0.12,   // Much brighter for warm glow
+                    contrast: 1.35,      // Enhanced contrast
+                    saturation: 1.5,     // Much more saturated warm colors
+                    hue: 25,             // Strong warm golden tint
                     blur: 0,             // No blur
-                    sharpen: 0           // No sharpening
+                    sharpen: 0.8         // Sharp details
                 },
                 cool: {
-                    brightness: 0.1,    // Slight brightness boost
-                    contrast: 1.15,      // Moderate contrast
-                    saturation: 1.1,     // Slight saturation boost
-                    hue: -10,            // Cool tint
+                    brightness: 0.08,   // Bright but cool
+                    contrast: 1.4,       // High contrast for cool feel
+                    saturation: 1.2,     // Enhanced colors
+                    hue: -30,            // Much stronger cool blue tint
                     blur: 0,             // No blur
-                    sharpen: 0           // No sharpening
+                    sharpen: 0.9         // Sharp details for modern look
                 },
                 vibrant: {
-                    brightness: 0.1,    // Slight brightness boost
-                    contrast: 1.3,       // Strong contrast for vibrancy
-                    saturation: 1.5,     // High saturation for vibrant colors
-                    hue: 0,              // No hue shift
+                    brightness: 0.1,    // Bright and energetic
+                    contrast: 1.4,       // High contrast
+                    saturation: 1.6,     // Vibrant colors for impact
+                    hue: 5,              // Slight warm tint
                     blur: 0,             // No blur
-                    sharpen: 0.5         // Light sharpening for crispness
+                    sharpen: 1.0         // Sharp details for vibrant look
                 },
-                cinematic: {
-                    brightness: 0.05,   // Subtle brightness
-                    contrast: 1.25,      // Strong contrast for cinematic look
-                    saturation: 1.1,     // Slight saturation boost
-                    hue: 5,              // Very slight warm tint
+                elegant: {
+                    brightness: 0.02,   // Subtle brightness
+                    contrast: 1.35,      // Enhanced contrast
+                    saturation: 1.05,    // Slightly enhanced colors
+                    hue: 2,              // Very subtle warm tint
                     blur: 0,             // No blur
-                    sharpen: 0.2         // Light sharpening
+                    sharpen: 0.8         // Sharp details for elegant look
                 },
-                vintage: {
-                    brightness: 0.2,    // Brighter for vintage look
-                    contrast: 1.4,       // High contrast for vintage feel
-                    saturation: 0.7,     // Reduced saturation for vintage look
-                    hue: 25,             // Warm vintage tint
-                    blur: 1.5,           // Light blur for vintage softness
-                    sharpen: 0           // No sharpening for vintage softness
+                modern: {
+                    brightness: 0.05,   // Balanced brightness
+                    contrast: 1.4,       // High contrast for modern feel
+                    saturation: 1.15,    // Enhanced colors
+                    hue: -8,             // Slight cool tint
+                    blur: 0,             // No blur
+                    sharpen: 1.1         // Sharp details for modern aesthetic
                 }
             };
 
