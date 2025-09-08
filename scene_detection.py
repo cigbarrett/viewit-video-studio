@@ -128,7 +128,7 @@ def classify_image_scene(image_path, confidence_threshold=0.7, unfurnished_mode=
                 "CRITICAL: This is an UNFURNISHED PROPERTY. Be extremely cautious and conservative in your classification. "
                 "Focus entirely on architectural features, room layout, and intended purpose rather than furniture.\n\n"
                 "UNFURNISHED PROPERTY CLASSIFICATION GUIDELINES:\n"
-                "- BEDROOM: Look for bedroom-specific architectural features like closet spaces, bedroom proportions, "
+                "- BEDROOM: Limage.pngook for bedroom-specific architectural features like closet spaces, bedroom proportions, "
                 "bedroom windows, bedroom door locations, or bedroom layout. Even without furniture, if the room has "
                 "bedroom characteristics (size, layout, closet), classify as bedroom.\n"
                 "- LIVING ROOM: Look for living room architectural characteristics like larger open spaces, "

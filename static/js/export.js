@@ -40,8 +40,8 @@
         });
 
         function setupEventListeners() {
-            // DLD verification
-            document.getElementById('verifyListingBtn').addEventListener('click', verifyListing);
+            // DLD verification - COMMENTED OUT (API is down)
+            // document.getElementById('verifyListingBtn').addEventListener('click', verifyListing);
             
             // Custom file upload
             setupCustomFileUpload();
@@ -51,6 +51,8 @@
 
 
 
+        // DLD verification functions - COMMENTED OUT (API is down)
+        /*
         function verifyListing() {
             const tradeLicense = document.getElementById('tradeLicenseInput').value.trim();
             const listingNumber = document.getElementById('listingNumberInput').value.trim();
@@ -98,6 +100,7 @@
             statusEl.className = `verification-status ${type}`;
             statusEl.textContent = message;
         }
+        */
 
         function goBack() {
             // Keep the export data in session storage for when they return

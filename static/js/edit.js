@@ -49,6 +49,9 @@
                         
                         // Initialize the video player
                         initializeVideoPlayer();
+                        
+                        // Restore session data (segments, music, filters) after video loads
+                        restoreSessionData();
                     } else {
                         throw new Error(data.error || 'Failed to load video data');
                     }
@@ -97,6 +100,9 @@
                     if (window.uploadedVideoData.processing_id) {
                         updateUrlWithProcessingId(window.uploadedVideoData.processing_id);
                     }
+                    
+                    // Restore session data when loading from session storage
+                    restoreSessionData();
                 } else {
                     alert('No video data found. Please upload a video first.');
                     window.location.href = '/';
@@ -113,6 +119,132 @@
             
             updateExportButtonState();
         });
+
+        // Function to save current session data (segments, music, filters)
+        function saveSessionData() {
+            const sessionData = {
+                segments: segments,
+                selectedMusic: selectedMusicTrack,
+                filterSettings: getFilterSettings(),
+                exportMode: document.querySelector('input[name="exportMode"]:checked')?.value,
+                speedFactor: document.getElementById('speedSlider')?.value,
+                timestamp: Date.now()
+            };
+            
+            sessionStorage.setItem('editSessionData', JSON.stringify(sessionData));
+            console.log('Session data saved:', sessionData);
+        }
+
+        // Function to restore session data (segments, music, filters)
+        function restoreSessionData() {
+            const sessionDataStr = sessionStorage.getItem('editSessionData');
+            if (!sessionDataStr) {
+                console.log('No session data to restore');
+                return;
+            }
+
+            try {
+                const sessionData = JSON.parse(sessionDataStr);
+                console.log('Restoring session data:', sessionData);
+
+                // Restore segments
+                if (sessionData.segments && sessionData.segments.length > 0) {
+                    segments = sessionData.segments;
+                    renderSegments();
+                    updateExportButtonState();
+                    console.log(`Restored ${segments.length} segments`);
+                }
+
+                // Restore selected music
+                if (sessionData.selectedMusic) {
+                    selectedMusicTrack = sessionData.selectedMusic;
+                    updateMusicUI();
+                    console.log('Restored selected music:', selectedMusicTrack.title);
+                }
+
+                // Restore filter settings
+                if (sessionData.filterSettings) {
+                    restoreFilterSettings(sessionData.filterSettings);
+                    console.log('Restored filter settings');
+                }
+
+                // Restore export mode
+                if (sessionData.exportMode) {
+                    const exportModeRadio = document.querySelector(`input[name="exportMode"][value="${sessionData.exportMode}"]`);
+                    if (exportModeRadio) {
+                        exportModeRadio.checked = true;
+                    }
+                }
+
+                // Restore speed factor
+                if (sessionData.speedFactor && document.getElementById('speedSlider')) {
+                    document.getElementById('speedSlider').value = sessionData.speedFactor;
+                    updateSpeedDisplay();
+                }
+
+            } catch (error) {
+                console.error('Error restoring session data:', error);
+            }
+        }
+
+        // Function to update music UI after restoration
+        function updateMusicUI() {
+            if (selectedMusicTrack) {
+                const musicButton = document.getElementById('selectedMusicBtn');
+                const clearButton = document.getElementById('clearMusicBtn');
+                
+                if (musicButton) {
+                    musicButton.textContent = selectedMusicTrack.title;
+                    musicButton.style.display = 'block';
+                }
+                
+                if (clearButton) {
+                    clearButton.style.display = 'inline-block';
+                }
+
+                // Update the music section to show selected track
+                const musicList = document.querySelector('.music-suggestions');
+                if (musicList) {
+                    const tracks = musicList.querySelectorAll('.music-item');
+                    tracks.forEach(track => {
+                        track.classList.remove('selected');
+                        if (track.dataset.path === selectedMusicTrack.local_path) {
+                            track.classList.add('selected');
+                        }
+                    });
+                }
+            }
+        }
+
+        // Function to restore filter settings
+        function restoreFilterSettings(filterSettings) {
+            if (!filterSettings) return;
+
+            // Restore filter preset
+            if (filterSettings.preset && filterSettings.preset !== 'none') {
+                const presetSelect = document.getElementById('filterPreset');
+                if (presetSelect) {
+                    presetSelect.value = filterSettings.preset;
+                    applyFilterPreset(filterSettings.preset);
+                }
+            }
+
+            // Restore custom filter settings
+            if (filterSettings.custom) {
+                Object.keys(filterSettings.custom).forEach(filterId => {
+                    const value = filterSettings.custom[filterId];
+                    const slider = document.getElementById(filterId);
+                    const valueDisplay = document.getElementById(filterId + 'Value');
+                    
+                    if (slider && value !== undefined) {
+                        slider.value = value;
+                        if (valueDisplay) {
+                            valueDisplay.textContent = value;
+                        }
+                    }
+                });
+            }
+        }
 
         function initializeVideoPlayer() {
             video = document.getElementById('videoPlayer');
@@ -1310,6 +1442,9 @@
                     });
                     document.getElementById('selectedMusicTimeline').style.display = 'block';
                     
+                    // Save session data when music is selected
+                    saveSessionData();
+                    
                     console.log('Music track selected and downloaded:', selectedMusicTrack);
                 } else {
                     alert('Failed to download music: ' + (data.error || 'Unknown error'));
@@ -1522,6 +1657,9 @@
                 alert('Please upload a video first');
                 return;
             }
+            
+            // Save current session data before going to export
+            saveSessionData();
             
             const exportMode = document.querySelector('input[name="exportMode"]:checked').value;
             const speedFactor = document.getElementById('speedSlider').value;
