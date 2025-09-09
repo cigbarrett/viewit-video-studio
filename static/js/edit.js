@@ -70,7 +70,6 @@
         }
 
         document.addEventListener('DOMContentLoaded', function() {
-            
             // Try to get processing ID from URL
             const pathParts = window.location.pathname.split('/');
             const processingId = pathParts[pathParts.length - 1];
@@ -657,11 +656,22 @@
         function initializeVideoPlayer() {
             video = document.getElementById('videoPlayer');
             
-            video.src = `/${window.uploadedVideoData.video_path}`;
+            if (!video) {
+                alert('Video player element not found!');
+                return;
+            }
+            
+            if (!window.uploadedVideoData || !window.uploadedVideoData.video_path) {
+                alert('No video data available!');
+                return;
+            }
+            
+            const videoSrc = `/${window.uploadedVideoData.video_path}`;
+            video.src = videoSrc;
+            video.preload = 'metadata';
+            video.load(); // Force reload the video
             
             video.addEventListener('loadedmetadata', function() {
-                // console.log('Video loaded:', video.src);
-                // console.log('Video duration:', video.duration);
                 if (Math.abs(video.duration - videoDuration) > 1) {
                     videoDuration = video.duration;
                     createTimelineMarkers();
@@ -672,8 +682,6 @@
             });
             
             video.addEventListener('error', function(e) {
-                // console.error('Video loading error:', e);
-                // console.error('Video src:', video.src);
                 alert('Failed to load video. Please try uploading again.');
             });
             
@@ -824,7 +832,9 @@
                 document.removeEventListener('mouseup', handleMouseUp);
                 
                 if (wasPlaying) {
-                    video.play().catch(error => // console.error('Error resuming playback:', error));
+                    video.play().catch(error => {
+                        // console.error('Error resuming playback:', error);
+                    });
                 }
             }
             
@@ -3080,53 +3090,7 @@
 
 
 
-        // Export mode functions
-        function handleExportModeChange(event) {
-            const speedSettings = document.getElementById('speedSettings');
-            if (event.target.value === 'speedup') {
-                speedSettings.style.display = 'block';
-            } else {
-                speedSettings.style.display = 'none';
-            }
-        }
 
-        // Initialize all the new functionality
-        document.addEventListener('DOMContentLoaded', function() {
-            // Setup export mode change listeners
-            document.querySelectorAll('input[name="exportMode"]').forEach(radio => {
-                radio.addEventListener('change', handleExportModeChange);
-            });
-            
-            // Initialize speed settings visibility based on default selection
-            const defaultMode = document.querySelector('input[name="exportMode"]:checked');
-            if (defaultMode) {
-                handleExportModeChange({ target: defaultMode });
-            }
-            
-            // Setup speed slider
-            const speedSlider = document.getElementById('speedSlider');
-            if (speedSlider) {
-                speedSlider.addEventListener('input', function() {
-                    const speedValue = document.getElementById('speedValue');
-                    if (speedValue) {
-                        speedValue.textContent = this.value + 'x';
-                    }
-                });
-            }
-            
-            // Setup segment length slider
-            const segmentLengthSlider = document.getElementById('segmentLengthSlider');
-            if (segmentLengthSlider) {
-                segmentLengthSlider.addEventListener('input', function() {
-                    const segmentLengthValue = document.getElementById('segmentLengthValue');
-                    if (segmentLengthValue) {
-                        segmentLengthValue.textContent = this.value + 's';
-                    }
-                });
-            }
-            
-            // console.log('New interface functionality initialized');
-        });
 
         function testFilterCompatibility() {
             const videoPlayer = document.getElementById('videoPlayer');
