@@ -128,7 +128,7 @@ def classify_image_scene(image_path, confidence_threshold=0.7, unfurnished_mode=
                 "CRITICAL: This is an UNFURNISHED PROPERTY. Be extremely cautious and conservative in your classification. "
                 "Focus entirely on architectural features, room layout, and intended purpose rather than furniture.\n\n"
                 "UNFURNISHED PROPERTY CLASSIFICATION GUIDELINES:\n"
-                "- BEDROOM: Limage.pngook for bedroom-specific architectural features like closet spaces, bedroom proportions, "
+                "- BEDROOM: Limage.png ook for bedroom-specific architectural features like closet spaces, bedroom proportions, "
                 "bedroom windows, bedroom door locations, or bedroom layout. Even without furniture, if the room has "
                 "bedroom characteristics (size, layout, closet), classify as bedroom.\n"
                 "- LIVING ROOM: Look for living room architectural characteristics like larger open spaces, "
@@ -323,7 +323,7 @@ def detect_room_transitions_realtime(video_path, callback_function=None, detecti
             if int(current_time) % 30 == 0:
                 print(f"AI Detection Progress: {current_time:.1f}s / {duration:.1f}s ({current_time/duration*100:.1f}%)")
             
-            # Use temp directory for frame files
+            
             os.makedirs('temp', exist_ok=True)
             temp_frame_path = os.path.join('temp', f"temp_frame_{frame_count}_{int(time.time()*1000)}.jpg")
             cv2.imwrite(temp_frame_path, frame)

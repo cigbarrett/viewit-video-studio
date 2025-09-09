@@ -345,7 +345,7 @@ def add_agent_property_overlays(input_video, agent_name, agent_phone=None, logo_
 
     if logo_path and os.path.exists(logo_path):
         inputs += ['-i', logo_path]
-        filter_parts.append(f'[{idx}:v]scale=600:-1,format=rgba,colorchannelmixer=aa=0.5[logo]')
+        filter_parts.append(f'[{idx}:v]scale=400:-1,format=rgba,colorchannelmixer=aa=0.3[logo]')
         filter_parts.append(f'[{chain_tag}][logo]overlay=(W-w)/2:(H-h)/2[o{idx}]')
         chain_tag = f'o{idx}'
         idx += 1

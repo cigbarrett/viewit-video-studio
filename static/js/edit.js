@@ -41,7 +41,6 @@
                     if (data.success) {
                         // Store the video data
                         window.uploadedVideoData = data.video_data;
-                        console.log('Loaded video data from server:', window.uploadedVideoData);
                         videoDuration = window.uploadedVideoData.duration;
                         
                         // Save to session storage for persistence
@@ -57,7 +56,6 @@
                     }
                 })
                 .catch(error => {
-                    console.error('Error loading video data:', error);
                     alert('Processing ID not found. Redirecting to upload page.');
                     window.location.href = '/';
                 });
@@ -68,23 +66,17 @@
             if (processingId && window.location.pathname !== `/edit/${processingId}`) {
                 const newUrl = `/edit/${processingId}`;
                 window.history.pushState({ path: newUrl }, '', newUrl);
-                console.log('Updated URL with processing ID:', processingId);
             }
         }
 
         document.addEventListener('DOMContentLoaded', function() {
-            console.log('Edit page loaded');
-            console.log('Current URL:', window.location.pathname);
             
             // Try to get processing ID from URL
             const pathParts = window.location.pathname.split('/');
             const processingId = pathParts[pathParts.length - 1];
-            console.log('Path parts:', pathParts);
-            console.log('Processing ID from URL:', processingId);
             
             // First check if we have a specific processing ID in the URL
             if (processingId && processingId !== 'edit') {
-                console.log('Loading video data from processing ID:', processingId);
                 // Fetch the video data using the processing ID
                 fetchVideoData(processingId);
             } else {
@@ -92,7 +84,6 @@
                 const videoData = sessionStorage.getItem('uploadedVideoData');
                 if (videoData) {
                     window.uploadedVideoData = JSON.parse(videoData);
-                    console.log('Loaded video data from session storage:', window.uploadedVideoData);
                     videoDuration = window.uploadedVideoData.duration;
                     initializeVideoPlayer();
                     
@@ -101,8 +92,11 @@
                         updateUrlWithProcessingId(window.uploadedVideoData.processing_id);
                     }
                     
-                    // Restore session data when loading from session storage
+                    // Restore session data after a short delay to ensure DOM is ready
+                    setTimeout(() => {
                     restoreSessionData();
+                    }, 500);
+                    
                 } else {
                     alert('No video data found. Please upload a video first.');
                     window.location.href = '/';
@@ -118,54 +112,426 @@
             initializeFilters(); // Initialize filters with proper defaults
             
             updateExportButtonState();
+            
+            // Setup automatic session saving
+            setupAutomaticSessionSaving();
         });
+
+        // Function to setup automatic session saving
+        function setupAutomaticSessionSaving() {
+            // Save session data periodically (every 60 seconds) - reduced frequency
+            setInterval(function() {
+                if (segments.length > 0 || selectedMusicTrack) {
+                    saveSessionData();
+                }
+            }, 60000);
+            
+            // Save session data when user is about to leave the page
+            window.addEventListener('beforeunload', function() {
+                // Force immediate save on page unload
+                if (saveSessionTimeout) {
+                    clearTimeout(saveSessionTimeout);
+                }
+                performSessionSave();
+            });
+            
+            // Save session data when page becomes hidden (mobile/tab switching)
+            document.addEventListener('visibilitychange', function() {
+                if (document.hidden) {
+                    saveSessionData();
+                } else {
+                    // Page became visible again, check for updates from other tabs
+                    checkForCrossTabUpdates();
+                }
+            });
+            
+            // Restore session data if user returns to page (e.g., browser back button)
+            window.addEventListener('pageshow', function(event) {
+                if (event.persisted) {
+                    // Page was restored from cache
+                    setTimeout(restoreSessionData, 100);
+                }
+            });
+            
+            // Listen for cross-tab updates via localStorage events
+            window.addEventListener('storage', function(event) {
+                if (event.key && event.key.startsWith('editSessionData_') && event.newValue) {
+                    const projectKey = getProjectStorageKey();
+                    if (event.key === projectKey) {
+                        setTimeout(restoreSessionData, 100);
+                    }
+                }
+            });
+        }
+        
+        // Function to check for updates from other tabs
+        function checkForCrossTabUpdates() {
+            const projectKey = getProjectStorageKey();
+            const storedData = localStorage.getItem(projectKey);
+            if (storedData) {
+                try {
+                    const storedSessionData = JSON.parse(storedData);
+                    const currentTimestamp = Date.now();
+                    
+                    // Check if stored data is newer than what we have
+                    if (storedSessionData.timestamp > (window.lastSessionTimestamp || 0)) {
+                        // console.log('Found newer session data from another tab, restoring...');
+                        restoreSessionData();
+                        window.lastSessionTimestamp = storedSessionData.timestamp;
+                    }
+                } catch (error) {
+                    // console.error('Error checking cross-tab updates:', error);
+                }
+            }
+        }
+
+        // Throttled session saving to prevent excessive API calls
+        let saveSessionTimeout = null;
+        let lastSavedData = null;
 
         // Function to save current session data (segments, music, filters)
         function saveSessionData() {
+            // Clear existing timeout
+            if (saveSessionTimeout) {
+                clearTimeout(saveSessionTimeout);
+            }
+            
+            // Throttle saves to every 2 seconds to prevent excessive API calls
+            saveSessionTimeout = setTimeout(async () => {
+                await performSessionSave();
+            }, 2000);
+        }
+        
+        // Actual save function
+        async function performSessionSave() {
             const sessionData = {
                 segments: segments,
                 selectedMusic: selectedMusicTrack,
                 filterSettings: getFilterSettings(),
                 exportMode: document.querySelector('input[name="exportMode"]:checked')?.value,
                 speedFactor: document.getElementById('speedSlider')?.value,
+                currentPreset: currentPreset || 'none',
+                musicVolume: document.getElementById('musicVolumeSlider')?.value || 0.3,
+                enableTransitions: document.getElementById('enableTransitions')?.checked || false,
                 timestamp: Date.now()
             };
             
-            sessionStorage.setItem('editSessionData', JSON.stringify(sessionData));
-            console.log('Session data saved:', sessionData);
+            // Skip save if data hasn't changed significantly
+            if (lastSavedData && JSON.stringify(sessionData) === JSON.stringify(lastSavedData)) {
+                return;
+            }
+            
+            // Save to backend with timeout
+            try {
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
+                
+                const response = await fetch('/save_session_data', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        project_id: window.uploadedVideoData?.project_id,
+                        processing_id: window.uploadedVideoData?.processing_id,
+                        session_data: sessionData
+                    }),
+                    signal: controller.signal
+                });
+                
+                clearTimeout(timeoutId);
+                
+                if (response.ok) {
+                    const result = await response.json();
+                    if (result.success) {
+                        lastSavedData = sessionData;
+                        window.lastSessionTimestamp = sessionData.timestamp;
+                    } else {
+                        saveSessionDataToLocalStorage(sessionData);
+                    }
+                } else {
+                    saveSessionDataToLocalStorage(sessionData);
+                }
+            } catch (error) {
+                saveSessionDataToLocalStorage(sessionData);
+            }
+        }
+        
+        // Fallback function to save to localStorage
+        function saveSessionDataToLocalStorage(sessionData) {
+            const projectKey = getProjectStorageKey();
+            localStorage.setItem(projectKey, JSON.stringify(sessionData));
+            window.lastSessionTimestamp = sessionData.timestamp;
+        }
+        
+        // Function to get project-specific storage key
+        function getProjectStorageKey() {
+            if (window.uploadedVideoData && window.uploadedVideoData.processing_id) {
+                return `editSessionData_${window.uploadedVideoData.processing_id}`;
+            } else if (window.uploadedVideoData && window.uploadedVideoData.video_id) {
+                return `editSessionData_${window.uploadedVideoData.video_id}`;
+            } else {
+                // Fallback to generic key if no project ID available
+                return 'editSessionData_default';
+            }
+        }
+        
+        // Debug function to help troubleshoot session issues
+        async function debugSessionData() {
+            // console.log('🔧 Starting comprehensive session debug...');
+            
+            if (!window.uploadedVideoData) {
+                // console.log('❌ No video data available for debugging');
+                return;
+            }
+            
+            // Call backend debug endpoint
+            try {
+                const response = await fetch('/debug_session', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        project_id: window.uploadedVideoData.project_id,
+                        processing_id: window.uploadedVideoData.processing_id,
+                        video_id: window.uploadedVideoData.video_id
+                    })
+                });
+                
+                const result = await response.json();
+                // console.log('🔧 Backend debug response:', result);
+                
+                // Try to load session data from backend
+                if (result.session_file_exists) {
+                    // console.log('🔧 Attempting to load session data from backend...');
+                    const loadResponse = await fetch('/load_session_data', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            project_id: window.uploadedVideoData.project_id,
+                            processing_id: window.uploadedVideoData.processing_id
+                        })
+                    });
+                    
+                    const loadResult = await loadResponse.json();
+                    if (loadResult.success) {
+                        // console.log('🔧 Backend session data loaded:', loadResult.session_data);
+                    } else {
+                        // console.log('🔧 Failed to load backend session data:', loadResult.error);
+                    }
+                }
+                
+            } catch (error) {
+                // console.error('❌ Backend debug failed:', error);
+            }
+            
+            // Check localStorage
+            const projectKey = getProjectStorageKey();
+            const sessionData = localStorage.getItem(projectKey);
+            // console.log('🔧 localStorage debug:');
+            // console.log('   Project key:', projectKey);
+            // console.log('   Session data exists:', !!sessionData);
+            // console.log('   All localStorage keys:', Object.keys(localStorage));
+            
+            if (sessionData) {
+                try {
+                    const parsed = JSON.parse(sessionData);
+                    // console.log('   Parsed localStorage session data:', parsed);
+                } catch (e) {
+                    // console.error('   Failed to parse localStorage session data:', e);
+                }
+            }
+        }
+        
+        // Manual session restore function (for debugging)
+        function forceRestoreSession() {
+            // console.log('🔄 Force restoring session data...');
+            restoreSessionData();
+        }
+        
+        // Manual session save function (for debugging)
+        function forceSaveSession() {
+            // console.log('💾 Force saving session data...');
+            saveSessionData();
+        }
+        
+        // Function to create a test session data file
+        async function createTestSessionFile() {
+            // console.log('🧪 Creating test session data file...');
+            
+            const testSessionData = {
+                segments: [
+                    { start: 0, end: 5, label: 'Test Room 1' },
+                    { start: 5, end: 10, label: 'Test Room 2' }
+                ],
+                selectedMusic: null,
+                filterSettings: { preset: 'none', custom: {} },
+                exportMode: 'speedup',
+                speedFactor: '3',
+                currentPreset: 'none',
+                musicVolume: 0.3,
+                enableTransitions: false,
+                timestamp: Date.now()
+            };
+            
+            try {
+                const response = await fetch('/save_session_data', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        project_id: window.uploadedVideoData?.project_id,
+                        processing_id: window.uploadedVideoData?.processing_id,
+                        session_data: testSessionData
+                    })
+                });
+                
+                const result = await response.json();
+                // console.log('🧪 Test session file creation result:', result);
+                
+                if (result.success) {
+                    // console.log('✅ Test session file created successfully!');
+                    // Check if file was created
+                    setTimeout(checkExistingSessionFiles, 500);
+                } else {
+                    // console.error('❌ Failed to create test session file:', result.error);
+                }
+            } catch (error) {
+                // console.error('❌ Error creating test session file:', error);
+            }
+        }
+        
+        // Test function to verify session endpoints are working
+        async function testSessionEndpoints() {
+            // console.log('🧪 Testing session endpoints...');
+            
+            try {
+                // Test if endpoints are accessible
+                const testResponse = await fetch('/test_session_endpoints');
+                const testResult = await testResponse.json();
+                // console.log('✅ Session endpoints test:', testResult);
+                
+                if (testResult.success) {
+                    // console.log('🎉 Session endpoints are working!');
+                } else {
+                    // console.error('❌ Session endpoints test failed');
+                }
+            } catch (error) {
+                // console.error('❌ Session endpoints test error:', error);
+            }
+        }
+        
+        // Function to check for existing session data files
+        async function checkExistingSessionFiles() {
+            // console.log('📁 Checking for existing session data files...');
+            
+            try {
+                const response = await fetch('/debug_session', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        project_id: window.uploadedVideoData?.project_id,
+                        processing_id: window.uploadedVideoData?.processing_id
+                    })
+                });
+                
+                const result = await response.json();
+                // console.log('📁 Session file check result:', result);
+                
+                if (result.success && result.session_file_exists) {
+                    // console.log('✅ Session data file exists:', result.session_file_path);
+                    // console.log('📄 File size:', result.file_size, 'bytes');
+                    // console.log('📅 Last modified:', result.last_modified);
+                } else {
+                    // console.log('❌ No session data file found');
+                }
+            } catch (error) {
+                // console.error('❌ Error checking session files:', error);
+            }
         }
 
         // Function to restore session data (segments, music, filters)
-        function restoreSessionData() {
-            const sessionDataStr = sessionStorage.getItem('editSessionData');
+        async function restoreSessionData() {
+            if (!window.uploadedVideoData) {
+                return;
+            }
+            
+            // Try to load from backend first
+            try {
+                const response = await fetch('/load_session_data', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        project_id: window.uploadedVideoData.project_id,
+                        processing_id: window.uploadedVideoData.processing_id
+                    })
+                });
+                
+                const result = await response.json();
+                if (result.success && result.session_data) {
+                    applySessionData(result.session_data);
+                    return;
+                }
+            } catch (error) {
+                // Silent fallback
+            }
+            
+            // Fallback to localStorage
+            const projectKey = getProjectStorageKey();
+            const sessionDataStr = localStorage.getItem(projectKey);
+            
             if (!sessionDataStr) {
-                console.log('No session data to restore');
                 return;
             }
 
             try {
                 const sessionData = JSON.parse(sessionDataStr);
-                console.log('Restoring session data:', sessionData);
-
+                applySessionData(sessionData);
+            } catch (error) {
+                // Silent fallback
+            }
+        }
+        
+        // Function to apply session data to the UI
+        function applySessionData(sessionData) {
+            try {
                 // Restore segments
                 if (sessionData.segments && sessionData.segments.length > 0) {
                     segments = sessionData.segments;
-                    renderSegments();
+                    updateSegmentsList();
                     updateExportButtonState();
-                    console.log(`Restored ${segments.length} segments`);
                 }
 
                 // Restore selected music
                 if (sessionData.selectedMusic) {
                     selectedMusicTrack = sessionData.selectedMusic;
                     updateMusicUI();
-                    console.log('Restored selected music:', selectedMusicTrack.title);
                 }
 
-                // Restore filter settings
+                // Restore filter settings and preset
                 if (sessionData.filterSettings) {
                     restoreFilterSettings(sessionData.filterSettings);
-                    console.log('Restored filter settings');
+                }
+
+                // Restore current preset
+                if (sessionData.currentPreset && sessionData.currentPreset !== 'none') {
+                    currentPreset = sessionData.currentPreset;
+                    // Update UI to show active preset
+                    const presetButtons = document.querySelectorAll('.filter-preset-btn');
+                    presetButtons.forEach(btn => {
+                        btn.classList.remove('active');
+                        if (btn.dataset.preset === sessionData.currentPreset) {
+                            btn.classList.add('active');
+                        }
+                    });
                 }
 
                 // Restore export mode
@@ -173,17 +539,57 @@
                     const exportModeRadio = document.querySelector(`input[name="exportMode"][value="${sessionData.exportMode}"]`);
                     if (exportModeRadio) {
                         exportModeRadio.checked = true;
+                        // Trigger change event to update UI
+                        exportModeRadio.dispatchEvent(new Event('change'));
                     }
                 }
 
                 // Restore speed factor
                 if (sessionData.speedFactor && document.getElementById('speedSlider')) {
-                    document.getElementById('speedSlider').value = sessionData.speedFactor;
+                    const speedSlider = document.getElementById('speedSlider');
+                    speedSlider.value = sessionData.speedFactor;
                     updateSpeedDisplay();
+                    // Trigger input event to update UI
+                    speedSlider.dispatchEvent(new Event('input'));
+                }
+
+                // Restore music volume
+                if (sessionData.musicVolume && document.getElementById('musicVolumeSlider')) {
+                    const musicVolumeSlider = document.getElementById('musicVolumeSlider');
+                    musicVolumeSlider.value = sessionData.musicVolume;
+                    updateMusicVolumeDisplay();
+                    // Trigger input event to update UI
+                    musicVolumeSlider.dispatchEvent(new Event('input'));
+                }
+
+                // Restore transitions setting
+                if (sessionData.hasOwnProperty('enableTransitions') && document.getElementById('enableTransitions')) {
+                    const transitionsCheckbox = document.getElementById('enableTransitions');
+                    transitionsCheckbox.checked = sessionData.enableTransitions;
+                    // Trigger change event to update UI
+                    transitionsCheckbox.dispatchEvent(new Event('change'));
                 }
 
             } catch (error) {
-                console.error('Error restoring session data:', error);
+                // Silent error handling
+            }
+        }
+
+        // Helper function to update music volume display
+        function updateMusicVolumeDisplay() {
+            const volumeSlider = document.getElementById('musicVolumeSlider');
+            const volumeValue = document.getElementById('musicVolumeValue');
+            if (volumeSlider && volumeValue) {
+                volumeValue.textContent = Math.round(volumeSlider.value * 100) + '%';
+            }
+        }
+
+        // Helper function to update speed display
+        function updateSpeedDisplay() {
+            const speedSlider = document.getElementById('speedSlider');
+            const speedValue = document.getElementById('speedValue');
+            if (speedSlider && speedValue) {
+                speedValue.textContent = speedSlider.value + 'x';
             }
         }
 
@@ -241,6 +647,8 @@
                         if (valueDisplay) {
                             valueDisplay.textContent = value;
                         }
+                        // Trigger input event to update video filters
+                        slider.dispatchEvent(new Event('input'));
                     }
                 });
             }
@@ -252,8 +660,8 @@
             video.src = `/${window.uploadedVideoData.video_path}`;
             
             video.addEventListener('loadedmetadata', function() {
-                console.log('Video loaded:', video.src);
-                console.log('Video duration:', video.duration);
+                // console.log('Video loaded:', video.src);
+                // console.log('Video duration:', video.duration);
                 if (Math.abs(video.duration - videoDuration) > 1) {
                     videoDuration = video.duration;
                     createTimelineMarkers();
@@ -264,8 +672,8 @@
             });
             
             video.addEventListener('error', function(e) {
-                console.error('Video loading error:', e);
-                console.error('Video src:', video.src);
+                // console.error('Video loading error:', e);
+                // console.error('Video src:', video.src);
                 alert('Failed to load video. Please try uploading again.');
             });
             
@@ -354,7 +762,7 @@
                     
                     if (wasPlaying && video.paused) {
                         video.play().catch(error => {
-                            console.error('Error resuming playback after scrubbing:', error);
+                            // console.error('Error resuming playback after scrubbing:', error);
                         });
                     }
                 }
@@ -372,6 +780,8 @@
             
             document.getElementById('speedSlider').addEventListener('input', function() {
                 document.getElementById('speedValue').textContent = this.value + 'x';
+                // Save session data when speed is changed
+                saveSessionData();
             });
             
             document.getElementById('segmentLengthSlider').addEventListener('input', function() {
@@ -414,7 +824,7 @@
                 document.removeEventListener('mouseup', handleMouseUp);
                 
                 if (wasPlaying) {
-                    video.play().catch(error => console.error('Error resuming playback:', error));
+                    video.play().catch(error => // console.error('Error resuming playback:', error));
                 }
             }
             
@@ -460,6 +870,9 @@
             } else {
                 speedSettings.style.display = 'none';
             }
+            
+            // Save session data when export mode is changed
+            saveSessionData();
         }
 
         function setupGlobalKeyboardShortcuts() {
@@ -473,7 +886,7 @@
                         if (!isTyping) {
                             e.preventDefault();
                             togglePlay().catch(error => {
-                                console.error('Error in keyboard play/pause:', error);
+                                // console.error('Error in keyboard play/pause:', error);
                             });
                         }
                         break;
@@ -550,8 +963,8 @@
                 }
             });
             
-            console.log('Global keyboard shortcuts enabled');
-            console.log('Shortcuts: Space=Play/Pause, I=In Point, O=Out Point, Enter=Add Segment, E=Export, 1/2=Switch Modes, Esc=Clear');
+            // console.log('Global keyboard shortcuts enabled');
+            // console.log('Shortcuts: Space=Play/Pause, I=In Point, O=Out Point, Enter=Add Segment, E=Export, 1/2=Switch Modes, Esc=Clear');
         }
 
         function handleTimelineClick(e) {
@@ -588,13 +1001,13 @@
         function setInPoint() {
             const currentTime = video ? video.currentTime : 0;
             document.getElementById('startTime').value = currentTime.toFixed(1);
-            console.log(`In Point set to ${currentTime.toFixed(1)}s`);
+            // console.log(`In Point set to ${currentTime.toFixed(1)}s`);
         }
 
         function setOutPoint() {
             const currentTime = video ? video.currentTime : 0;
             document.getElementById('endTime').value = currentTime.toFixed(1);
-            console.log(`Out Point set to ${currentTime.toFixed(1)}s`);
+            // console.log(`Out Point set to ${currentTime.toFixed(1)}s`);
         }
 
         // Segment capture toggle (works for both mobile and desktop)
@@ -628,31 +1041,31 @@
             if (!isCapturing) {
                 setInPoint();
                 isCapturing = true;
-                console.log('Started segment capture');
+                // console.log('Started segment capture');
             } else {
                 setOutPoint();
                 isCapturing = false;
-                console.log('Stopped segment capture');
+                // console.log('Stopped segment capture');
             }
         }
 
         function clearCurrentSelection() {
             document.getElementById('startTime').value = '';
             document.getElementById('endTime').value = '';
-            console.log('Selection cleared');
+            // console.log('Selection cleared');
         }
 
         function skipBackward() {
             if (video) {
                 video.currentTime = Math.max(0, video.currentTime - 5);
-                console.log(`Skipped backward to ${video.currentTime.toFixed(1)}s`);
+                // console.log(`Skipped backward to ${video.currentTime.toFixed(1)}s`);
             }
         }
 
         function skipForward() {
             if (video) {
                 video.currentTime = Math.min(videoDuration, video.currentTime + 5);
-                console.log(`Skipped forward to ${video.currentTime.toFixed(1)}s`);
+                // console.log(`Skipped forward to ${video.currentTime.toFixed(1)}s`);
             }
         }
 
@@ -679,7 +1092,7 @@
                     };
                     requestAnimationFrame(checkTime);
                 } catch (error) {
-                    console.error('Error playing segment preview:', error);
+                    // console.error('Error playing segment preview:', error);
                 }
             }
         }
@@ -696,7 +1109,7 @@
                     // Button state will be updated by the 'pause' event listener
                 }
             } catch (error) {
-                console.error('Error toggling play state:', error);
+                // console.error('Error toggling play state:', error);
                 // If play failed, the pause event listener will handle the button state
             }
         }
@@ -819,7 +1232,7 @@
             
             const roomType = document.getElementById('roomType').value;
             
-            console.log('Adding segment:', { startTime, endTime, roomType, videoDuration });
+            // console.log('Adding segment:', { startTime, endTime, roomType, videoDuration });
             
             if (isNaN(startTime) || isNaN(endTime)) {
                 alert('Please enter valid start and end times');
@@ -852,21 +1265,24 @@
             };
             
             segments.push(segment);
-            console.log('Segment added:', segment);
+            // console.log('Segment added:', segment);
             
             updateSegmentsList();
+            
+            // Save session data when segment is added
+            saveSessionData();
             updateTimeline();
             
             if (roomType === 'auto') {
                 await autoDetectRoomLabel(segment);
             }
             
-            console.log('Total segments:', segments.length);
+            // console.log('Total segments:', segments.length);
         }
 
         function updateSegmentsList() {
             const container = document.getElementById('segmentsList');
-            console.log('updateSegmentsList called with segments:', segments);
+            // console.log('updateSegmentsList called with segments:', segments);
             
             if (segments.length === 0) {
                 container.innerHTML = '<p style="color: #90a4ae; text-align: center; padding: 20px;">No segments selected yet</p>';
@@ -880,7 +1296,7 @@
             segments.sort((a, b) => a.start - b.start);
             
             segments.forEach((segment, index) => {
-                console.log(`Processing segment ${index}:`, segment);
+                // console.log(`Processing segment ${index}:`, segment);
                 
                 const segStart = typeof segment.start === 'number' ? segment.start : (segment.start_time ?? 0);
                 const segEnd = typeof segment.end === 'number' ? segment.end : (segment.end_time ?? 0);
@@ -949,7 +1365,7 @@
                 `;
             });
             
-            console.log('Generated HTML for segments list');
+            // console.log('Generated HTML for segments list');
             container.innerHTML = html;
             document.getElementById('totalDuration').textContent = 
                 `Total: ${totalDuration.toFixed(1)}s (${segments.length} segments)`;
@@ -959,6 +1375,10 @@
             segments = segments.filter(s => s.id !== id);
             updateSegmentsList();
             updateTimeline();
+            updateExportButtonState();
+            
+            // Save session data when segment is removed
+            saveSessionData();
         }
 
         function updateTimeline() {
@@ -979,11 +1399,11 @@
                 div.title = `${roomTitle}: ${formatTime(segment.start)} - ${formatTime(segment.end)}`;
                 div.setAttribute('data-segment-id', segment.id);
                 
-                console.log(`Creating segment ${index}:`, segment);
-                console.log(`Segment editable:`, segment.editable);
+                // console.log(`Creating segment ${index}:`, segment);
+                // console.log(`Segment editable:`, segment.editable);
                 
                 if (segment.editable) {
-                    console.log(`Setting up drag/resize for segment ${index}`);
+                    // console.log(`Setting up drag/resize for segment ${index}`);
                     div.style.cursor = 'move';
                     div.setAttribute('draggable', 'true');
                     
@@ -998,7 +1418,7 @@
                     
                     setupSegmentDragAndResize(div, segment);
                 } else {
-                    console.log(`Segment ${index} is not editable`);
+                    // console.log(`Segment ${index} is not editable`);
                 }
                 
                 div.addEventListener('click', function(e) {
@@ -1013,9 +1433,9 @@
         }
 
         function setupSegmentDragAndResize(element, segment) {
-            console.log('Setting up drag and resize for segment:', segment);
-            console.log('Element:', element);
-            console.log('Segment editable:', segment.editable);
+            // console.log('Setting up drag and resize for segment:', segment);
+            // console.log('Element:', element);
+            // console.log('Segment editable:', segment.editable);
             
             let isDragging = false;
             let isResizing = false;
@@ -1023,19 +1443,19 @@
             let startX, startLeft, startWidth;
             
             element.addEventListener('mousedown', function(e) {
-                console.log('Mouse down on segment:', e.target);
+                // console.log('Mouse down on segment:', e.target);
                 e.stopPropagation(); // Prevent timeline click handler
                 e.preventDefault(); // Prevent default drag behavior
                 
                 if (e.target.classList.contains('resize-handle')) {
-                    console.log('Starting resize');
+                    // console.log('Starting resize');
                     isResizing = true;
                     resizeHandle = e.target;
                     startX = e.clientX;
                     startLeft = parseFloat(element.style.left);
                     startWidth = parseFloat(element.style.width);
                 } else {
-                    console.log('Starting drag');
+                    // console.log('Starting drag');
                     isDragging = true;
                     startX = e.clientX;
                     startLeft = parseFloat(element.style.left);
@@ -1050,7 +1470,7 @@
                 const percentDelta = (deltaX / timelineWidth) * 100;
                 
                 if (isDragging) {
-                    console.log('Dragging segment');
+                    // console.log('Dragging segment');
                     const newLeft = Math.max(0, Math.min(100 - parseFloat(element.style.width), startLeft + percentDelta));
                     element.style.left = newLeft + '%';
                     
@@ -1058,7 +1478,7 @@
                     segment.start = newStart;
                     segment.end = newStart + segment.duration;
                 } else if (isResizing) {
-                    console.log('Resizing segment');
+                    // console.log('Resizing segment');
                     if (resizeHandle.classList.contains('left')) {
                         const newLeft = Math.max(0, Math.min(startLeft + percentDelta, startLeft + startWidth - 5));
                         const newWidth = startWidth - (newLeft - startLeft);
@@ -1085,7 +1505,7 @@
             
             document.addEventListener('mouseup', function() {
                 if (isDragging || isResizing) {
-                    console.log('Ending drag/resize');
+                    // console.log('Ending drag/resize');
                 }
                 isDragging = false;
                 isResizing = false;
@@ -1099,13 +1519,13 @@
                 updateSegmentsList();
                 updateTimeline();
                 clearCurrentSelection();
-                console.log('All segments cleared');
+                // console.log('All segments cleared');
             }
         }
 
         async function autoDetectRoomLabel(segment) {
             try {
-                console.log('Auto-detecting room label for segment:', segment);
+                // console.log('Auto-detecting room label for segment:', segment);
                 
                 const response = await fetch('/auto_detect_room_label', {
                     method: 'POST',
@@ -1126,13 +1546,13 @@
                     segment.room = result.room_label;
                     segment.detecting = false;
                     segment.manual = false;
-                    console.log('Auto-detected room:', result.room_label);
+                    // console.log('Auto-detected room:', result.room_label);
                     
                     updateSegmentsList();
                     updateTimeline();
                     
                 } else {
-                    console.error('Auto-detection failed:', result.error);
+                    // console.error('Auto-detection failed:', result.error);
                     segment.room = 'unlabeled';
                     segment.detecting = false;
                     updateSegmentsList();
@@ -1140,7 +1560,7 @@
                 }
                 
             } catch (error) {
-                console.error('Auto-detection error:', error);
+                // console.error('Auto-detection error:', error);
                 segment.room = 'unlabeled';
                 segment.detecting = false;
                 updateSegmentsList();
@@ -1265,6 +1685,25 @@
                     }
                 });
             }
+            
+            // Setup music volume slider
+            const musicVolumeSlider = document.getElementById('musicVolumeSlider');
+            if (musicVolumeSlider) {
+                musicVolumeSlider.addEventListener('input', function() {
+                    updateMusicVolumeDisplay();
+                    // Save session data when music volume is changed
+                    saveSessionData();
+                });
+            }
+            
+            // Setup transitions checkbox
+            const enableTransitions = document.getElementById('enableTransitions');
+            if (enableTransitions) {
+                enableTransitions.addEventListener('change', function() {
+                    // Save session data when transitions setting is changed
+                    saveSessionData();
+                });
+            }
         }
 
         async function loadMusicSuggestions() {
@@ -1294,13 +1733,13 @@
                 if (data.success && data.results.length > 0) {
                     musicTracks = data.results;
                     displayMusicSuggestions(data.results);
-                    console.log(`Loaded ${data.results.length} ${randomTerm} music suggestions`);
+                    // console.log(`Loaded ${data.results.length} ${randomTerm} music suggestions`);
                 } else {
                     tracksEl.innerHTML = '<div style="padding: 20px; color: #ff6b6b; text-align: center;">No music suggestions available</div>';
                 }
                 
             } catch (error) {
-                console.error('Music suggestions error:', error);
+                // console.error('Music suggestions error:', error);
                 tracksEl.innerHTML = '<div style="padding: 20px; color: #ff6b6b; text-align: center;">Failed to load music suggestions</div>';
             } finally {
                 loadingEl.style.display = 'none';
@@ -1345,13 +1784,13 @@
                 if (data.success && data.results.length > 0) {
                     musicTracks = data.results;
                     displayMusicSuggestions(data.results);
-                    console.log(`Found ${data.results.length} tracks for "${query}"`);
+                    // console.log(`Found ${data.results.length} tracks for "${query}"`);
                 } else {
                     tracksEl.innerHTML = '<div style="padding: 20px; color: #ff6b6b; text-align: center;">No tracks found for "' + query + '"</div>';
                 }
                 
             } catch (error) {
-                console.error('Custom music search error:', error);
+                // console.error('Custom music search error:', error);
                 tracksEl.innerHTML = '<div style="padding: 20px; color: #ff6b6b; text-align: center;">Search failed. Please try again.</div>';
             }
         }
@@ -1403,7 +1842,7 @@
         }
 
         async function selectMusicTrack(track) {
-            console.log('Selecting music track:', track);
+            // console.log('Selecting music track:', track);
             
             isMusicLoading = true;
             updateExportButtonState();
@@ -1445,13 +1884,13 @@
                     // Save session data when music is selected
                     saveSessionData();
                     
-                    console.log('Music track selected and downloaded:', selectedMusicTrack);
+                    // console.log('Music track selected and downloaded:', selectedMusicTrack);
                 } else {
                     alert('Failed to download music: ' + (data.error || 'Unknown error'));
                 }
                 
             } catch (error) {
-                console.error('Music selection error:', error);
+                // console.error('Music selection error:', error);
                 alert('Failed to select music track. Please try again.');
             } finally {
                 isMusicLoading = false;
@@ -1531,7 +1970,7 @@
             playButton.style.color = '#00ff88';
             
             musicAudio.play().then(() => {
-                console.log('Card preview started for:', track.name);
+                // console.log('Card preview started for:', track.name);
                 
                 // Auto-stop after 15 seconds
                 setTimeout(() => {
@@ -1545,7 +1984,7 @@
                         `;
                         playButton.style.background = 'transparent';
                         playButton.style.color = '#4B91F7';
-                        console.log('Card preview auto-stopped');
+                        // console.log('Card preview auto-stopped');
                     }
                 }, 15000);
                 
@@ -1562,7 +2001,7 @@
                 });
                 
             }).catch(error => {
-                console.error('Card preview failed:', error);
+                // console.error('Card preview failed:', error);
                 playButton.innerHTML = `
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
                         <path d="M8 5v14l11-7z"/>
@@ -1590,7 +2029,7 @@
             if (isCurrentlyPlaying) {
                 musicAudio.pause();
                 musicAudio = null;
-                console.log('Music preview paused');
+                // console.log('Music preview paused');
                 return;
             }
             
@@ -1604,25 +2043,25 @@
             musicAudio.volume = 1.0;
             
             musicAudio.play().then(() => {
-                console.log('Music preview started');
+                // console.log('Music preview started');
                 
                 // Auto-stop after 15 seconds
                 setTimeout(() => {
                     if (musicAudio && !musicAudio.paused) {
                         musicAudio.pause();
                         musicAudio = null;
-                        console.log('Music preview auto-stopped');
+                        // console.log('Music preview auto-stopped');
                     }
                 }, 15000);
                 
                 // Handle when track ends naturally
                 musicAudio.addEventListener('ended', () => {
                     musicAudio = null;
-                    console.log('Music preview ended naturally');
+                    // console.log('Music preview ended naturally');
                 });
                 
             }).catch(error => {
-                console.error('Music preview failed:', error);
+                // console.error('Music preview failed:', error);
                 alert('Failed to preview music');
             });
         }
@@ -1638,12 +2077,12 @@
             document.getElementById('selectedMusicTimeline').style.display = 'none';
             document.querySelectorAll('.music-card').forEach(card => card.classList.remove('selected'));
             
-            console.log('Selected music cleared');
+            // console.log('Selected music cleared');
         }
 
         async function goToExport() {
             if (shouldDisableExport()) {
-                console.log('Export blocked: Processing in progress');
+                // console.log('Export blocked: Processing in progress');
                 showDetectionStatus('Please wait for AI detection to complete before exporting.');
                 return;
             }
@@ -1684,7 +2123,7 @@
                 filter_settings: filterSettings
             };
 
-            console.log('Starting background video processing...', processingData);
+            // console.log('Starting background video processing...', processingData);
             
             try {
                 const response = await fetch('/start_video_processing', {
@@ -1698,7 +2137,7 @@
                 const result = await response.json();
                 
                 if (result.success) {
-                    console.log('Background processing started successfully:', result.processing_id);
+                    // console.log('Background processing started successfully:', result.processing_id);
                     
                     const exportData = {
                         processing_id: result.processing_id,
@@ -1723,11 +2162,11 @@
                         window.location.href = '/export';
                     }
                 } else {
-                    console.error('Background processing failed:', result.error);
+                    // console.error('Background processing failed:', result.error);
                     alert('Failed to start video processing: ' + result.error);
                 }
             } catch (error) {
-                console.error('Failed to start background processing:', error);
+                // console.error('Failed to start background processing:', error);
                 alert('Failed to start video processing: ' + error.message);
             }
         } 
@@ -1768,7 +2207,7 @@
                 }
                 
             } catch (error) {
-                console.error('AI detection error:', error);
+                // console.error('AI detection error:', error);
                 showDetectionStatus('AI detection failed. Please try again.');
                 
                 isDetectionLoading = false;
@@ -1791,17 +2230,17 @@
                     
                     if (!response.ok) {
                         if (response.status === 404) {
-                            console.log('Detection ID not found, assuming complete');
+                            // console.log('Detection ID not found, assuming complete');
                             return;
                         }
                         throw new Error(`HTTP ${response.status}`);
                     }
                     
                     const result = await response.json();
-                    console.log('Polling result:', result);
+                    // console.log('Polling result:', result);
                     
                     if (result.status === 'completed') {
-                        console.log('AI detection completed');
+                        // console.log('AI detection completed');
                         if (result.segments && result.segments.length > 0) {
                             updateAISegmentsInUI(result.segments);
                         }
@@ -1831,13 +2270,13 @@
                             const segmentHash = JSON.stringify(result.segments.map(s => ({start: s.start, end: s.end, room: s.room})));
                             
                             if (segmentHash !== lastSegmentHash) {
-                                console.log(`Segments updated: ${result.segments.length} total`);
+                                // console.log(`Segments updated: ${result.segments.length} total`);
                                 updateAISegmentsInUI(result.segments);
                                 lastSegmentHash = segmentHash;
                                 
                                 const latestSegment = result.segments[result.segments.length - 1];
                                 if (latestSegment && latestSegment.temporary) {
-                                    console.log('Temporary segment detected:', latestSegment);
+                                    // console.log('Temporary segment detected:', latestSegment);
                                 }
                             }
                         }
@@ -1847,13 +2286,13 @@
                     }
                     
                 } catch (error) {
-                    console.error('Polling error:', error);
+                    // console.error('Polling error:', error);
                     await new Promise(resolve => setTimeout(resolve, 5000));
                     attempts++;
                 }
             }
             
-            console.log('AI detection polling timed out');
+            // console.log('AI detection polling timed out');
             
             isDetectionLoading = false;
             updateExportButtonState();
@@ -1866,13 +2305,13 @@
         }
 
         function updateAISegmentsInUI(aiSegments) {
-            console.log('updateAISegmentsInUI called with:', aiSegments);
-            console.log('Current segments before update:', segments);
+            // console.log('updateAISegmentsInUI called with:', aiSegments);
+            // console.log('Current segments before update:', segments);
             
             segments = segments.filter(s => s.manual);
             
             aiSegments.forEach((aiSegment, index) => {
-                console.log(`Processing AI segment ${index}:`, aiSegment);
+                // console.log(`Processing AI segment ${index}:`, aiSegment);
                 
                 const newSegment = {
                     id: Date.now() + Math.random(),
@@ -1887,15 +2326,18 @@
                 };
                 
                 segments.push(newSegment);
-                console.log('Added AI segment:', newSegment);
+                // console.log('Added AI segment:', newSegment);
+                
+                // Save session data when AI segment is added
+                saveSessionData();
                 
                 if (aiSegment.temporary) {
                     showDetectionFeedback(aiSegment.room, aiSegment.start);
                 }
             });
             
-            console.log('Segments after update:', segments);
-            console.log('Calling updateSegmentsList and updateTimeline');
+            // console.log('Segments after update:', segments);
+            // console.log('Calling updateSegmentsList and updateTimeline');
             
             updateSegmentsList();
             updateTimeline();
@@ -2053,7 +2495,7 @@
             
             document.getElementById('aiSegmentEditing').style.display = 'none';
             
-            console.log(`Applied ${segments.length} AI segments with minimum length ${segmentLength}s`);
+            // console.log(`Applied ${segments.length} AI segments with minimum length ${segmentLength}s`);
         }
 
         function getRoomDisplayName(room) {
@@ -2228,6 +2670,9 @@
             if (isPreviewEnabled) {
                 applyLivePreview();
             }
+            
+            // Save session data when filter is adjusted
+            saveSessionData();
         }
 
         function applyFilterPreset(presetName) {
@@ -2331,7 +2776,10 @@
                     }
                 });
                 
-                console.log(`Applied ${presetName} preset with backend-compatible values`);
+                // console.log(`Applied ${presetName} preset with backend-compatible values`);
+                
+                // Save session data when preset is applied
+                saveSessionData();
             }
         }
 
@@ -2355,19 +2803,19 @@
         function applyLivePreview() {
             const videoPlayer = document.getElementById('videoPlayer');
             if (!videoPlayer) {
-                console.error('Video player not found');
+                // console.error('Video player not found');
                 return;
             }
 
             // Check if video is ready
             if (videoPlayer.readyState < 2) {
-                console.log('Video not ready, skipping filter application');
+                // console.log('Video not ready, skipping filter application');
                 return;
             }
 
             // Check if video is actually playing or has loaded
             if (videoPlayer.videoWidth === 0 || videoPlayer.videoHeight === 0) {
-                console.log('Video dimensions not available, skipping filter application');
+                // console.log('Video dimensions not available, skipping filter application');
                 return;
             }
 
@@ -2379,7 +2827,7 @@
             const blur = parseInt(document.getElementById('blurSlider').value);
             const sharpen = parseInt(document.getElementById('sharpenSlider').value);
 
-            console.log('Filter values:', { brightness, contrast, saturation, hue, blur, sharpen });
+            // console.log('Filter values:', { brightness, contrast, saturation, hue, blur, sharpen });
 
             // Build CSS filter string with proper calculations
             let filterString = '';
@@ -2410,13 +2858,13 @@
                 if (filterString.trim() === '') {
                     // No filters to apply, clear any existing filters
                     videoPlayer.style.filter = '';
-                    console.log('Cleared all filters');
+                    // console.log('Cleared all filters');
                 } else {
                     videoPlayer.style.filter = filterString.trim();
-                    console.log('Applied filters successfully:', filterString.trim());
+                    // console.log('Applied filters successfully:', filterString.trim());
                 }
             } catch (error) {
-                console.error('Error applying filters:', error);
+                // console.error('Error applying filters:', error);
                 // Reset filters if there's an error
                 videoPlayer.style.filter = '';
             }
@@ -2492,13 +2940,13 @@
                 const result = await response.json();
                 
                 if (result.success && result.presets) {
-                    console.log('Filter presets loaded from backend:', result.presets);
+                    // console.log('Filter presets loaded from backend:', result.presets);
                     // Presets are now handled by preset buttons, but we keep this for backend sync
                 } else {
-                    console.error('Failed to load filter presets:', result.error);
+                    // console.error('Failed to load filter presets:', result.error);
                 }
             } catch (error) {
-                console.error('Error loading filter presets:', error);
+                // console.error('Error loading filter presets:', error);
             }
         }
 
@@ -2519,7 +2967,7 @@
                     this.classList.add('active');
                     document.getElementById(`tab-${targetTab}`).classList.add('active');
                     
-                    console.log(`Switched to ${targetTab} tab`);
+                    // console.log(`Switched to ${targetTab} tab`);
                 });
             });
         }
@@ -2593,7 +3041,7 @@
                 btn.classList.remove('active');
             });
             
-            console.log('Filters reset to backend-compatible default values');
+            // console.log('Filters reset to backend-compatible default values');
         }
 
         function previewFilters() {
@@ -2677,7 +3125,7 @@
                 });
             }
             
-            console.log('New interface functionality initialized');
+            // console.log('New interface functionality initialized');
         });
 
         function testFilterCompatibility() {
@@ -2691,10 +3139,10 @@
                 const testFilter = videoPlayer.style.filter;
                 videoPlayer.style.filter = '';
                 
-                console.log('CSS filters are supported:', testFilter);
+                // console.log('CSS filters are supported:', testFilter);
                 return true;
             } catch (error) {
-                console.error('CSS filters not supported:', error);
+                // console.error('CSS filters not supported:', error);
                 return false;
             }
         }
@@ -2702,7 +3150,7 @@
         function initializeFilters() {
             // Test filter compatibility first
             if (!testFilterCompatibility()) {
-                console.warn('CSS filters not supported, disabling filter functionality');
+                // console.warn('CSS filters not supported, disabling filter functionality');
                 return;
             }
             
@@ -2732,30 +3180,30 @@
                 videoPlayer.style.filter = '';
             }
             
-            console.log('Filters initialized with backend-compatible default values');
+            // console.log('Filters initialized with backend-compatible default values');
         }
 
 // Mobile tab dropdown functionality (moved to global scope)
 function toggleTabDropdown() {
-    console.log('toggleTabDropdown called');
+    // console.log('toggleTabDropdown called');
     const dropdown = document.getElementById('tabDropdown');
     const arrow = document.querySelector('.dropdown-arrow');
     
-    console.log('Dropdown element:', dropdown);
-    console.log('Arrow element:', arrow);
+    // console.log('Dropdown element:', dropdown);
+    // console.log('Arrow element:', arrow);
     
     if (dropdown && arrow) {
         if (dropdown.classList.contains('open')) {
-            console.log('Closing dropdown');
+            // console.log('Closing dropdown');
             dropdown.classList.remove('open');
             arrow.classList.remove('open');
         } else {
-            console.log('Opening dropdown');
+            // console.log('Opening dropdown');
             dropdown.classList.add('open');
             arrow.classList.add('open');
         }
     } else {
-        console.log('Dropdown or arrow element not found');
+        // console.log('Dropdown or arrow element not found');
     }
 }
 
@@ -2822,29 +3270,29 @@ function toggleTimeline() {
     const timelineContainer = document.getElementById('timelineContainer');
     const toggleIcon = document.querySelector('.timeline-toggle-icon');
     
-    console.log('toggleTimeline called');
-    console.log('timelineContent:', timelineContent);
-    console.log('timelineContainer:', timelineContainer);
-    console.log('toggleIcon:', toggleIcon);
+    // console.log('toggleTimeline called');
+    // console.log('timelineContent:', timelineContent);
+    // console.log('timelineContainer:', timelineContainer);
+    // console.log('toggleIcon:', toggleIcon);
     
     if (timelineContent && toggleIcon && timelineContainer) {
         if (timelineContent.classList.contains('collapsed')) {
             // Expand timeline
-            console.log('Expanding timeline');
+            // console.log('Expanding timeline');
             timelineContent.classList.remove('collapsed');
             timelineContainer.classList.remove('collapsed');
             toggleIcon.classList.remove('collapsed');
-            console.log('Icon classes after expand:', toggleIcon.className);
+            // console.log('Icon classes after expand:', toggleIcon.className);
         } else {
             // Collapse timeline
-            console.log('Collapsing timeline');
+            // console.log('Collapsing timeline');
             timelineContent.classList.add('collapsed');
             timelineContainer.classList.add('collapsed');
             toggleIcon.classList.add('collapsed');
-            console.log('Icon classes after collapse:', toggleIcon.className);
+            // console.log('Icon classes after collapse:', toggleIcon.className);
         }
     } else {
-        console.log('One or more elements not found');
+        // console.log('One or more elements not found');
     }
 }
 

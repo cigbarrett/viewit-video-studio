@@ -287,9 +287,9 @@ def verify_listing():
     data = request.json or {}
     trade_license = data.get('trade_license_number')
     listing_number = data.get('listing_number')
-    # auth_token = data.get('auth_token')
+    
     # username = data.get('username')
-    # password = data.get('password')
+    
 
 
     auth_token = os.getenv('DLD_BEARER_TOKEN')
@@ -500,17 +500,46 @@ def start_video_processing():
         try:
             print(f"Background processing thread started for {processing_id}")
             
+            
+            def should_stop():
+                if project_id and project_id in app.projects:
+                    proc_result = app.projects[project_id]['processing_results'].get(processing_id, {})
+                    return proc_result.get('stop_flag', False) or proc_result.get('status') == 'cancelled'
+                else:
+                    proc_result = app.processing_results.get(processing_id, {})
+                    return proc_result.get('stop_flag', False) or proc_result.get('status') == 'cancelled'
+            
+            
+            if should_stop():
+                print(f"Processing {processing_id} was stopped before starting")
+                return
+            
             editor = GuidedVideoEditor(video_path, temp_dir)
             
             for seg in segments:
+                
+                if should_stop():
+                    print(f"Processing {processing_id} stopped during segment addition")
+                    return
+                    
                 editor.add_segment(
                     seg['start'],
                     seg['end'],
                     seg.get('room')
                 )
             
+            
+            if should_stop():
+                print(f"Processing {processing_id} stopped before main processing")
+                return
+            
             print(f"Background processing: mode={export_mode}, quality={quality}, speed={speed_factor}x")
             print(f"Filter settings received: {filter_settings}")
+            
+            
+            if should_stop():
+                print(f"Processing {processing_id} stopped before video creation")
+                return
             
             if export_mode == 'segments':
                 success = editor.create_tour(temp_filename, quality=quality)
@@ -518,6 +547,18 @@ def start_video_processing():
                 success = editor.create_speedup_tour_simple(temp_filename, speed_factor)
             else:
                 success = editor.create_tour(temp_filename, quality=quality)
+            
+            
+            if should_stop():
+                print(f"Processing {processing_id} stopped after video creation")
+                
+                if os.path.exists(temp_filename):
+                    try:
+                        os.remove(temp_filename)
+                        print(f"Cleaned up partial output file: {temp_filename}")
+                    except Exception as e:
+                        print(f"Error cleaning up partial file: {e}")
+                return
             
             if not success:
                 
@@ -597,6 +638,44 @@ def start_video_processing():
         'export_mode': export_mode,
         'segments_count': len(segments)
     })
+
+@app.route('/stop_video_processing', methods=['POST'])
+def stop_video_processing():
+    
+    data = request.json or {}
+    processing_id = data.get('processing_id')
+    
+    if not processing_id:
+        return jsonify({'error': 'Processing ID required'}), 400
+    
+    print(f"Stopping background video processing: {processing_id}")
+    
+    
+    stopped = False
+    for project_id, project in app.projects.items():
+        if processing_id in project.get('processing_results', {}):
+            proc_result = project['processing_results'][processing_id]
+            if proc_result.get('status') == 'in_progress':
+                proc_result['status'] = 'cancelled'
+                proc_result['stop_flag'] = True
+                stopped = True
+                print(f"Stopped processing {processing_id} in project {project_id}")
+                break
+    
+    
+    if not stopped and processing_id in app.processing_results:
+        proc_result = app.processing_results[processing_id]
+        if proc_result.get('status') == 'in_progress':
+            proc_result['status'] = 'cancelled'
+            proc_result['stop_flag'] = True
+            stopped = True
+            print(f"Stopped legacy processing {processing_id}")
+    
+    if stopped:
+        save_projects()
+        return jsonify({'success': True, 'message': f'Processing {processing_id} stopped'})
+    else:
+        return jsonify({'success': False, 'message': f'Processing {processing_id} not found or not running'})
 
 @app.route('/check_processing_status/<processing_id>', methods=['GET'])
 def check_processing_status(processing_id):
@@ -1299,6 +1378,206 @@ def cleanup_temp_files_endpoint():
 #         print(f"Error during force cleanup: {e}")
 #         return jsonify({'error': f'Force cleanup failed: {str(e)}'}), 500
 
+
+@app.route('/save_session_data', methods=['POST'])
+def save_session_data():
+    
+    try:
+        data = request.json
+        project_id = data.get('project_id')
+        processing_id = data.get('processing_id')
+        session_data = data.get('session_data')
+        
+        if not project_id:
+            return jsonify({'success': False, 'error': 'Project ID is required'}), 400
+        
+        if not session_data:
+            return jsonify({'success': False, 'error': 'Session data is required'}), 400
+        
+        
+        project_dir = None
+        
+        
+        if project_id:
+            uploads_dir = os.path.join(os.getcwd(), 'uploads')
+            potential_project_dir = os.path.join(uploads_dir, project_id)
+            if os.path.exists(potential_project_dir):
+                project_dir = potential_project_dir
+        
+        
+        if not project_dir and project_id in app.projects:
+            project_dir = app.projects[project_id].get('project_dir')
+        
+        
+        if not project_dir and processing_id:
+            for pid, proj_data in app.projects.items():
+                if proj_data.get('processing_id') == processing_id:
+                    project_dir = proj_data.get('project_dir')
+                    break
+        
+        if not project_dir:
+            return jsonify({'success': False, 'error': 'Project directory not found'}), 404
+        
+        
+        session_file = os.path.join(project_dir, 'session_data.json')
+        
+        
+        session_data_with_meta = {
+            'project_id': project_id,
+            'processing_id': processing_id,
+            'saved_at': datetime.now().isoformat(),
+            'data': session_data
+        }
+        
+        
+        with open(session_file, 'w', encoding='utf-8') as f:
+            json.dump(session_data_with_meta, f, separators=(',', ':'), ensure_ascii=False)
+        
+        
+        return jsonify({
+            'success': True,
+            'message': 'Session data saved successfully',
+            'file_path': session_file
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+@app.route('/load_session_data', methods=['POST'])
+def load_session_data():
+    
+    try:
+        data = request.json
+        project_id = data.get('project_id')
+        processing_id = data.get('processing_id')
+        
+        if not project_id:
+            return jsonify({'success': False, 'error': 'Project ID is required'}), 400
+        
+        
+        project_dir = None
+        
+        
+        if project_id:
+            uploads_dir = os.path.join(os.getcwd(), 'uploads')
+            potential_project_dir = os.path.join(uploads_dir, project_id)
+            if os.path.exists(potential_project_dir):
+                project_dir = potential_project_dir
+        
+        
+        if not project_dir and project_id in app.projects:
+            project_dir = app.projects[project_id].get('project_dir')
+        
+        
+        if not project_dir and processing_id:
+            for pid, proj_data in app.projects.items():
+                if proj_data.get('processing_id') == processing_id:
+                    project_dir = proj_data.get('project_dir')
+                    break
+        
+        if not project_dir:
+            return jsonify({'success': False, 'error': 'Project directory not found'}), 404
+        
+        
+        session_file = os.path.join(project_dir, 'session_data.json')
+        
+        if not os.path.exists(session_file):
+            print(f"Session data file not found: {session_file}")
+            return jsonify({
+                'success': False,
+                'error': 'Session data file not found'
+            }), 404
+        
+        
+        with open(session_file, 'r', encoding='utf-8') as f:
+            session_data_with_meta = json.load(f)
+        
+        session_data = session_data_with_meta.get('data', {})
+        saved_at = session_data_with_meta.get('saved_at', 'Unknown')
+        
+        print(f"Session data loaded from: {session_file}")
+        print(f"   Saved at: {saved_at}")
+        print(f"   Data keys: {list(session_data.keys()) if session_data else 'None'}")
+        
+        return jsonify({
+            'success': True,
+            'session_data': session_data,
+            'saved_at': saved_at,
+            'file_path': session_file
+        })
+        
+    except Exception as e:
+        print(f"Load session data error: {e}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+@app.route('/test_session_endpoints', methods=['GET'])
+def test_session_endpoints():
+    
+    return jsonify({
+        'success': True,
+        'message': 'Session endpoints are working',
+        'endpoints': ['/save_session_data', '/load_session_data', '/debug_session']
+    })
+
+@app.route('/debug_session', methods=['POST'])
+def debug_session():
+    
+    try:
+        data = request.json
+        project_id = data.get('project_id')
+        processing_id = data.get('processing_id')
+        video_id = data.get('video_id')
+        
+        print(f"🔍 Session Debug Request:")
+        print(f"   Project ID: {project_id}")
+        print(f"   Processing ID: {processing_id}")
+        print(f"   Video ID: {video_id}")
+        
+        
+        project_found = False
+        project_dir = None
+        if project_id and project_id in app.projects:
+            project_found = True
+            project_data = app.projects[project_id]
+            project_dir = project_data.get('project_dir')
+            print(f"   Project found: {project_data}")
+        else:
+            print(f"   Project NOT found in app.projects")
+            print(f"   Available projects: {list(app.projects.keys())}")
+        
+        
+        session_file_exists = False
+        session_file_path = None
+        if project_dir:
+            session_file_path = os.path.join(project_dir, 'session_data.json')
+            session_file_exists = os.path.exists(session_file_path)
+            print(f"   Session file exists: {session_file_exists}")
+            print(f"   Session file path: {session_file_path}")
+        
+        return jsonify({
+            'success': True,
+            'project_found': project_found,
+            'project_id': project_id,
+            'processing_id': processing_id,
+            'video_id': video_id,
+            'available_projects': list(app.projects.keys()),
+            'project_dir': project_dir,
+            'session_file_exists': session_file_exists,
+            'session_file_path': session_file_path
+        })
+        
+    except Exception as e:
+        print(f"Session debug error: {e}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))

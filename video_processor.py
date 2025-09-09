@@ -18,7 +18,7 @@ def extract_clip_simple(video_path, video_info, start, end, output, room_type=No
             display_text = room_type.replace('_', ' ').upper()
             fontsize = max(width // 25, 90)
             text_overlay = (
-                f"drawtext=text='{display_text}':fontfile=/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf:"
+                f"drawtext=text='{display_text}':fontfile=Inter:"
                 f"fontsize={fontsize * 1.5}:fontcolor=black:"
                 f"x=(w-text_w)/2:y=h-text_h-275"
             )
@@ -100,7 +100,7 @@ def extract_clip_hq(video_path, video_info, start, end, output, speed_factor=1.0
             display_text = room_type.replace('_', ' ').upper()
             fontsize = max(width // 25, 48)
             text_filter = (
-                f"drawtext=text='{display_text}':fontfile=/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf:"
+                f"drawtext=text='{display_text}':fontfile=Inter:"
                 f"fontsize={fontsize * 1.5}:fontcolor=black:"
                 f"x=(w-text_w)/2:y=h-text_h-275"
             )
@@ -148,8 +148,8 @@ def extract_speedup_clip_fast(video_path, video_info, start, end, output, speed_
             display_text = room_type.replace('_', ' ').upper()
             fontsize = max(36, width // 40)  
             text_overlay = (
-                f"drawtext=text='{display_text}':fontcolor=black:"
-                f"fontsize={fontsize * 1.5}:fontfile=/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf:"
+                f"drawtext=text='{display_text}':fontfile=Inter:"
+                f"fontsize={fontsize * 1.5}:fontcolor=black:"
                 f"x=(w-text_w)/2:y=h-text_h-275"
             )
             filters.append(text_overlay)

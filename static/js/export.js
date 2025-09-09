@@ -4,25 +4,25 @@
 
         // Initialize the application
         document.addEventListener('DOMContentLoaded', function() {
-            console.log('Export page loaded');
-            console.log('Current URL:', window.location.pathname);
+            // console.log('Export page loaded');
+            // console.log('Current URL:', window.location.pathname);
             
             // Try to get processing ID from URL
             const pathParts = window.location.pathname.split('/');
             const processingId = pathParts[pathParts.length - 1];
-            console.log('Path parts:', pathParts);
-            console.log('Processing ID from URL:', processingId);
+            // console.log('Path parts:', pathParts);
+            // console.log('Processing ID from URL:', processingId);
             
             // First check if we have export data in session storage
             const storedData = sessionStorage.getItem('exportData');
             if (storedData) {
                 exportData = JSON.parse(storedData);
-                console.log('Loaded export data from session storage:', exportData);
+                // console.log('Loaded export data from session storage:', exportData);
                 
                 // If we have a processing ID in the URL, add it to the export data
                 if (processingId && processingId !== 'export') {
                     exportData.processing_id = processingId;
-                    console.log('Updated export data with processing ID from URL:', processingId);
+                    // console.log('Updated export data with processing ID from URL:', processingId);
                 }
             } else if (processingId && processingId !== 'export') {
                 // If no session data but we have a processing ID in URL, create minimal export data
@@ -30,13 +30,14 @@
                     processing_id: processingId,
                     processing_status: 'unknown'
                 };
-                console.log('Created minimal export data from URL processing ID:', processingId);
+                // console.log('Created minimal export data from URL processing ID:', processingId);
             } else {
                 alert('No export data found. Please go back to the edit page.');
                 window.location.href = '/edit';
             }
             
             setupEventListeners();
+            setupNavigationHandlers();
         });
 
         function setupEventListeners() {
@@ -45,6 +46,21 @@
             
             // Custom file upload
             setupCustomFileUpload();
+            
+            // Add click handler to logo to stop processing and go home
+            const logoContainer = document.querySelector('.logo-container');
+            if (logoContainer) {
+                logoContainer.style.cursor = 'pointer';
+                logoContainer.addEventListener('click', function() {
+                    if (exportData && exportData.processing_id) {
+                        stopVideoProcessing(exportData.processing_id).finally(() => {
+                            window.location.href = '/';
+                        });
+                    } else {
+                        window.location.href = '/';
+                    }
+                });
+            }
         }
 
 
@@ -82,7 +98,7 @@
                 if (data.success) {
                     qrPath = data.qr_path;
                     showStatus('Listing verified - QR code ready for export', 'success');
-                    console.log('Listing verified, QR:', qrPath);
+                    // console.log('Listing verified, QR:', qrPath);
                 } else {
                     qrPath = null;
                     showStatus('❌ ' + (data.error || 'Verification failed'), 'error');
@@ -102,10 +118,57 @@
         }
         */
 
+        // Setup navigation handlers to stop processing when leaving page
+        function setupNavigationHandlers() {
+            // Stop processing when page is about to unload
+            window.addEventListener('beforeunload', function(e) {
+                if (exportData && exportData.processing_id) {
+                    stopVideoProcessing(exportData.processing_id);
+                }
+            });
+
+            // Stop processing when navigating using browser back/forward
+            window.addEventListener('pagehide', function(e) {
+                if (exportData && exportData.processing_id) {
+                    stopVideoProcessing(exportData.processing_id);
+                }
+            });
+        }
+
+        // Function to stop video processing
+        async function stopVideoProcessing(processingId) {
+            if (!processingId) return;
+            
+            try {
+                // console.log('Stopping video processing:', processingId);
+                const response = await fetch('/stop_video_processing', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        processing_id: processingId
+                    })
+                });
+                
+                const result = await response.json();
+                // console.log('Stop processing result:', result);
+            } catch (error) {
+                // console.log('Error stopping processing (this is expected on page unload):', error);
+            }
+        }
+
         function goBack() {
-            // Keep the export data in session storage for when they return
+            // Stop processing before navigating
             if (exportData && exportData.processing_id) {
-                window.location.href = `/edit/${exportData.processing_id}`;
+                stopVideoProcessing(exportData.processing_id).finally(() => {
+                    // Navigate after attempting to stop
+                    if (exportData.processing_id) {
+                        window.location.href = `/edit/${exportData.processing_id}`;
+                    } else {
+                        window.location.href = '/edit';
+                    }
+                });
             } else {
                 window.location.href = '/edit';
             }
@@ -135,14 +198,14 @@
             // Read agency logo (if provided) as base64
             let logoBase64 = null;
             const logoInput = document.getElementById('agencyLogo');
-            console.log('Logo input element:', logoInput);
-            console.log('Logo files:', logoInput?.files);
+            // console.log('Logo input element:', logoInput);
+            // console.log('Logo files:', logoInput?.files);
             if (logoInput && logoInput.files && logoInput.files[0]) {
-                console.log('Logo file selected:', logoInput.files[0].name, logoInput.files[0].size);
+                // console.log('Logo file selected:', logoInput.files[0].name, logoInput.files[0].size);
                 logoBase64 = await toBase64(logoInput.files[0]);
-                console.log('Logo converted to base64, length:', logoBase64?.length);
+                // console.log('Logo converted to base64, length:', logoBase64?.length);
             } else {
-                console.log('No logo file selected');
+                // console.log('No logo file selected');
             }
 
             // Show loading overlay
@@ -159,7 +222,7 @@
                 sqft: sqft || undefined
             };
 
-            console.log('Starting tour creation...', requestData);
+            // console.log('Starting tour creation...', requestData);
             
             // Start with video processing status check
             waitForProcessingAndCreateTour(requestData);
@@ -173,7 +236,7 @@
             await waitForProcessingCompletion();
             
             // Now create the tour with overlays
-            console.log('Processing complete, adding overlays...');
+            // console.log('Processing complete, adding overlays...');
             updateProgress(80, 'Adding agent watermark...');
             
             // Keep trying to create the tour until it succeeds
@@ -205,7 +268,7 @@
                             window.location.href = `/delivery/${exportData.processing_id}`;
                         }, 500);
                     } else {
-                        console.log('Tour creation not ready yet, retrying...', data.error);
+                        // console.log('Tour creation not ready yet, retrying...', data.error);
                         attempts++;
                         
                         // Wait 3 seconds before retrying
@@ -213,7 +276,7 @@
                         updateProgress(Math.min(80 + attempts * 2, 95), 'Finalizing tour creation...');
                     }
                 } catch (error) {
-                    console.log('Tour creation attempt failed, retrying...', error);
+                    // console.log('Tour creation attempt failed, retrying...', error);
                     attempts++;
                     
                     // Wait 3 seconds before retrying
@@ -224,7 +287,7 @@
             
             // If we've exhausted all attempts, try once more with a longer wait
             if (!success) {
-                console.log('Final attempt after extended wait...');
+                // console.log('Final attempt after extended wait...');
                 updateProgress(90, 'Almost ready...');
                 await new Promise(resolve => setTimeout(resolve, 10000)); // Wait 10 seconds
                 
@@ -249,13 +312,13 @@
                         }, 500);
                     } else {
                         // Final fallback - just continue to delivery page
-                        console.log('Final attempt failed, proceeding anyway');
+                        // console.log('Final attempt failed, proceeding anyway');
                         hideLoadingOverlay();
                         window.location.href = `/delivery/${exportData.processing_id}`;
                     }
                 } catch (error) {
                     // Final fallback - just continue to delivery page
-                    console.log('Final attempt failed, proceeding anyway', error);
+                    // console.log('Final attempt failed, proceeding anyway', error);
                     hideLoadingOverlay();
                     window.location.href = `/delivery/${exportData.processing_id}`;
                 }
@@ -264,24 +327,24 @@
 
         async function waitForProcessingCompletion() {
             if (!exportData.processing_id) {
-                console.log('No processing ID, assuming processing is complete');
+                // console.log('No processing ID, assuming processing is complete');
                 return; // No processing ID, assume processing is complete
             }
 
-            console.log('Waiting for processing completion, ID:', exportData.processing_id);
+            // console.log('Waiting for processing completion, ID:', exportData.processing_id);
             const maxAttempts = 120; // 10 minutes max (120 * 5 seconds)
             let attempts = 0;
             
             while (attempts < maxAttempts) {
                 try {
-                    console.log(`Processing check attempt ${attempts + 1}/${maxAttempts}`);
+                    // console.log(`Processing check attempt ${attempts + 1}/${maxAttempts}`);
                     const response = await fetch(`/check_processing_status/${exportData.processing_id}`);
-                    console.log('Processing check response status:', response.status);
+                    // console.log('Processing check response status:', response.status);
                     
                     if (!response.ok) {
-                        console.log('Processing check failed, response not ok:', response.status);
+                        // console.log('Processing check failed, response not ok:', response.status);
                         if (response.status === 404) {
-                            console.log('Processing ID not found, assuming complete');
+                            // console.log('Processing ID not found, assuming complete');
                             return; // Session not found, proceed anyway
                         }
                         // Other error, wait and try again
@@ -291,34 +354,34 @@
                     }
                     
                     const result = await response.json();
-                    console.log('Processing check result:', result);
+                    // console.log('Processing check result:', result);
                     
                     if (result.status === 'completed') {
-                        console.log('Processing completed successfully');
+                        // console.log('Processing completed successfully');
                         return; // Processing is done
                     } else if (result.status === 'in_progress') {
-                        console.log('Processing still in progress, waiting...');
+                        // console.log('Processing still in progress, waiting...');
                         updateProgress(Math.min(20 + (attempts * 2), 75), 'Processing video segments...');
                         
                         // Wait 5 seconds before checking again
                         await new Promise(resolve => setTimeout(resolve, 5000));
                         attempts++;
                     } else if (result.status === 'not_found') {
-                        console.log('Processing session not found, assuming complete');
+                        // console.log('Processing session not found, assuming complete');
                         return; // Session not found, proceed anyway
                     } else {
-                        console.log('Unknown processing status:', result.status);
+                        // console.log('Unknown processing status:', result.status);
                         return; // Unknown status, proceed anyway
                     }
                 } catch (error) {
-                    console.error('Error checking processing status:', error);
+                    // console.error('Error checking processing status:', error);
                     // If we can't check status, wait a bit and try again
                     await new Promise(resolve => setTimeout(resolve, 5000));
                     attempts++;
                 }
             }
             
-            console.log('Processing check timed out, proceeding anyway');
+            // console.log('Processing check timed out, proceeding anyway');
             // If we timeout, proceed anyway
         }
 
@@ -441,7 +504,7 @@
             });
 
             function handleFileSelect(file) {
-                console.log('File selected:', file.name, file.type, file.size);
+                // console.log('File selected:', file.name, file.type, file.size);
                 
                 // Validate file type
                 if (!file.type.startsWith('image/')) {
@@ -460,7 +523,7 @@
                 dataTransfer.items.add(file);
                 fileInput.files = dataTransfer.files;
                 
-                console.log('File assigned to input, files length:', fileInput.files.length);
+                // console.log('File assigned to input, files length:', fileInput.files.length);
 
                 // Update UI
                 fileName.textContent = file.name;
@@ -470,7 +533,7 @@
                 const uploadText = uploadArea.querySelector('.upload-text');
                 uploadText.style.display = 'none';
                 
-                console.log('File selection UI updated');
+                // console.log('File selection UI updated');
             }
 
             function clearFileSelection() {

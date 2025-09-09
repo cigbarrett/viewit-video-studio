@@ -136,8 +136,8 @@ def create_speedup_tour_simple(user_segments, video_path, video_info, output_pat
                 if part.get('display_name'):
                     display_text = part['display_name']
                     text_overlay = (
-                        f"drawtext=text='{display_text}':fontfile=/Windows/Fonts/segoeuib.ttf:"
-                        f"fontsize=65:fontcolor=white:shadowcolor=black:shadowx=3:shadowy=1:"
+                        f"drawtext=text='{display_text}':fontfile=Inter:"
+                        f"fontsize=65:fontcolor=black:"
                         f"x=(w-text_w)/2:y=h-text_h-250"
                     )
                     filters.append(text_overlay)

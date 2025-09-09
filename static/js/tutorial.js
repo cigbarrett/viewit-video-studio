@@ -451,7 +451,7 @@ class TutorialSystem {
     positionSpotlight(step) {
         const target = document.querySelector(step.target);
         if (!target) {
-            console.warn(`Tutorial target not found: ${step.target}`);
+            // console.warn(`Tutorial target not found: ${step.target}`);
             return;
         }
 
