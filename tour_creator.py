@@ -188,13 +188,31 @@ def create_speedup_tour_simple(user_segments, video_path, video_info, output_pat
             '-y', output_path
         ]
         print(f"Combining {len(part_paths)} parts...")
-        result = subprocess.run(combine_cmd, capture_output=True, text=True, timeout=60)
+        try:
+            result = subprocess.run(combine_cmd, capture_output=True, text=True, timeout=60)
+        except subprocess.TimeoutExpired:
+            print(f"Simple speedup combine timeout")
+            
+            if os.path.exists(output_path):
+                try:
+                    os.remove(output_path)
+                    print(f"Removed partial speedup output file: {output_path}")
+                except OSError as e:
+                    print(f"Could not remove partial speedup file: {e}")
+            return False
 
         if result.returncode == 0:
             print(f"SIMPLE speedup tour created: {output_path}")
             return True
         else:
             print(f"Simple combine failed: {result.stderr[-300:]}")
+            
+            if os.path.exists(output_path):
+                try:
+                    os.remove(output_path)
+                    print(f"Removed failed speedup output file: {output_path}")
+                except OSError as e:
+                    print(f"Could not remove failed speedup file: {e}")
             return False
 
 def create_tour(user_segments, video_path, video_info, output_path="guided_tour.mp4", api_key=None, quality='professional', project_temp_dir=None):

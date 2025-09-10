@@ -319,6 +319,13 @@ def combine_clips(clips, output, silent_mode=True, project_temp_dir=None):
         
     except subprocess.TimeoutExpired:
         print(f"FFmpeg timeout during combine (concurrent load)")
+        
+        if os.path.exists(output):
+            try:
+                os.remove(output)
+                print(f"Removed partial output file: {output}")
+            except OSError as e:
+                print(f"Could not remove partial file: {e}")
         _release_ffmpeg_process()
         return False
     except Exception as e:
@@ -409,6 +416,13 @@ def combine_clips_hq(clips, output, quality_settings, project_temp_dir=None):
 
     except subprocess.TimeoutExpired:
         print(f"HQ combine timeout (concurrent load)")
+        
+        if os.path.exists(output):
+            try:
+                os.remove(output)
+                print(f"Removed partial HQ output file: {output}")
+            except OSError as e:
+                print(f"Could not remove partial HQ file: {e}")
         _release_ffmpeg_process()
         return False
     except Exception as e:

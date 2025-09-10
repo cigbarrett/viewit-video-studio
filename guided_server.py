@@ -781,13 +781,19 @@ def create_tour():
         while wait_count < max_wait:
             if os.path.exists(temp_file) and os.path.getsize(temp_file) > 1000:
                 
-                try:
-                    shutil.copy2(temp_file, output_filename)
-                    
-                    if os.path.exists(output_filename) and os.path.getsize(output_filename) > 1000:
-                        break
-                except (OSError, shutil.Error) as e:
-                    print(f"Copy attempt {wait_count + 1} failed: {e}")
+                
+                from post_processor import _validate_video_file
+                if _validate_video_file(temp_file, timeout=5):
+                    try:
+                        shutil.copy2(temp_file, output_filename)
+                        
+                        if os.path.exists(output_filename) and os.path.getsize(output_filename) > 1000:
+                            print(f"Successfully copied validated video file to archive")
+                            break
+                    except (OSError, shutil.Error) as e:
+                        print(f"Copy attempt {wait_count + 1} failed: {e}")
+                else:
+                    print(f"Temp file validation failed on attempt {wait_count + 1}, waiting...")
             else:
                 print(f"Waiting for temp file to be ready... (attempt {wait_count + 1})")
             
@@ -796,6 +802,12 @@ def create_tour():
         
         if wait_count >= max_wait:
             print(f"Failed to copy temp file after {max_wait} seconds")
+            
+            if os.path.exists(temp_file):
+                from post_processor import _validate_video_file
+                if not _validate_video_file(temp_file, timeout=5):
+                    print(f"Temp file exists but is corrupted/incomplete: {temp_file}")
+                    return jsonify({'error': 'Video processing failed - output file is corrupted'}), 500
             return jsonify({'error': 'Video file not ready for processing'}), 500
         
         logo_path = None
