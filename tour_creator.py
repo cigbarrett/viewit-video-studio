@@ -157,41 +157,62 @@ def create_speedup_tour_simple(user_segments, video_path, video_info, output_pat
                 '-y', str(temp_path)
             ]
             
-            timeout_duration = max(60, int(duration * (2 if part['speed'] > 1.0 else 3)))
+            
+            from video_processor import _get_concurrent_resource_settings, _release_ffmpeg_process
+            resource_settings = _get_concurrent_resource_settings()
+            
+            base_timeout = max(60, int(duration * (2 if part['speed'] > 1.0 else 3)))
+            timeout_duration = int(base_timeout * resource_settings['timeout_multiplier'])
+            
             try:
                 result = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout_duration)
             except subprocess.TimeoutExpired:
-                print(f"Simple FFmpeg timeout after {timeout_duration}s for part {i+1}. Clip may be too long or heavy to process in one pass.")
+                print(f"Simple FFmpeg timeout after {timeout_duration}s for part {i+1} (concurrent load). Clip may be too long or heavy to process in one pass.")
+                _release_ffmpeg_process()
                 return False
 
             if result.returncode != 0:
                 print(f"Simple FFmpeg error: {result.stderr[-300:]}")
+                _release_ffmpeg_process()
                 return False
                 
             part_paths.append(temp_path)
             print(f"Part {i+1} created: {temp_path.name}")
+            _release_ffmpeg_process()
 
-        concat_list = Path(temp_dir) / "parts.txt"
+        
+        import uuid
+        concat_list = Path(temp_dir) / f"parts_{uuid.uuid4().hex[:8]}.txt"
         with open(concat_list, 'w') as f:
             for path in part_paths:
                 f.write(f"file '{path.resolve()}'\n")
 
+        
+        from video_processor import _get_concurrent_resource_settings, _release_ffmpeg_process
+        resource_settings = _get_concurrent_resource_settings()
+        
         combine_cmd = [
             'ffmpeg', '-f', 'concat', '-safe', '0',
             '-i', str(concat_list),
             '-c:v', 'libx264',
-            '-preset', 'veryfast',
+            '-preset', resource_settings['preset'],
             '-crf', '23',
             '-r', '30',  
             '-g', '30',  
             '-movflags', '+faststart',
+            '-threads', resource_settings['threads'],
             '-y', output_path
         ]
-        print(f"Combining {len(part_paths)} parts...")
+        
+        
+        base_timeout = 90 if len(part_paths) > 5 else 60
+        timeout_duration = int(base_timeout * resource_settings['timeout_multiplier'])
+        
+        print(f"Concurrent speedup combining {len(part_paths)} parts: {resource_settings['threads']} threads, {resource_settings['preset']} preset, {timeout_duration}s timeout")
         try:
-            result = subprocess.run(combine_cmd, capture_output=True, text=True, timeout=60)
+            result = subprocess.run(combine_cmd, capture_output=True, text=True, timeout=timeout_duration)
         except subprocess.TimeoutExpired:
-            print(f"Simple speedup combine timeout")
+            print(f"Simple speedup combine timeout (concurrent load)")
             
             if os.path.exists(output_path):
                 try:
@@ -199,10 +220,19 @@ def create_speedup_tour_simple(user_segments, video_path, video_info, output_pat
                     print(f"Removed partial speedup output file: {output_path}")
                 except OSError as e:
                     print(f"Could not remove partial speedup file: {e}")
+            _release_ffmpeg_process()
             return False
+        finally:
+            
+            if os.path.exists(concat_list):
+                try:
+                    os.remove(concat_list)
+                except OSError as e:
+                    print(f"Could not remove concat file: {e}")
 
         if result.returncode == 0:
             print(f"SIMPLE speedup tour created: {output_path}")
+            _release_ffmpeg_process()
             return True
         else:
             print(f"Simple combine failed: {result.stderr[-300:]}")
@@ -213,6 +243,7 @@ def create_speedup_tour_simple(user_segments, video_path, video_info, output_pat
                     print(f"Removed failed speedup output file: {output_path}")
                 except OSError as e:
                     print(f"Could not remove failed speedup file: {e}")
+            _release_ffmpeg_process()
             return False
 
 def create_tour(user_segments, video_path, video_info, output_path="guided_tour.mp4", api_key=None, quality='professional', project_temp_dir=None):
