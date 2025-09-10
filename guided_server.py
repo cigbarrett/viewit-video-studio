@@ -549,18 +549,18 @@ def start_video_processing():
                 success = editor.create_tour(temp_filename, quality=quality)
             
             
-            if should_stop():
-                print(f"Processing {processing_id} stopped after video creation")
-                
-                if os.path.exists(temp_filename):
-                    try:
-                        os.remove(temp_filename)
-                        print(f"Cleaned up partial output file: {temp_filename}")
-                    except Exception as e:
-                        print(f"Error cleaning up partial file: {e}")
-                return
-            
             if not success:
+                
+                if should_stop():
+                    print(f"Processing {processing_id} stopped after failed video creation")
+                    
+                    if os.path.exists(temp_filename):
+                        try:
+                            os.remove(temp_filename)
+                            print(f"Cleaned up partial output file: {temp_filename}")
+                        except Exception as e:
+                            print(f"Error cleaning up partial file: {e}")
+                    return
                 
                 if project_id and project_id in app.projects:
                     app.projects[project_id]['processing_results'][processing_id]['status'] = 'failed'
@@ -570,6 +570,21 @@ def start_video_processing():
                     app.processing_results[processing_id]['error'] = 'Failed to process video segments'
                 save_projects()
                 return
+            else:
+                
+                print(f"Video creation successful for {processing_id}")
+                
+                
+                if not os.path.exists(temp_filename) or os.path.getsize(temp_filename) < 1000:
+                    print(f"Output file validation failed for {processing_id}: {temp_filename}")
+                    if project_id and project_id in app.projects:
+                        app.projects[project_id]['processing_results'][processing_id]['status'] = 'failed'
+                        app.projects[project_id]['processing_results'][processing_id]['error'] = 'Output file validation failed'
+                    else:
+                        app.processing_results[processing_id]['status'] = 'failed'
+                        app.processing_results[processing_id]['error'] = 'Output file validation failed'
+                    save_projects()
+                    return
             
             should_apply_filters = (
                 filter_settings and (
@@ -605,14 +620,16 @@ def start_video_processing():
                     print("Failed to add music overlay - continuing without music")
             
             
+            
             if project_id and project_id in app.projects:
                 app.projects[project_id]['processing_results'][processing_id]['status'] = 'completed'
                 app.projects[project_id]['processing_results'][processing_id]['output_file'] = temp_filename
+                print(f"Background processing completed for {processing_id} (project-based)")
             else:
                 app.processing_results[processing_id]['status'] = 'completed'
                 app.processing_results[processing_id]['output_file'] = temp_filename
-                
-            print(f"Background processing completed for {processing_id}")
+                print(f"Background processing completed for {processing_id} (legacy)")
+            
             save_projects()
             
         except Exception as e:
