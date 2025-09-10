@@ -288,7 +288,7 @@ def verify_listing():
     trade_license = data.get('trade_license_number')
     listing_number = data.get('listing_number')
     
-    # username = data.get('username')
+    
     
 
 
@@ -773,7 +773,30 @@ def create_tour():
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         output_filename = os.path.join(archive_dir, f'guided_tour_{timestamp}.mp4')
         
-        shutil.copy2(temp_file, output_filename)
+        
+        import time
+        max_wait = 30  
+        wait_count = 0
+        
+        while wait_count < max_wait:
+            if os.path.exists(temp_file) and os.path.getsize(temp_file) > 1000:
+                
+                try:
+                    shutil.copy2(temp_file, output_filename)
+                    
+                    if os.path.exists(output_filename) and os.path.getsize(output_filename) > 1000:
+                        break
+                except (OSError, shutil.Error) as e:
+                    print(f"Copy attempt {wait_count + 1} failed: {e}")
+            else:
+                print(f"Waiting for temp file to be ready... (attempt {wait_count + 1})")
+            
+            wait_count += 1
+            time.sleep(1)
+        
+        if wait_count >= max_wait:
+            print(f"Failed to copy temp file after {max_wait} seconds")
+            return jsonify({'error': 'Video file not ready for processing'}), 500
         
         logo_path = None
         if agency_logo_data:
@@ -796,6 +819,9 @@ def create_tour():
         
         if not overlay_success:
             print("Failed to add overlays - using video without overlays")
+        
+        
+        time.sleep(2)
         
         temp_files_to_clean = []
         
@@ -1353,30 +1379,30 @@ def cleanup_temp_files_endpoint():
 
 
 
-#         result = _cleanup_temp_files(force=True)
+
         
-#         if not result['cleaned_count'] and not result['errors']:
-#             return jsonify({
-#                 'success': True,
-#                 'message': 'No temp files found that needed cleaning'
-#             })
+
+
+
+
+
         
-#         if result['errors']:
-#             return jsonify({
-#                 'success': True,
-#                 'warning': True,
-#                 'message': f'Force cleanup completed with some warnings. Removed {result["cleaned_count"]} files.',
-#                 'errors': result['errors']
-#             })
+
+
+
+
+
+
+
         
-#         return jsonify({
-#             'success': True,
-#             'message': f'Force cleanup completed. Removed {result["cleaned_count"]} files.'
-#         })
+
+
+
+
         
-#     except Exception as e:
-#         print(f"Error during force cleanup: {e}")
-#         return jsonify({'error': f'Force cleanup failed: {str(e)}'}), 500
+
+
+
 
 
 @app.route('/save_session_data', methods=['POST'])

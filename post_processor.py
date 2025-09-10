@@ -1,6 +1,22 @@
 import os
 import subprocess
-import os, subprocess
+
+def _validate_video_file(video_path, timeout=10):
+    
+    try:
+        
+        cmd = ['ffprobe', '-v', 'quiet', '-show_entries', 'format=duration', '-of', 'csv=p=0', str(video_path)]
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
+        
+        if result.returncode == 0 and result.stdout.strip():
+            duration = float(result.stdout.strip())
+            return duration > 0
+        else:
+            print(f"FFprobe validation failed for {video_path}: {result.stderr}")
+            return False
+    except (subprocess.TimeoutExpired, ValueError, FileNotFoundError) as e:
+        print(f"Video validation error for {video_path}: {e}")
+        return False
 
 def add_combined_overlays(input_video, agent_name, agency_name, agent_phone=None, qr_image_path=None, qr_position='top_right', output_path=None):
 
@@ -10,6 +26,11 @@ def add_combined_overlays(input_video, agent_name, agency_name, agent_phone=None
     
     if not os.path.exists(input_video):
         print(f"Video not found for combined overlays: {input_video}")
+        return False
+    
+    
+    if not _validate_video_file(input_video):
+        print(f"Video file is corrupted or incomplete: {input_video}")
         return False
     
     if not agent_name or not agency_name:
@@ -331,6 +352,11 @@ def add_agent_property_overlays(input_video, agent_name, agent_phone=None, logo_
     
     if not os.path.exists(input_video):
         print(f"Video not found for property overlays: {input_video}")
+        return False
+    
+    
+    if not _validate_video_file(input_video):
+        print(f"Video file is corrupted or incomplete: {input_video}")
         return False
 
     replace_in_place = output_path is None
