@@ -1,9 +1,53 @@
 import os
 import subprocess
+import threading
 from video_utils import get_quality_settings
+
+
+_active_ffmpeg_processes = 0
+_ffmpeg_lock = threading.Lock()
+
+def _get_concurrent_resource_settings():
+    
+    with _ffmpeg_lock:
+        global _active_ffmpeg_processes
+        _active_ffmpeg_processes += 1
+        active_count = _active_ffmpeg_processes
+    
+    
+    if active_count >= 3:
+        
+        return {
+            'threads': '1',
+            'preset': 'ultrafast',
+            'timeout_multiplier': 2.0
+        }
+    elif active_count == 2:
+        
+        return {
+            'threads': '1', 
+            'preset': 'veryfast',
+            'timeout_multiplier': 1.5
+        }
+    else:
+        
+        return {
+            'threads': '2',
+            'preset': 'veryfast', 
+            'timeout_multiplier': 1.0
+        }
+
+def _release_ffmpeg_process():
+    
+    with _ffmpeg_lock:
+        global _active_ffmpeg_processes
+        _active_ffmpeg_processes = max(0, _active_ffmpeg_processes - 1)
 
 def extract_clip_simple(video_path, video_info, start, end, output, room_type=None):
     try:
+        
+        resource_settings = _get_concurrent_resource_settings()
+        
         width = video_info.get('width', 1920)
         height = video_info.get('height', 1080)
         fps = video_info.get('fps', 30)
@@ -33,7 +77,7 @@ def extract_clip_simple(video_path, video_info, start, end, output, room_type=No
             '-ss', str(start), '-t', str(end - start),
             '-c:v', 'libx264',
             '-an',  
-            '-preset', 'veryfast',
+            '-preset', resource_settings['preset'],
             '-crf', '23',
             '-r', str(fps),  
             '-g', str(fps),  
@@ -42,25 +86,31 @@ def extract_clip_simple(video_path, video_info, start, end, output, room_type=No
             '-maxrate', '5M',
             '-bufsize', '5M',   
             '-avoid_negative_ts', 'make_zero',
-            '-threads', '2',
+            '-threads', resource_settings['threads'],
             '-tune', 'fastdecode',  
             '-x264-params', 'ref=2:subme=2:me=hex:trellis=0'  
         ] + filter_arg + ['-y', output]
         
-        print(f"Memory-optimized clip: {start:.1f}s-{end:.1f}s → {output}")
-        result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
+        
+        timeout_duration = int(30 * resource_settings['timeout_multiplier'])
+        print(f"Concurrent clip extraction: {start:.1f}s-{end:.1f}s → {output} ({resource_settings['threads']} threads, {timeout_duration}s timeout)")
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout_duration)
         
         if result.returncode == 0:
+            _release_ffmpeg_process()
             return True
         else:
             print(f"Normal clip failed: {result.stderr[-500:]}")
+            _release_ffmpeg_process()
             return False
             
     except subprocess.TimeoutExpired:
-        print(f"Normal clip timeout: {output}")
+        print(f"Normal clip timeout (concurrent load): {output}")
+        _release_ffmpeg_process()
         return False
     except Exception as e:
         print(f"Normal clip error: {e}")
+        _release_ffmpeg_process()
         return False
 
 def extract_clip_hq(video_path, video_info, start, end, output, speed_factor=1.0, quality_settings=None, silent_mode=True, room_type=None):
@@ -205,16 +255,22 @@ def extract_speedup_clip_fast(video_path, video_info, start, end, output, speed_
 
 def combine_clips(clips, output, silent_mode=True, project_temp_dir=None):
     try:
+        
+        resource_settings = _get_concurrent_resource_settings()
+        
         for clip in clips:
             if not os.path.exists(clip):
                 print(f"Missing clip: {clip}")
+                _release_ffmpeg_process()
                 return False
         
         
         temp_dir = project_temp_dir or 'temp'
         os.makedirs(temp_dir, exist_ok=True)
         
-        concat_file = os.path.join(temp_dir, 'temp_concat.txt')
+        
+        import uuid
+        concat_file = os.path.join(temp_dir, f'temp_concat_{uuid.uuid4().hex[:8]}.txt')
         with open(concat_file, 'w') as f:
             for clip in clips:
                 f.write(f"file '{os.path.abspath(clip)}'\n")
@@ -224,13 +280,14 @@ def combine_clips(clips, output, silent_mode=True, project_temp_dir=None):
             'ffmpeg', '-f', 'concat', '-safe', '0', 
             '-i', concat_file,
             '-c:v', 'libx264',
-            '-preset', 'veryfast',
+            '-preset', resource_settings['preset'],
             '-crf', '23',
             '-r', '30',  
             '-g', '30',  
             '-keyint_min', '30',  
             '-sc_threshold', '0',  
             '-movflags', '+faststart',
+            '-threads', resource_settings['threads'],
             '-y', output
         ]
         
@@ -241,30 +298,43 @@ def combine_clips(clips, output, silent_mode=True, project_temp_dir=None):
             cmd.extend(['-c:a', 'aac']) 
             print(f"Combining {len(clips)} clips → {output}")
         
-        result = subprocess.run(cmd, capture_output=True, text=True, timeout=60)  
+        
+        base_timeout = 90 if len(clips) > 3 else 60
+        timeout_duration = int(base_timeout * resource_settings['timeout_multiplier'])
+        
+        print(f"Concurrent processing: {resource_settings['threads']} threads, {resource_settings['preset']} preset, {timeout_duration}s timeout")
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout_duration)  
         
         if os.path.exists(concat_file):
             os.unlink(concat_file)
         
         if result.returncode == 0:
             print(f"Tour created: {output}")
+            _release_ffmpeg_process()
             return True
         else:
             print(f"FFmpeg combine error: {result.stderr}")
+            _release_ffmpeg_process()
             return False
         
     except subprocess.TimeoutExpired:
-        print(f"FFmpeg timeout during combine")
+        print(f"FFmpeg timeout during combine (concurrent load)")
+        _release_ffmpeg_process()
         return False
     except Exception as e:
         print(f"Combine error: {e}")
+        _release_ffmpeg_process()
     
     return False
 
 def combine_clips_hq(clips, output, quality_settings, project_temp_dir=None):
     try:
+        
+        resource_settings = _get_concurrent_resource_settings()
+        
         if not clips:
             print("No clips to combine")
+            _release_ffmpeg_process()
             return False
         
         valid_clips = []
@@ -276,24 +346,29 @@ def combine_clips_hq(clips, output, quality_settings, project_temp_dir=None):
         
         if not valid_clips:
             print("No valid clips to combine")
+            _release_ffmpeg_process()
             return False
         
         
         temp_dir = project_temp_dir or 'temp'
         os.makedirs(temp_dir, exist_ok=True)
         
-        concat_file = os.path.join(temp_dir, 'temp_concat_hq.txt')
+        
+        import uuid
+        concat_file = os.path.join(temp_dir, f'temp_concat_hq_{uuid.uuid4().hex[:8]}.txt')
         with open(concat_file, 'w', encoding='utf-8') as f:
             for clip in valid_clips:
                 f.write(f"file '{os.path.abspath(clip).replace(os.sep, '/')}'\n")
         
+        
+        concurrent_preset = resource_settings['preset'] if resource_settings['preset'] != 'ultrafast' else 'veryfast'
         cmd = [
             'ffmpeg', '-f', 'concat', '-safe', '0',
             '-i', concat_file,
             '-c:v', 'libx264',
-            '-preset', quality_settings['preset'],
+            '-preset', concurrent_preset,
             '-crf', '23',
-            '-threads', quality_settings.get('threads', '2'),  
+            '-threads', resource_settings['threads'],  
             '-movflags', '+faststart',
             '-avoid_negative_ts', 'make_zero',
             '-an',  
@@ -310,9 +385,14 @@ def combine_clips_hq(clips, output, quality_settings, project_temp_dir=None):
             cmd.extend(['-maxrate', quality_settings['maxrate']])
             cmd.extend(['-bufsize', quality_settings['bufsize']])
         
-        print(f"Memory-optimized HQ combining {len(valid_clips)} clips with {quality_settings['preset']} preset (bufsize: {quality_settings['bufsize']})...")
         
-        result = subprocess.run(cmd, capture_output=True, text=True, timeout=quality_settings['timeout'])
+        base_timeout = quality_settings['timeout']
+        timeout_duration = int(base_timeout * resource_settings['timeout_multiplier'])
+        
+        print(f"Concurrent HQ processing: {resource_settings['threads']} threads, {concurrent_preset} preset, {timeout_duration}s timeout")
+        print(f"Memory-optimized HQ combining {len(valid_clips)} clips with {concurrent_preset} preset (bufsize: {quality_settings['bufsize']})...")
+        
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout_duration)
         
         if os.path.exists(concat_file):
             os.remove(concat_file)
@@ -320,16 +400,20 @@ def combine_clips_hq(clips, output, quality_settings, project_temp_dir=None):
         if result.returncode == 0:
             file_size = os.path.getsize(output) / (1024 * 1024)
             print(f"Memory-optimized HQ tour created: {output} ({file_size:.1f}MB)")
+            _release_ffmpeg_process()
             return True
         else:
             print(f"HQ combine failed: {result.stderr[-500:]}")
+            _release_ffmpeg_process()
             return False
 
     except subprocess.TimeoutExpired:
-        print(f"HQ combine timeout")
+        print(f"HQ combine timeout (concurrent load)")
+        _release_ffmpeg_process()
         return False
     except Exception as e:
         print(f"HQ combine error: {e}")
+        _release_ffmpeg_process()
         return False
 
  
