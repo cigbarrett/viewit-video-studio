@@ -345,15 +345,12 @@ def add_music_overlay(input_video, music_path, volume=0.3, output_path=None):
  
 
 def add_agent_property_overlays(input_video, agent_name, agent_phone=None, logo_path=None, beds=None, baths=None, sqft=None, price=None, qr_image_path=None, output_path=None):
-
-
     input_video = str(input_video)
     print(f"Property overlay params: beds={beds}, baths={baths}, sqft={sqft}, logo_path={logo_path}")
     
     if not os.path.exists(input_video):
         print(f"Video not found for property overlays: {input_video}")
         return False
-    
     
     if not _validate_video_file(input_video):
         print(f"Video file is corrupted or incomplete: {input_video}")
@@ -364,11 +361,30 @@ def add_agent_property_overlays(input_video, agent_name, agent_phone=None, logo_
         base, ext = os.path.splitext(input_video)
         output_path = f"{base}_prop{ext}"
 
+    
+    has_overlays = any([
+        agent_name, agent_phone, beds, baths, sqft, 
+        (logo_path and os.path.exists(logo_path)),
+        (qr_image_path and os.path.exists(qr_image_path))
+    ])
+    
+    if not has_overlays:
+        print('No overlays provided; leaving video unchanged')
+        if replace_in_place:
+            return True
+        else:
+            
+            import shutil
+            shutil.copy2(input_video, output_path)
+            return True
+
+    
     inputs = ['-i', input_video]
     filter_parts = []
     chain_tag = '0:v'
     idx = 1
 
+    
     if logo_path and os.path.exists(logo_path):
         inputs += ['-i', logo_path]
         filter_parts.append(f'[{idx}:v]scale=400:-1,format=rgba,colorchannelmixer=aa=0.3[logo]')
@@ -376,9 +392,8 @@ def add_agent_property_overlays(input_video, agent_name, agent_phone=None, logo_
         chain_tag = f'o{idx}'
         idx += 1
 
+    
     bed_icon_path = 'static/bed.PNG'
-    bath_icon_path = 'static/bath.PNG'
-
     if beds and os.path.exists(bed_icon_path):
         print(f"Adding bed icon: {bed_icon_path}")
         inputs += ['-i', bed_icon_path]
@@ -387,6 +402,8 @@ def add_agent_property_overlays(input_video, agent_name, agent_phone=None, logo_
         chain_tag = f'o{idx}'
         idx += 1
 
+    
+    bath_icon_path = 'static/bath.PNG'
     if baths and os.path.exists(bath_icon_path):
         print(f"Adding bath icon: {bath_icon_path}")
         inputs += ['-i', bath_icon_path]
@@ -395,6 +412,7 @@ def add_agent_property_overlays(input_video, agent_name, agent_phone=None, logo_
         chain_tag = f'o{idx}'
         idx += 1
 
+    
     if qr_image_path and os.path.exists(qr_image_path):
         try:
             qr_size = os.path.getsize(qr_image_path)
@@ -425,6 +443,7 @@ def add_agent_property_overlays(input_video, agent_name, agent_phone=None, logo_
         text = text.replace(',', '\\,')    
         return text
     
+    
     text_overlays = []
     if agent_name:
         safe_agent = escape_text(agent_name)
@@ -447,13 +466,7 @@ def add_agent_property_overlays(input_video, agent_name, agent_phone=None, logo_
         text_overlays.append(
             f"drawtext=text='{safe_sqft}':fontfile=Inter:fontsize=56:fontcolor=black:x=3*W/4-tw/2:y=H-200")
 
-    no_icons_or_qr = len(filter_parts) == 0
-    no_text = len(text_overlays) == 0
-    if no_icons_or_qr and no_text:
-        print('No overlays provided; leaving video unchanged')
-        return True
-
-    final_map = None
+    
     if text_overlays:
         draw_chain = ','.join(text_overlays)
         filter_parts.append(f'[{chain_tag}]{draw_chain}[outv]')
@@ -463,22 +476,28 @@ def add_agent_property_overlays(input_video, agent_name, agent_phone=None, logo_
 
     filter_complex = ';'.join(filter_parts)
 
+    
     cmd = ['ffmpeg'] + inputs + [
         '-filter_complex', filter_complex,
         '-map', final_map,
         '-map', '0:a?',
         '-c:v', 'libx264',
-        '-preset', 'veryfast',
-        '-crf', '23',
+        '-preset', 'veryfast',  
+        '-crf', '20',  
+        '-threads', '2',
+        '-tune', 'fastdecode',
+        '-x264-params', 'ref=1:subme=1:me=hex:trellis=0',  
+        '-maxrate', '15M',  
+        '-bufsize', '15M',
         '-c:a', 'copy',
         '-movflags', '+faststart',
         '-y', output_path
     ]
 
-    print('Running agent/property overlay:')
+    print('Running optimized agent/property overlay:')
     print(' '.join(cmd))
     try:
-        result = subprocess.run(cmd, capture_output=True, text=True, timeout=600)
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
         if result.returncode != 0:
             print('Overlay failed:', result.stderr[-300:])
             return False

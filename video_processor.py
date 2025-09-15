@@ -56,7 +56,7 @@ def extract_clip_simple(video_path, video_info, start, end, output, room_type=No
 
         filters.append("scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920")
         if width > 1080 or height > 1920:
-            print(f"Resizing from {width}x{height} to 1080x1920 for standardised output")
+            print(f"Resizing from {width}x{height} to 1080x1920 for 1080p output")
 
         if room_type:
             display_text = room_type.replace('_', ' ').upper()
@@ -192,7 +192,7 @@ def extract_speedup_clip_fast(video_path, video_info, start, end, output, speed_
         
         filters.append("scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920")
         if width > 1080 or height > 1920:
-            print(f"Resizing from {width}x{height} to 1080x1920 for standardised output")
+            print(f"Resizing from {width}x{height} to 1080x1920 for 1080p output")
         
         if room_type:
             display_text = room_type.replace('_', ' ').upper()
@@ -255,8 +255,8 @@ def extract_speedup_clip_fast(video_path, video_info, start, end, output, speed_
 
 def combine_clips(clips, output, silent_mode=True, project_temp_dir=None):
     try:
-        
         resource_settings = _get_concurrent_resource_settings()
+        
         
         for clip in clips:
             if not os.path.exists(clip):
@@ -268,54 +268,64 @@ def combine_clips(clips, output, silent_mode=True, project_temp_dir=None):
         temp_dir = project_temp_dir or 'temp'
         os.makedirs(temp_dir, exist_ok=True)
         
-        
         import uuid
         concat_file = os.path.join(temp_dir, f'temp_concat_{uuid.uuid4().hex[:8]}.txt')
-        with open(concat_file, 'w') as f:
-            for clip in clips:
-                f.write(f"file '{os.path.abspath(clip)}'\n")
         
-        
-        cmd = [
-            'ffmpeg', '-f', 'concat', '-safe', '0', 
-            '-i', concat_file,
-            '-c:v', 'libx264',
-            '-preset', resource_settings['preset'],
-            '-crf', '23',
-            '-r', '30',  
-            '-g', '30',  
-            '-keyint_min', '30',  
-            '-sc_threshold', '0',  
-            '-movflags', '+faststart',
-            '-threads', resource_settings['threads'],
-            '-y', output
-        ]
-        
-        if silent_mode:
-            cmd.extend(['-an'])
-            print(f"Combining {len(clips)} clips into silent video → {output}")
-        else:
-            cmd.extend(['-c:a', 'aac']) 
-            print(f"Combining {len(clips)} clips → {output}")
-        
-        
-        base_timeout = 90 if len(clips) > 3 else 60
-        timeout_duration = int(base_timeout * resource_settings['timeout_multiplier'])
-        
-        print(f"Concurrent processing: {resource_settings['threads']} threads, {resource_settings['preset']} preset, {timeout_duration}s timeout")
-        result = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout_duration)  
-        
-        if os.path.exists(concat_file):
-            os.unlink(concat_file)
-        
-        if result.returncode == 0:
-            print(f"Tour created: {output}")
-            _release_ffmpeg_process()
-            return True
-        else:
-            print(f"FFmpeg combine error: {result.stderr}")
-            _release_ffmpeg_process()
-            return False
+        try:
+            with open(concat_file, 'w') as f:
+                for clip in clips:
+                    f.write(f"file '{os.path.abspath(clip)}'\n")
+            
+            
+            cmd = [
+                'ffmpeg', '-f', 'concat', '-safe', '0', 
+                '-i', concat_file,
+                '-c:v', 'libx264',
+                '-preset', 'veryfast',  # Fastest preset
+                '-crf', '20',  # Good quality but faster
+                '-r', '30',  
+                '-g', '30',  
+                '-keyint_min', '30',  
+                '-sc_threshold', '0',  
+                '-movflags', '+faststart',
+                '-threads', resource_settings['threads'],
+                '-tune', 'fastdecode',
+                '-x264-params', 'ref=1:subme=1:me=hex:trellis=0',  # Faster encoding
+                '-maxrate', '15M',  # Lower bitrate for speed
+                '-bufsize', '15M',
+                '-y', output
+            ]
+            
+            if silent_mode:
+                cmd.extend(['-an'])
+                print(f"Combining {len(clips)} clips into silent video → {output}")
+            else:
+                cmd.extend(['-c:a', 'aac']) 
+                print(f"Combining {len(clips)} clips → {output}")
+            
+            
+            base_timeout = 90 if len(clips) > 3 else 60
+            timeout_duration = int(base_timeout * resource_settings['timeout_multiplier'])
+            
+            print(f"Optimized concurrent processing: {resource_settings['threads']} threads, {resource_settings['preset']} preset, {timeout_duration}s timeout")
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout_duration)  
+            
+            if result.returncode == 0:
+                print(f"Tour created: {output}")
+                _release_ffmpeg_process()
+                return True
+            else:
+                print(f"FFmpeg combine error: {result.stderr}")
+                _release_ffmpeg_process()
+                return False
+                
+        finally:
+            
+            if os.path.exists(concat_file):
+                try:
+                    os.unlink(concat_file)
+                except OSError as e:
+                    print(f"Warning: Could not remove concat file: {e}")
         
     except subprocess.TimeoutExpired:
         print(f"FFmpeg timeout during combine (concurrent load)")
@@ -331,8 +341,7 @@ def combine_clips(clips, output, silent_mode=True, project_temp_dir=None):
     except Exception as e:
         print(f"Combine error: {e}")
         _release_ffmpeg_process()
-    
-    return False
+        return False
 
 def combine_clips_hq(clips, output, quality_settings, project_temp_dir=None):
     try:
