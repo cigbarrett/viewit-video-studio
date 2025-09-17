@@ -134,7 +134,6 @@ def add_agent_property_overlays(input_video, agent_name, agent_phone=None, logo_
     
     inputs = ['-i', input_video]
     filter_parts = []
-    80:80
     filter_parts.append('[0:v]scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920[scaled]')
     chain_tag = 'scaled'
     idx = 1
