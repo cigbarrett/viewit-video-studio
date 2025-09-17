@@ -60,11 +60,10 @@ def extract_clip_simple(video_path, video_info, start, end, output, room_type=No
 
         if room_type:
             display_text = room_type.replace('_', ' ').upper()
-            fontsize = max(width // 25, 90)
             text_overlay = (
-                f"drawtext=text='{display_text}':fontfile=Inter:"
-                f"fontsize={fontsize * 1.5}:fontcolor=black:"
-                f"x=(w-text_w)/2:y=h-text_h-275"
+                f"drawtext=text='{display_text}':fontfile=fonts/Poppins.ttf:"
+                f"fontsize=120:fontcolor=white:shadowcolor=black@0.8:shadowx=4:shadowy=4:"
+                f"x=(w-text_w)/2:y=h-text_h-150"
             )
             filters.append(text_overlay)
 
@@ -148,11 +147,10 @@ def extract_clip_hq(video_path, video_info, start, end, output, speed_factor=1.0
         
         if room_type:
             display_text = room_type.replace('_', ' ').upper()
-            fontsize = max(width // 25, 48)
             text_filter = (
-                f"drawtext=text='{display_text}':fontfile=Inter:"
-                f"fontsize={fontsize * 1.5}:fontcolor=black:"
-                f"x=(w-text_w)/2:y=h-text_h-275"
+                f"drawtext=text='{display_text}':fontfile=fonts/Poppins.ttf:"
+                f"fontsize=120:fontcolor=white:shadowcolor=black@0.8:shadowx=4:shadowy=4:"
+                f"x=(w-text_w)/2:y=h-text_h-150"
             )
             cmd.extend(['-vf', text_filter])
         
@@ -198,8 +196,8 @@ def extract_speedup_clip_fast(video_path, video_info, start, end, output, speed_
             display_text = room_type.replace('_', ' ').upper()
             fontsize = max(36, width // 40)  
             text_overlay = (
-                f"drawtext=text='{display_text}':fontfile=Inter:"
-                f"fontsize={fontsize * 1.5}:fontcolor=black:"
+                f"drawtext=text='{display_text}':fontfile=fonts/Poppins.ttf:"
+                f"fontsize={fontsize * 1.5}:fontcolor=white:shadowcolor=black@0.8:shadowx=4:shadowy=4:"
                 f"x=(w-text_w)/2:y=h-text_h-275"
             )
             filters.append(text_overlay)
@@ -281,8 +279,8 @@ def combine_clips(clips, output, silent_mode=True, project_temp_dir=None):
                 'ffmpeg', '-f', 'concat', '-safe', '0', 
                 '-i', concat_file,
                 '-c:v', 'libx264',
-                '-preset', 'veryfast',  # Fastest preset
-                '-crf', '20',  # Good quality but faster
+                '-preset', 'veryfast',  
+                '-crf', '20',  
                 '-r', '30',  
                 '-g', '30',  
                 '-keyint_min', '30',  
@@ -290,8 +288,8 @@ def combine_clips(clips, output, silent_mode=True, project_temp_dir=None):
                 '-movflags', '+faststart',
                 '-threads', resource_settings['threads'],
                 '-tune', 'fastdecode',
-                '-x264-params', 'ref=1:subme=1:me=hex:trellis=0',  # Faster encoding
-                '-maxrate', '15M',  # Lower bitrate for speed
+                '-x264-params', 'ref=1:subme=1:me=hex:trellis=0',  
+                '-maxrate', '15M',  
                 '-bufsize', '15M',
                 '-y', output
             ]

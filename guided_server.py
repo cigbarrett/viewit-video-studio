@@ -14,7 +14,7 @@ import requests
 import json
 import time
 import threading
-from post_processor import add_combined_overlays, add_agent_property_overlays
+from post_processor import add_agent_property_overlays
 from scene_detection import detect_room_transitions_realtime, detect_scene_label, get_room_display_name
 
 load_dotenv() 
@@ -316,6 +316,81 @@ def verify_listing():
         print(f"DLD verification failed: {exc}")
         return jsonify({'success': False, 'error': str(exc)}), 400
 
+def _curate_background_music(tracks, target_count):
+
+    if not tracks:
+        return tracks
+    
+    
+    positive_keywords = [
+        'lofi', 'chill', 'ambient', 'instrumental', 'beats', 'hip-hop', 'jazz',
+        'piano', 'guitar', 'smooth', 'relaxing', 'study', 'background', 'calm',
+        'peaceful', 'soft', 'gentle', 'mellow', 'dreamy', 'atmospheric'
+    ]
+    
+    
+    negative_keywords = [
+        'vocals', 'singing', 'voice', 'lyrics', 'acapella', 'rap', 'metal',
+        'rock', 'loud', 'aggressive', 'heavy', 'distorted', 'screaming'
+    ]
+    
+    scored_tracks = []
+    
+    for track in tracks:
+        score = 0
+        tags = [tag.lower() for tag in track.get('tags', [])]
+        name = track.get('name', '').lower()
+        description = track.get('description', '').lower()
+        
+        
+        for keyword in positive_keywords:
+            if keyword in name or keyword in description:
+                score += 2
+            if keyword in tags:
+                score += 3
+        
+        
+        for keyword in negative_keywords:
+            if keyword in name or keyword in description:
+                score -= 3
+            if keyword in tags:
+                score -= 4
+        
+        
+        lofi_terms = ['lofi', 'lo-fi', 'chill hop', 'chillhop']
+        for term in lofi_terms:
+            if term in name or term in description or term in tags:
+                score += 5
+        
+        
+        duration = track.get('duration', 0)
+        if 30 <= duration <= 180:
+            score += 2
+        elif 180 < duration <= 300:
+            score += 1
+        
+        
+        if track.get('preview_mp3') or track.get('preview_ogg'):
+            score += 1
+        else:
+            score -= 2  
+        
+        scored_tracks.append((score, track))
+    
+    
+    scored_tracks.sort(key=lambda x: x[0], reverse=True)
+    
+    
+    curated_tracks = [track for score, track in scored_tracks[:target_count]]
+    
+    
+    if len(curated_tracks) < target_count and len(scored_tracks) > len(curated_tracks):
+        remaining_tracks = [track for score, track in scored_tracks[len(curated_tracks):]]
+        curated_tracks.extend(remaining_tracks[:target_count - len(curated_tracks)])
+    
+    print(f"Curated {len(curated_tracks)} tracks from {len(tracks)} total results")
+    return curated_tracks
+
 @app.route('/search_music', methods=['POST'])
 def search_music():
     data = request.json or {}
@@ -327,11 +402,31 @@ def search_music():
         return jsonify({'error': 'Freesound API key not configured'}), 500
     
     try:
+        
+        lofi_terms = [
+            'lofi hip hop', 'lofi beats', 'chill beats', 'ambient lofi', 'study music',
+            'lofi jazz', 'chill hop', 'lofi piano', 'relaxing beats', 'lofi guitar',
+            'chill lofi', 'lofi ambient', 'smooth beats', 'lofi instrumental', 'chill music'
+        ]
+        
+        
+        enhanced_filter = (
+            'duration:[30.0 TO 300.0] AND '
+            'tag:music AND '
+            '(tag:lofi OR tag:chill OR tag:ambient OR tag:instrumental OR tag:beats OR tag:hip-hop OR tag:jazz) AND '
+            'NOT (tag:vocals OR tag:singing OR tag:voice OR tag:lyrics OR tag:acapella)'
+        )
+        
+        
+        if query.lower() in ['background music', 'music', 'bg music', 'background']:
+            import random
+            query = random.choice(lofi_terms)
+        
         params = {
             'query': query,
             'token': api_key,
             'page_size': page_size,
-            'filter': 'duration:[30.0 TO 300.0] AND tag:music', 
+            'filter': enhanced_filter, 
             'fields': 'id,name,description,tags,duration,previews,username,license',
             'sort': 'score' 
         }
@@ -358,6 +453,9 @@ def search_music():
                 'preview_ogg': result.get('previews', {}).get('preview-hq-ogg', ''),
             }
             music_tracks.append(track)
+        
+        
+        music_tracks = _curate_background_music(music_tracks, page_size)
         
         return jsonify({
             'success': True,

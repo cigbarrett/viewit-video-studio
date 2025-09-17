@@ -1723,8 +1723,14 @@
             loadingEl.style.display = 'block';
             tracksEl.innerHTML = '';
             
-            const vlogTerms = ['upbeat', 'background music', 'vlog', 'ambient', 'chill', 'cinematic', 'happy'];
-            const randomTerm = vlogTerms[Math.floor(Math.random() * vlogTerms.length)];
+            // Curated lo-fi terms for social media background music
+            const lofiTerms = [
+                'lofi hip hop', 'lofi beats', 'chill beats', 'ambient lofi', 'study music',
+                'lofi jazz', 'chill hop', 'lofi piano', 'relaxing beats', 'lofi guitar',
+                'chill lofi', 'lofi ambient', 'smooth beats', 'lofi instrumental', 'chill music',
+                'lofi study', 'peaceful beats', 'calm music', 'dreamy lofi', 'atmospheric beats'
+            ];
+            const randomTerm = lofiTerms[Math.floor(Math.random() * lofiTerms.length)];
             
             try {
                 const response = await fetch('/search_music', {
