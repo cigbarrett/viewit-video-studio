@@ -3,7 +3,7 @@ import tempfile
 import subprocess
 from pathlib import Path
 from video_utils import get_quality_settings
-from video_processor import extract_clip_simple, extract_clip_hq, combine_clips, combine_clips_hq
+from video_processor import extract_clip_simple, extract_clip_hq, combine_clips, combine_clips_hq, extract_clips_parallel
 
 def number_duplicate_segments(segments):
 
@@ -33,33 +33,40 @@ def create_tour_simple(user_segments, video_path, video_info, output_path="guide
         print("No segments selected!")
         return False
 
-    print(f"Creating SIMPLE segments-only tour from {len(user_segments)} segments...")
+    print(f"Creating OPTIMIZED SIMPLE tour from {len(user_segments)} segments...")
     
     display_names = number_duplicate_segments(user_segments)
     
     sorted_segments = sorted(user_segments, key=lambda x: x['start_time'])
     
     
+    for i, segment in enumerate(sorted_segments):
+        segment['display_name'] = display_names.get(i, segment.get('label'))
+    
     temp_dir = project_temp_dir or 'temp'
     os.makedirs(temp_dir, exist_ok=True)
     
-    temp_clips = []
-    for i, segment in enumerate(sorted_segments):
-        clip_path = os.path.join(temp_dir, f"simple_clip_{i}.mp4")
+    
+    if len(sorted_segments) > 1:
+        print("Using parallel clip extraction for better performance...")
+        temp_clips = extract_clips_parallel(video_path, video_info, sorted_segments, temp_dir, max_workers=2)
+    else:
         
-        display_name = display_names.get(i, segment.get('label'))
-        
-        success = extract_clip_simple(
-            video_path, video_info, segment['start_time'], segment['end_time'], 
-            clip_path, room_type=display_name
-        )
-        
-        if success:
-            temp_clips.append(clip_path)
-            print(f"Simple Clip {i+1}: {segment['start_time']:.1f}s-{segment['end_time']:.1f}s ({segment.get('label', 'room')})")
-        else:
-            print(f"Failed to extract simple clip {i+1}")
-            return False
+        temp_clips = []
+        for i, segment in enumerate(sorted_segments):
+            clip_path = os.path.join(temp_dir, f"simple_clip_{i}.mp4")
+            
+            success = extract_clip_simple(
+                video_path, video_info, segment['start_time'], segment['end_time'], 
+                clip_path, room_type=segment['display_name']
+            )
+            
+            if success:
+                temp_clips.append(clip_path)
+                print(f"Simple Clip {i+1}: {segment['start_time']:.1f}s-{segment['end_time']:.1f}s ({segment.get('label', 'room')})")
+            else:
+                print(f"Failed to extract simple clip {i+1}")
+                return False
     
     if temp_clips:
         success = combine_clips(temp_clips, output_path, silent_mode=True)
@@ -67,12 +74,13 @@ def create_tour_simple(user_segments, video_path, video_info, output_path="guide
         print("No clips to combine")
         success = False
     
+    
     for clip in temp_clips:
         if os.path.exists(clip):
             os.unlink(clip)
     
     if success:
-        print(f"SIMPLE segments-only tour created: {output_path}")
+        print(f"OPTIMIZED SIMPLE tour created: {output_path}")
     
     return success
 

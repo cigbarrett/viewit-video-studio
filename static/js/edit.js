@@ -110,6 +110,9 @@
             loadFilterPresets();
             initializeFilters(); // Initialize filters with proper defaults
             
+            // Initialize speed settings visibility based on current export mode
+            initializeSpeedSettingsVisibility();
+            
             updateExportButtonState();
             
             // Setup automatic session saving
@@ -542,6 +545,9 @@
                         exportModeRadio.dispatchEvent(new Event('change'));
                     }
                 }
+                
+                // Ensure speed settings visibility is correct after session restoration
+                initializeSpeedSettingsVisibility();
 
                 // Restore speed factor
                 if (sessionData.speedFactor && document.getElementById('speedSlider')) {
@@ -871,6 +877,19 @@
             updateTimeDisplay();
             
             updatePlayheadThrottled();
+        }
+
+        function initializeSpeedSettingsVisibility() {
+            const speedSettings = document.getElementById('speedSettings');
+            const walkthroughRadio = document.querySelector('input[name="exportMode"][value="speedup"]');
+            
+            if (speedSettings && walkthroughRadio) {
+                if (walkthroughRadio.checked) {
+                    speedSettings.style.display = 'block';
+                } else {
+                    speedSettings.style.display = 'none';
+                }
+            }
         }
 
         function handleExportModeChange(e) {

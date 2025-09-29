@@ -2,6 +2,7 @@ import os
 import subprocess
 import threading
 from video_utils import get_quality_settings
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 
 _active_ffmpeg_processes = 0
@@ -15,6 +16,10 @@ def _get_concurrent_resource_settings():
         active_count = _active_ffmpeg_processes
     
     
+    
+    import os
+    cpu_count = os.cpu_count() or 2
+    
     if active_count >= 3:
         
         return {
@@ -25,15 +30,15 @@ def _get_concurrent_resource_settings():
     elif active_count == 2:
         
         return {
-            'threads': '1', 
+            'threads': str(min(2, cpu_count // 2)), 
             'preset': 'veryfast',
-            'timeout_multiplier': 1.5
+            'timeout_multiplier': 1.3
         }
     else:
         
         return {
-            'threads': '2',
-            'preset': 'veryfast', 
+            'threads': str(min(3, cpu_count)),
+            'preset': 'fast', 
             'timeout_multiplier': 1.0
         }
 
@@ -42,6 +47,63 @@ def _release_ffmpeg_process():
     with _ffmpeg_lock:
         global _active_ffmpeg_processes
         _active_ffmpeg_processes = max(0, _active_ffmpeg_processes - 1)
+
+def extract_clips_parallel(video_path, video_info, segments, output_dir, max_workers=2):
+    """Extract multiple clips in parallel for better performance"""
+    if not segments:
+        return []
+    
+    os.makedirs(output_dir, exist_ok=True)
+    
+    def extract_single_clip(segment_data):
+        i, segment = segment_data
+        clip_path = os.path.join(output_dir, f"parallel_clip_{i}.mp4")
+        
+        start = segment['start_time']
+        end = segment['end_time']
+        room_type = segment.get('label', 'unlabeled')
+        
+        success = extract_clip_simple(video_path, video_info, start, end, clip_path, room_type)
+        
+        if success:
+            return clip_path
+        else:
+            print(f"Failed to extract parallel clip {i+1}")
+            return None
+    
+    print(f"Extracting {len(segments)} clips in parallel (max {max_workers} workers)...")
+    
+    
+    import os
+    cpu_count = os.cpu_count() or 2
+    max_workers = min(max_workers, cpu_count, len(segments))
+    
+    successful_clips = []
+    
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        
+        future_to_index = {
+            executor.submit(extract_single_clip, (i, segment)): i 
+            for i, segment in enumerate(segments)
+        }
+        
+        
+        for future in as_completed(future_to_index):
+            index = future_to_index[future]
+            try:
+                result = future.result()
+                if result:
+                    successful_clips.append((index, result))
+                    print(f"Parallel clip {index+1} completed: {result}")
+            except Exception as e:
+                print(f"Parallel clip {index+1} failed: {e}")
+    
+    
+    successful_clips.sort(key=lambda x: x[0])
+    clip_paths = [clip_path for _, clip_path in successful_clips]
+    
+    print(f"Parallel extraction complete: {len(clip_paths)}/{len(segments)} clips successful")
+    return clip_paths
 
 def extract_clip_simple(video_path, video_info, start, end, output, room_type=None):
     try:
