@@ -364,7 +364,7 @@ def combine_clips(clips, output, silent_mode=True, project_temp_dir=None):
                 print(f"Combining {len(clips)} clips → {output}")
             
             
-            base_timeout = 90 if len(clips) > 3 else 60
+            base_timeout = 180 if len(clips) > 3 else 120
             timeout_duration = int(base_timeout * resource_settings['timeout_multiplier'])
             
             print(f"Optimized concurrent processing: {resource_settings['threads']} threads, {resource_settings['preset']} preset, {timeout_duration}s timeout")

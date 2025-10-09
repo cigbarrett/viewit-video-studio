@@ -225,7 +225,7 @@ def create_speedup_tour_simple(user_segments, video_path, video_info, output_pat
         '-y', output_path
     ]
     
-    base_timeout = 60 if len(timeline) > 10 else 30  
+    base_timeout = 120 if len(timeline) > 10 else 90  
     timeout_duration = int(base_timeout * resource_settings['timeout_multiplier'])
     
     print(f"FAST combining {len(timeline)} parts: {resource_settings['threads']} threads, {timeout_duration}s timeout")
