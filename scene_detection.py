@@ -283,9 +283,149 @@ def classify_image_scene(image_path, confidence_threshold=0.7, unfurnished_mode=
         time.sleep(1)
         return None
 
+def classify_multiple_images_batch(frame_data_list, unfurnished_mode=False):
+    """Classify multiple frames in a single API call"""
+    client = get_openai_client()
+    if client is None:
+        print("OPENAI_API_KEY not found – skipping scene classification")
+        return [None] * len(frame_data_list)
+    
+    try:
+        categories = [
+            "kitchen", "bedroom", "bathroom", "living_room", "closet", 
+            "office", "dining_room", "balcony"
+        ]
+        
+        
+        if unfurnished_mode:
+            system_prompt = (
+                "You are a computer vision assistant that classifies real-estate scenes. "
+                "CRITICAL: This is an UNFURNISHED PROPERTY. Be extremely cautious and conservative in your classification. "
+                "Focus entirely on architectural features, room layout, and intended purpose rather than furniture.\n\n"
+                "UNFURNISHED PROPERTY CLASSIFICATION GUIDELINES:\n"
+                "- BEDROOM: Look for bedroom-specific architectural features like closet spaces, bedroom proportions, "
+                "bedroom windows, bedroom door locations, or bedroom layout. Even without furniture, if the room has "
+                "bedroom characteristics (size, layout, closet), classify as bedroom.\n"
+                "- LIVING ROOM: Look for living room architectural characteristics like larger open spaces, "
+                "living room proportions, main entry areas, or living room layout. DO NOT classify as living room "
+                "just because a bedroom is empty - look for actual living room features.\n"
+                "- BATHROOM: Look for bathroom fixtures, plumbing, bathroom tiles, or bathroom layout.\n"
+                "- KITCHEN: Look for kitchen cabinets, appliances, kitchen layout, or kitchen fixtures.\n"
+                "- CLOSET: Small storage spaces, walk-in closets, or utility closets.\n"
+                "- OFFICE: Study areas, home office layouts, or workspace characteristics.\n"
+                "- DINING ROOM: Dining area layouts, dining room proportions, or dining room features.\n"
+                "- BALCONY: Outdoor spaces, balconies, terraces, or exterior areas.\n\n"
+                "When uncertain, prefer the more conservative classification based on room size and layout."
+            )
+        else:
+            system_prompt = (
+                "You are a computer vision assistant that classifies real-estate scenes. "
+                "IMPORTANT: Be very cautious when classifying unfurnished or partially furnished properties. "
+                "Look for architectural features and room characteristics rather than just furniture.\n\n"
+                "Key classification guidelines:\n"
+                "- BEDROOM: Look for bedroom-specific features like closet spaces, bedroom proportions, "
+                "bedroom windows, or bedroom door locations. Even without a bed, if the room has bedroom "
+                "characteristics (size, layout, closet), classify as bedroom.\n"
+                "- LIVING ROOM: Look for living room characteristics like larger open spaces, "
+                "living room proportions, main entry areas, or living room architectural features. "
+                "Don't classify as living room just because a bedroom is empty.\n"
+                "- BATHROOM: Look for bathroom fixtures, plumbing, bathroom tiles, or bathroom layout.\n"
+                "- KITCHEN: Look for kitchen cabinets, appliances, kitchen layout, or kitchen fixtures.\n"
+                "- CLOSET: Small storage spaces, walk-in closets, or utility closets.\n"
+                "- OFFICE: Study areas, home office layouts, or workspace characteristics.\n"
+                "- DINING ROOM: Dining area layouts, dining room proportions, or dining room features.\n"
+                "- BALCONY: Outdoor spaces, balconies, terraces, or exterior areas.\n\n"
+                "When in doubt about an unfurnished room, consider the room's intended purpose based on "
+                "its size, location, and architectural features rather than current furniture."
+            )
+        
+        
+        content = [{
+            "type": "text",
+            "text": (
+                f"I'm sending you {len(frame_data_list)} frames from a real estate video tour. "
+                "Please analyze each image and classify it into one of these categories: " + 
+                ", ".join(categories) + ".\n\n"
+                "Respond with ONLY a JSON array of classifications, one for each image in order. "
+                "Each element should be exactly one of the category names in lowercase. "
+                f"Example format: {str(['bedroom', 'bedroom', 'kitchen', 'bathroom'][:len(frame_data_list)])}\n\n"
+                "If you cannot confidently classify an image, use 'uncertain' for that position."
+            )
+        }]
+        
+        
+        for frame_info in frame_data_list:
+            content.append({
+                "type": "image_url",
+                "image_url": {
+                    "url": f"data:image/jpeg;base64,{frame_info['base64']}"
+                }
+            })
+        
+        
+        print(f"Making batch API call to classify {len(frame_data_list)} frames...")
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": content}
+            ],
+            max_tokens=200,  
+            temperature=0,
+            timeout=90  
+        )
+        
+        
+        result_text = response.choices[0].message.content.strip()
+        print(f"Batch classification response: {result_text}")
+        
+        
+        import json
+        try:
+            
+            if result_text.startswith('```'):
+                
+                lines = result_text.split('\n')
+                if lines[0].startswith('```'):
+                    lines = lines[1:]  
+                if lines and lines[-1].startswith('```'):
+                    lines = lines[:-1]  
+                result_text = '\n'.join(lines).strip()
+            
+            classifications = json.loads(result_text)
+            if not isinstance(classifications, list):
+                raise ValueError("Response is not a list")
+            
+            
+            validated = []
+            for i, label in enumerate(classifications):
+                if isinstance(label, str):
+                    label = label.strip().lower()
+                    if label in categories or label == 'uncertain':
+                        validated.append(label if label != 'uncertain' else None)
+                    else:
+                        validated.append(None)
+                else:
+                    validated.append(None)
+            
+            
+            while len(validated) < len(frame_data_list):
+                validated.append(None)
+            
+            return validated[:len(frame_data_list)]
+            
+        except (json.JSONDecodeError, ValueError) as e:
+            print(f"Failed to parse batch classification response as JSON: {e}")
+            return [None] * len(frame_data_list)
+        
+    except Exception as exc:
+        print(f"Batch classification failed: {exc}")
+        return [None] * len(frame_data_list)
+
+
 def detect_room_transitions_realtime(video_path, callback_function=None, detection_interval=3.0, unfurnished_mode=False):
 
-    print(f"Starting simple room detection for: {video_path} (unfurnished_mode: {unfurnished_mode})")
+    print(f"Starting batched room detection for: {video_path} (unfurnished_mode: {unfurnished_mode})")
     
     video_info = get_video_info(video_path)
     if not video_info:
@@ -306,11 +446,8 @@ def detect_room_transitions_realtime(video_path, callback_function=None, detecti
     frame_count = 0
     sampled_frames = []
     
-    print("Sampling frames for room detection...")
+    print("Step 1: Extracting frames from video...")
     
-    segments = []
-    current_segment = None
-    frame_count = 0
     
     while True:
         ret, frame = cap.read()
@@ -320,112 +457,154 @@ def detect_room_transitions_realtime(video_path, callback_function=None, detecti
         if frame_count % sample_interval == 0:
             current_time = frame_count / fps
             
-            if int(current_time) % 30 == 0:
-                print(f"AI Detection Progress: {current_time:.1f}s / {duration:.1f}s ({current_time/duration*100:.1f}%)")
             
+            _, buffer = cv2.imencode('.jpg', frame)
+            frame_b64 = base64.b64encode(buffer).decode('utf-8')
             
-            os.makedirs('temp', exist_ok=True)
-            temp_frame_path = os.path.join('temp', f"temp_frame_{frame_count}_{int(time.time()*1000)}.jpg")
-            cv2.imwrite(temp_frame_path, frame)
+            sampled_frames.append({
+                'time': current_time,
+                'base64': frame_b64,
+                'frame_number': frame_count
+            })
             
-            try:
-                time.sleep(0.5)  
+            if len(sampled_frames) % 10 == 0:
+                print(f"Extracted {len(sampled_frames)} frames ({current_time:.1f}s / {duration:.1f}s)")
                 
-                room_label = classify_image_scene(temp_frame_path, unfurnished_mode=unfurnished_mode)
-                
-                if os.path.exists(temp_frame_path):
-                    os.remove(temp_frame_path)
-                
-                if room_label is not None:
-                    print(f"Time: {current_time:.1f}s, Room: {room_label}")
-                    
-                    if current_segment is None:
-                        current_segment = {
-                            'start': current_time,
-                            'room': room_label,
-                            'frames': [{'time': current_time, 'room': room_label}]
-                        }
-                        print(f"Starting new segment: {room_label} at {current_time:.1f}s")
-                        
-                        if callback_function:
-                            should_continue = callback_function({
-                                'type': 'room_entry',
-                                'room': room_label,
-                                'time': current_time,
-                                'progress': (current_time / duration) * 100
-                            })
-                            if should_continue is False:
-                                print("Detection stopped by callback")
-                                cap.release()
-                                return segments
-                        
-                    elif room_label == current_segment['room']:
-                        current_segment['frames'].append({'time': current_time, 'room': room_label})
-                        print(f"Extending segment: {room_label} at {current_time:.1f}s")
-                        
-                    else:
-                        if len(current_segment['frames']) >= 2:  
-                            segment = {
-                                'start': current_segment['start'],
-                                'end': current_segment['frames'][-1]['time'],
-                                'room': current_segment['room'],
-                                'display_name': get_room_display_name(current_segment['room'])
-                            }
-                            segments.append(segment)
-                            print(f"Segment complete: {current_segment['room']} ({segment['start']:.1f}s - {segment['end']:.1f}s)")
-                            
-                            if callback_function:
-                                should_continue = callback_function({
-                                    'type': 'segment_complete',
-                                    'segment': segment,
-                                    'progress': (current_time / duration) * 100
-                                })
-                                if should_continue is False:
-                                    print("Detection stopped by callback")
-                                    cap.release()
-                                    return segments
-                        
-                        current_segment = {
-                            'start': current_time,
-                            'room': room_label,
-                            'frames': [{'time': current_time, 'room': room_label}]
-                        }
-                        print(f"Starting new segment: {room_label} at {current_time:.1f}s")
-                        
-                        if callback_function:
-                            should_continue = callback_function({
-                                'type': 'room_entry',
-                                'room': room_label,
-                                'time': current_time,
-                                'progress': (current_time / duration) * 100
-                            })
-                            if should_continue is False:
-                                print("Detection stopped by callback")
-                                cap.release()
-                                return segments
-                    
-                    if callback_function:
-                        should_continue = callback_function({
-                            'type': 'progress',
-                            'time': current_time,
-                            'room': room_label,
-                            'progress': (current_time / duration) * 100
-                        })
-                        if should_continue is False:
-                            print("Detection stopped by callback")
-                            cap.release()
-                            return segments
-                else:
-                    print(f"Time: {current_time:.1f}s, Room: unclassified (skipping)")
-                
-            except Exception as e:
-                print(f"Error analyzing frame at {current_time:.1f}s: {e}")
-                if os.path.exists(temp_frame_path):
-                    os.remove(temp_frame_path)
+                if callback_function:
+                    extraction_progress = (current_time / duration) * 100
+                    callback_function({
+                        'type': 'extraction_progress',
+                        'frames_extracted': len(sampled_frames),
+                        'current_time': current_time,
+                        'total_duration': duration,
+                        'progress': extraction_progress * 0.1,  # Reserve first 10% for extraction
+                        'message': f'Analyzing video content...'
+                    })
         
         frame_count += 1
     
     cap.release()
+    
+    print(f"Step 2: Classifying {len(sampled_frames)} frames in batched API calls...")
+    
+    
+    BATCH_SIZE = 10
+    classifications = []
+    
+    for i in range(0, len(sampled_frames), BATCH_SIZE):
+        batch = sampled_frames[i:i+BATCH_SIZE]
+        batch_num = (i // BATCH_SIZE) + 1
+        total_batches = (len(sampled_frames) + BATCH_SIZE - 1) // BATCH_SIZE
+        
+        if callback_function:
+            # Use 10-90% of progress bar for batch processing
+            batch_progress = 10 + (i / len(sampled_frames)) * 80
+            callback_function({
+                'type': 'batch_progress',
+                'batch_num': batch_num,
+                'total_batches': total_batches,
+                'frames_processed': i,
+                'total_frames': len(sampled_frames),
+                'progress': batch_progress,
+                'message': f'AI is identifying rooms...'
+            })
+        
+        print(f"Processing batch {batch_num}/{total_batches} ({len(batch)} frames)...")
+        batch_results = classify_multiple_images_batch(batch, unfurnished_mode=unfurnished_mode)
+        classifications.extend(batch_results)
+        
+        if callback_function:
+            # Use 10-90% of progress bar for batch processing
+            batch_progress = 10 + ((i + len(batch)) / len(sampled_frames)) * 80
+            callback_function({
+                'type': 'batch_complete',
+                'batch_num': batch_num,
+                'total_batches': total_batches,
+                'frames_processed': i + len(batch),
+                'total_frames': len(sampled_frames),
+                'progress': batch_progress,
+                'message': f'Processing room data...'
+            })
+    
+    print(f"Step 3: Building segments from classifications...")
+    
+    
+    segments = []
+    current_segment = None
+    
+    for i, (frame_info, room_label) in enumerate(zip(sampled_frames, classifications)):
+        current_time = frame_info['time']
+        
+        if callback_function:
+            # Use 90-100% of progress bar for segment building
+            segment_progress = 90 + (i / len(sampled_frames)) * 10
+            should_continue = callback_function({
+                'type': 'progress',
+                'time': current_time,
+                'room': room_label,
+                'progress': segment_progress
+            })
+            if should_continue is False:
+                print("Detection stopped by callback")
+                break
+        
+        if room_label is not None:
+            print(f"Time: {current_time:.1f}s, Room: {room_label}")
+            
+            if current_segment is None:
+                current_segment = {
+                    'start': current_time,
+                    'room': room_label,
+                    'frames': [{'time': current_time, 'room': room_label}]
+                }
+                print(f"Starting new segment: {room_label} at {current_time:.1f}s")
+                
+                if callback_function:
+                    callback_function({
+                        'type': 'room_entry',
+                        'room': room_label,
+                        'time': current_time,
+                        'progress': (current_time / duration) * 100
+                    })
+                    
+            elif room_label == current_segment['room']:
+                current_segment['frames'].append({'time': current_time, 'room': room_label})
+                print(f"Extending segment: {room_label} at {current_time:.1f}s")
+                
+            else:
+                if len(current_segment['frames']) >= 2:  
+                    segment = {
+                        'start': current_segment['start'],
+                        'end': current_segment['frames'][-1]['time'],
+                        'room': current_segment['room'],
+                        'display_name': get_room_display_name(current_segment['room'])
+                    }
+                    segments.append(segment)
+                    print(f"Segment complete: {current_segment['room']} ({segment['start']:.1f}s - {segment['end']:.1f}s)")
+                    
+                    if callback_function:
+                        callback_function({
+                            'type': 'segment_complete',
+                            'segment': segment,
+                            'progress': (current_time / duration) * 100
+                        })
+                
+                current_segment = {
+                    'start': current_time,
+                    'room': room_label,
+                    'frames': [{'time': current_time, 'room': room_label}]
+                }
+                print(f"Starting new segment: {room_label} at {current_time:.1f}s")
+                
+                if callback_function:
+                    callback_function({
+                        'type': 'room_entry',
+                        'room': room_label,
+                        'time': current_time,
+                        'progress': (current_time / duration) * 100
+                    })
+        else:
+            print(f"Time: {current_time:.1f}s, Room: unclassified (skipping)")
     
     if current_segment and len(current_segment['frames']) >= 2:
         segment = {
@@ -446,7 +625,7 @@ def detect_room_transitions_realtime(video_path, callback_function=None, detecti
     
     segments = [s for s in segments if s['end'] - s['start'] >= 2.0]
     
-    print(f"Simple room detection complete. Found {len(segments)} segments:")
+    print(f"Batched room detection complete. Found {len(segments)} segments:")
     for seg in segments:
         print(f"  {seg['start']:.1f}s - {seg['end']:.1f}s: {seg['display_name']}")
     

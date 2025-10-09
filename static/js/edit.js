@@ -2301,6 +2301,12 @@
                         throw new Error(result.error || 'AI detection failed');
                         
                     } else if (result.status === 'in_progress') {
+                        // Update batch progress message if available
+                        if (result.status_message) {
+                            const aiDetectBtn = document.getElementById('aiDetectBtn');
+                            aiDetectBtn.innerHTML = `<span style="font-size: 16px; margin-right: 8px;"></span>${result.status_message}`;
+                        }
+                        
                         if (result.segments && result.segments.length > 0) {
                             const segmentHash = JSON.stringify(result.segments.map(s => ({start: s.start, end: s.end, room: s.room})));
                             

@@ -543,6 +543,7 @@ def start_video_processing():
         return jsonify({'error': 'No segments provided'}), 400
     
     print(f"Starting background video processing: project_id={project_id}, video_id={video_id}, mode={export_mode}")
+    print(f"Music settings: path={music_path}, volume={music_volume}")
     
     
     video_path = None
@@ -704,11 +705,17 @@ def start_video_processing():
                 else:
                     print("Failed to apply video filters - continuing with unfiltered video")
             
+            print(f"Checking music application: music_path={music_path}, exists={os.path.exists(music_path) if music_path else 'None'}")
             if music_path and os.path.exists(music_path):
                 print(f"Adding music overlay: {music_path} (volume: {music_volume})")
+                print(f"Input video exists: {os.path.exists(temp_filename)}")
+                print(f"Input video size: {os.path.getsize(temp_filename) if os.path.exists(temp_filename) else 'N/A'} bytes")
+                print(f"Music file size: {os.path.getsize(music_path)} bytes")
+                
                 music_success = editor.add_music_overlay(temp_filename, music_path, music_volume)
                 if music_success:
                     print("Music overlay added successfully")
+                    print(f"Final video size: {os.path.getsize(temp_filename)} bytes")
                     
                     if project_id and project_id in app.projects:
                         app.projects[project_id]['processing_results'][processing_id]['music_path'] = music_path
@@ -716,6 +723,8 @@ def start_video_processing():
                         app.processing_results[processing_id]['music_path'] = music_path
                 else:
                     print("Failed to add music overlay - continuing without music")
+            else:
+                print(f"Music not applied: path={music_path}, exists={os.path.exists(music_path) if music_path else 'None'}")
             
             
             
@@ -1279,6 +1288,30 @@ def ai_segment_detect():
                     print(f"Room entry detected: {update['room']} at {update['time']:.1f}s")
                 elif update['type'] == 'progress':
                     session['progress'] = update['progress']
+                elif update['type'] == 'batch_progress':
+                    session['progress'] = update['progress']
+                    session['status_message'] = update['message']
+                    session['batch_info'] = {
+                        'batch_num': update['batch_num'],
+                        'total_batches': update['total_batches'],
+                        'frames_processed': update['frames_processed'],
+                        'total_frames': update['total_frames']
+                    }
+                    print(f"Batch progress: {update['message']}")
+                elif update['type'] == 'batch_complete':
+                    session['progress'] = update['progress']
+                    session['status_message'] = update['message']
+                    session['batch_info'] = {
+                        'batch_num': update['batch_num'],
+                        'total_batches': update['total_batches'],
+                        'frames_processed': update['frames_processed'],
+                        'total_frames': update['total_frames']
+                    }
+                    print(f"Batch complete: {update['message']}")
+                elif update['type'] == 'extraction_progress':
+                    session['progress'] = update['progress']
+                    session['status_message'] = update['message']
+                    print(f"Extraction progress: {update['message']}")
             else:
                 print(f"Warning: Detection session {detection_id} not found")
                 return False   
@@ -1364,13 +1397,21 @@ def check_detection_status(detection_id):
             'project_id': session.get('project_id')
         })
     else:
-        return jsonify({
+        response_data = {
             'status': 'in_progress',
             'progress': session.get('progress', 0),
             'segments': segments,
             'segments_count': len(segments),
             'project_id': session.get('project_id')
-        })
+        }
+        
+        # Include batch processing info if available
+        if 'status_message' in session:
+            response_data['status_message'] = session['status_message']
+        if 'batch_info' in session:
+            response_data['batch_info'] = session['batch_info']
+        
+        return jsonify(response_data)
 
 @app.route('/auto_detect_room_label', methods=['POST'])
 def auto_detect_room_label():

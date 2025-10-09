@@ -36,6 +36,7 @@ def add_music_overlay(input_video, music_path, volume=0.3, output_path=None):
     if replace_in_place:
         base, ext = os.path.splitext(input_video)
         output_path = f"{base}_music{ext}"
+        print(f"Creating music overlay: {input_video} → {output_path}")
     
     try:
         probe_cmd = ['ffprobe', '-v', 'quiet', '-show_entries', 'format=duration', '-of', 'csv=p=0', input_video]
@@ -84,11 +85,24 @@ def add_music_overlay(input_video, music_path, volume=0.3, output_path=None):
     
     if replace_in_place:
         try:
-            os.replace(output_path, input_video)
+            # Remove original file first
+            if os.path.exists(input_video):
+                os.remove(input_video)
+                print(f"Removed original video: {input_video}")
+            
+            # Move music overlay to original location
+            os.rename(output_path, input_video)
             print("In-place music overlay complete")
             return True
         except OSError as exc:
             print(f"Could not replace original video: {exc}")
+            # Try to restore original if replacement failed
+            if os.path.exists(output_path) and not os.path.exists(input_video):
+                try:
+                    os.rename(output_path, input_video)
+                    print("Restored original video after failed replacement")
+                except:
+                    pass
             return False
     
     file_size = os.path.getsize(output_path) / (1024 * 1024)
